@@ -1,0 +1,240 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Shield,
+  Users,
+  Database,
+  Building2,
+  Truck,
+  Car,
+  UserCircle,
+  Route,
+  Calendar,
+  CalendarClock,
+  FileText,
+  BarChart3,
+  Bell,
+  Home,
+  ClipboardList,
+  User,
+  AlertTriangle,
+  Wrench,
+  Droplets,
+  MapPin,
+  Settings2,
+  ChevronRight,
+  ChevronLeft,
+  type LucideIcon,
+} from "lucide-react";
+import { getNavForRole, getRoleLabel } from "@/lib/navigation";
+import type { UserRole, NavItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const iconMap: Record<string, LucideIcon> = {
+  LayoutDashboard,
+  Shield,
+  Users,
+  Database,
+  Building2,
+  Truck,
+  Car,
+  UserCircle,
+  Route,
+  Calendar,
+  CalendarClock,
+  FileText,
+  BarChart3,
+  Bell,
+  Home,
+  ClipboardList,
+  User,
+  AlertTriangle,
+  Wrench,
+  Droplets,
+  MapPin,
+  Settings2,
+  Settings: Settings2,
+};
+
+const SIDEBAR_GRADIENT =
+  "linear-gradient(180deg, #2696e4 0%, #1d6fae 42%, #0f3552 78%, #0a2334 100%)";
+
+function isItemActive(pathname: string, href: string) {
+  const roots = [
+    "/dashboard/super-admin",
+    "/dashboard/admin",
+    "/dashboard/manager",
+    "/dashboard/driver",
+  ];
+  if (roots.includes(href)) return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+type DashboardSidebarProps = {
+  role: UserRole;
+  /** true = rail d'icônes ; false = panneau complet. Contrôlé par le parent. */
+  collapsed: boolean;
+  /** Bascule rail / panneau. */
+  onToggle?: () => void;
+  /** Appelé lors d'un clic sur un lien (utile pour fermer le drawer mobile). */
+  onNavigate?: () => void;
+};
+
+export function DashboardSidebar({
+  role,
+  collapsed,
+  onToggle,
+  onNavigate,
+}: DashboardSidebarProps) {
+  const pathname = usePathname();
+  const navItems = getNavForRole(role);
+
+  if (collapsed) {
+    return (
+      <aside
+        className="sticky top-0 flex h-screen w-[84px] flex-col items-center py-5 text-white"
+        style={{ background: SIDEBAR_GRADIENT }}
+      >
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15 backdrop-blur">
+          <Image
+            src="/assets/logo-fleetMan.svg"
+            alt="FleetMan"
+            width={30}
+            height={30}
+            className="h-7 w-7 brightness-0 invert"
+            priority
+          />
+        </div>
+
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Déployer le menu"
+            className="mt-4 flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition hover:bg-white/25"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
+
+        <nav className="mt-6 flex flex-1 flex-col items-center gap-2 overflow-y-auto">
+          {navItems.map((item) => {
+            const Icon = iconMap[item.icon] ?? LayoutDashboard;
+            const active = isItemActive(pathname, item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                title={item.label}
+                onClick={onNavigate}
+                className={cn(
+                  "flex h-11 w-11 items-center justify-center rounded-full transition-all",
+                  active
+                    ? "bg-white text-primary shadow-lg"
+                    : "text-white/75 hover:bg-white/15 hover:text-white"
+                )}
+              >
+                <Icon className="h-5 w-5" />
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-2 ring-white/30">
+          JD
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <aside
+      className="sticky top-0 flex h-screen w-[260px] flex-col text-white"
+      style={{ background: SIDEBAR_GRADIENT }}
+    >
+      <div className="flex items-center gap-3 px-4 py-5">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 backdrop-blur">
+          <Image
+            src="/assets/logo-fleetMan.svg"
+            alt="FleetMan"
+            width={28}
+            height={28}
+            className="h-7 w-7 brightness-0 invert"
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-lg font-bold leading-tight">FleetMan</p>
+          <p className="truncate text-xs text-white/70">{getRoleLabel(role)}</p>
+        </div>
+        {onToggle && (
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-label="Réduire le menu"
+            className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition hover:bg-white/25"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <FullNav navItems={navItems} pathname={pathname} onNavigate={onNavigate} />
+
+      <div className="flex items-center gap-3 border-t border-white/15 px-4 py-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-2 ring-white/30">
+          JD
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">Jean Dupont</p>
+          <p className="truncate text-xs text-white/60">FleetMan v0.1</p>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function FullNav({
+  navItems,
+  pathname,
+  onNavigate,
+}: {
+  navItems: NavItem[];
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <nav className="flex-1 space-y-1 overflow-y-auto py-2 pl-3">
+      {navItems.map((item) => {
+        const Icon = iconMap[item.icon] ?? LayoutDashboard;
+        const active = isItemActive(pathname, item.href);
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onNavigate}
+            className={cn(
+              "flex items-center gap-3 rounded-l-full py-2.5 pl-3 pr-4 text-sm font-medium transition-all",
+              active
+                ? "-mr-3 bg-fleet-cream text-primary shadow-sm"
+                : "mr-3 rounded-full text-white/80 hover:bg-white/12 hover:text-white"
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-8 w-8 items-center justify-center rounded-full",
+                active ? "bg-primary/10 text-primary" : "text-current"
+              )}
+            >
+              <Icon className="h-5 w-5" />
+            </span>
+            <span className="truncate">{item.label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
