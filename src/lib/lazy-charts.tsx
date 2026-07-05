@@ -1,4 +1,6 @@
 import dynamic from "next/dynamic";
+import type { KpiTrendPoint } from "@/components/dashboard/charts/KpiDistanceCostChart";
+import type { KpiCostPoint } from "@/components/dashboard/charts/KpiCostCategoryChart";
 
 function ChartSkeleton({ height = 280 }: { height?: number }) {
   return (
@@ -38,10 +40,10 @@ export const FleetHealthGauge = dynamic(
     import("@/components/dashboard/charts/FleetHealthGauge").then((m) => ({
       default: m.FleetHealthGauge,
     })),
-  { ssr: false, loading: () => <ChartSkeleton height={200} /> }
+  { ssr: false, loading: () => <ChartSkeleton height={360} /> }
 );
 
-export const KpiDistanceCostChart = dynamic(
+export const KpiDistanceCostChart = dynamic<{ data?: KpiTrendPoint[] }>(
   () =>
     import("@/components/dashboard/charts/KpiDistanceCostChart").then((m) => ({
       default: m.KpiDistanceCostChart,
@@ -49,7 +51,7 @@ export const KpiDistanceCostChart = dynamic(
   { ssr: false, loading: () => <ChartSkeleton height={260} /> }
 );
 
-export const KpiCostCategoryChart = dynamic(
+export const KpiCostCategoryChart = dynamic<{ data?: KpiCostPoint[] }>(
   () =>
     import("@/components/dashboard/charts/KpiCostCategoryChart").then((m) => ({
       default: m.KpiCostCategoryChart,

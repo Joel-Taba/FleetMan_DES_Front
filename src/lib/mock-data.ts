@@ -1,3 +1,4 @@
+// Données statiques pour les vues encore non branchées sur l'API (Super Admin UI, Driver, etc.)
 export const mockSuperAdminStats = {
   admins: { value: 24, trend: "+5%", up: true },
   managers: { value: 156, trend: "+12%", up: true },
@@ -177,3 +178,5 @@ export const mockDriverNotifications = [
   { id: "3", type: "trip" as const, title: "Trajet terminé", body: "Votre trajet du 03 Juin a été validé par le manager.", time: "Il y a 2j", read: true },
   { id: "4", type: "system" as const, title: "Mise à jour app", body: "Nouvelle version mobile disponible.", time: "Il y a 5j", read: true },
 ];
+
+export { MockApiProvider } from "@/lib/mock-api-provider";

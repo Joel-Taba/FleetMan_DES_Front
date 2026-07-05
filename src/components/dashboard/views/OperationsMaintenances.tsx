@@ -1,46 +1,138 @@
 "use client";
 
+import { useState } from "react";
 import { Plus } from "lucide-react";
 import { PageHeader } from "../PageHeader";
+import { DataGate } from "../DataGate";
 import { LicensePlate } from "../LicensePlate";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { mockMaintenances } from "@/lib/mock-manager-data";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useApiQuery } from "@/hooks/use-api-query";
+import { createMaintenance, fetchMaintenances, fetchVehicles } from "@/lib/api/manager";
+import { useLang } from "@/lib/i18n";
 
 export function OperationsMaintenances() {
+  const { t } = useLang();
+  const { data: maintenances, loading, error, refetch } = useApiQuery(fetchMaintenances, []);
+  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({ subject: "", cost: "", vehicleId: "", locationName: "" });
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.vehicleId || !form.subject) return;
+    setSubmitting(true);
+    try {
+      await createMaintenance({
+        subject: form.subject,
+        cost: form.cost ? parseFloat(form.cost) : undefined,
+        vehicleId: form.vehicleId,
+        locationName: form.locationName || undefined,
+      });
+      setDialogOpen(false);
+      setForm({ subject: "", cost: "", vehicleId: "", locationName: "" });
+      refetch();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
     <div>
-      <PageHeader title="Maintenances" description="Registre des opérations de maintenance.">
-        <Button><Plus className="h-4 w-4" /> Déclarer une maintenance</Button>
+      <PageHeader title={t("Maintenances")} description={t("Registre des opérations de maintenance.")}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button><Plus className="h-4 w-4" /> Déclarer une maintenance</Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader><DialogTitle>Déclarer une maintenance</DialogTitle></DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-4">
+              <div className="space-y-2">
+                <Label>Véhicule *</Label>
+                <select
+                  required
+                  className="h-10 w-full rounded-lg border px-3 text-sm"
+                  value={form.vehicleId}
+                  onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
+                >
+                  <option value="">Sélectionner un véhicule</option>
+                  {(vehicles ?? []).map((v) => (
+                    <option key={v.id} value={v.id}>{v.licensePlate} — {v.brand} {v.model}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Objet / Titre *</Label>
+                <Input
+                  required
+                  placeholder="Ex: Vidange moteur"
+                  value={form.subject}
+                  onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Coût (FCFA)</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="Ex: 45000"
+                  value={form.cost}
+                  onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Lieu</Label>
+                <Input
+                  placeholder="Ex: Garage Central Yaoundé"
+                  value={form.locationName}
+                  onChange={(e) => setForm((f) => ({ ...f, locationName: e.target.value }))}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? "Envoi…" : "Enregistrer"}</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </PageHeader>
-      <div className="overflow-x-auto rounded-xl border bg-card">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
-              <th className="px-4 py-3 text-left">Date prévue</th>
-              <th className="px-4 py-3">Véhicule</th>
-              <th className="px-4 py-3">Type</th>
-              <th className="px-4 py-3 text-left">Description</th>
-              <th className="px-4 py-3">Statut</th>
-              <th className="px-4 py-3">Coût</th>
-              <th className="px-4 py-3">Garage</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockMaintenances.map((m) => (
-              <tr key={m.id} className="border-t">
-                <td className="px-4 py-3">{m.date}</td>
-                <td className="px-4 py-3"><LicensePlate plate={m.vehicle} /></td>
-                <td className="px-4 py-3"><Badge variant="outline">{m.type}</Badge></td>
-                <td className="px-4 py-3">{m.description}</td>
-                <td className="px-4 py-3"><Badge>{m.status}</Badge></td>
-                <td className="px-4 py-3">{m.cost.toLocaleString()} XAF</td>
-                <td className="px-4 py-3">{m.garage}</td>
+
+      <DataGate loading={loading} error={error} empty={(maintenances ?? []).length === 0} emptyMessage="Aucune maintenance enregistrée.">
+        <div className="overflow-x-auto rounded-xl border bg-card">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/50">
+              <tr>
+                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3">Véhicule</th>
+                <th className="px-4 py-3 text-left">Objet</th>
+                <th className="px-4 py-3 text-left">Rapport</th>
+                <th className="px-4 py-3">Coût</th>
+                <th className="px-4 py-3">Chauffeur</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {(maintenances ?? []).map((m) => (
+                <tr key={m.id} className="border-t">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {m.dateTime ? new Date(m.dateTime).toLocaleString("fr-FR") : "—"}
+                  </td>
+                  <td className="px-4 py-3"><LicensePlate plate={m.vehicleRegistration ?? "—"} /></td>
+                  <td className="px-4 py-3 font-medium">{m.subject}</td>
+                  <td className="px-4 py-3 max-w-xs truncate text-muted-foreground">{m.report ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {m.cost != null ? `${Number(m.cost).toLocaleString()} XAF` : "—"}
+                  </td>
+                  <td className="px-4 py-3">{m.driverFullName ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </DataGate>
     </div>
   );
 }

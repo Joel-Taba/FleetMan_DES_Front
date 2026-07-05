@@ -1,27 +1,59 @@
 "use client";
 
-import { useState } from "react";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { Search, ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { PageHeader } from "../PageHeader";
+import { DataGate } from "../DataGate";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { mockManagers } from "@/lib/mock-data";
+import { Tooltip } from "@/components/ui/tooltip";
+import { useApiQuery } from "@/hooks/use-api-query";
+import { fetchFleetManagers, toggleFleetManager } from "@/lib/api/admin";
+import {
+  formatLastLogin,
+  managerFullName,
+  managerInitials,
+  managerIsActive,
+} from "@/lib/api/mappers/admin";
+import { useLang } from "@/lib/i18n";
 
 export function ManagersManagement() {
+  const { t } = useLang();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [managers, setManagers] = useState(mockManagers);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
-  const filtered = managers.filter((m) => {
-    const matchSearch =
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.email.toLowerCase().includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || m.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const { data: managers, loading, error, refetch } = useApiQuery(fetchFleetManagers, []);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return (managers ?? []).filter((m) => {
+      const name = managerFullName(m).toLowerCase();
+      const active = managerIsActive(m);
+      const matchSearch =
+        name.includes(q) ||
+        m.email.toLowerCase().includes(q) ||
+        (m.companyName ?? "").toLowerCase().includes(q);
+      const matchStatus =
+        statusFilter === "all" ||
+        (statusFilter === "active" && active) ||
+        (statusFilter === "inactive" && !active);
+      return matchSearch && matchStatus;
+    });
+  }, [managers, search, statusFilter]);
+
+  async function handleToggle(id: string) {
+    setTogglingId(id);
+    try {
+      await toggleFleetManager(id);
+      refetch();
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   return (
     <div>
@@ -51,77 +83,83 @@ export function ManagersManagement() {
         </select>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <table className="w-full text-left text-sm">
-          <thead className="border-b bg-muted/50">
-            <tr>
-              <th className="px-4 py-3">Manager</th>
-              <th className="hidden px-4 py-3 md:table-cell">Organisation</th>
-              <th className="px-4 py-3">Flottes</th>
-              <th className="px-4 py-3">Statut</th>
-              <th className="hidden px-4 py-3 lg:table-cell">Inscription</th>
-              <th className="px-4 py-3 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((m, i) => (
-              <tr key={m.id} className={i % 2 ? "bg-muted/20" : ""}>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
-                      {m.initials}
-                    </div>
-                    <div>
-                      <p className="font-semibold">{m.name}</p>
-                      <p className="text-xs text-muted-foreground">{m.email}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="hidden px-4 py-4 md:table-cell">{m.organization}</td>
-                <td className="px-4 py-4">
-                  <Badge>{m.fleetsCount}</Badge>
-                </td>
-                <td className="px-4 py-4">
-                  <Badge variant={m.status === "active" ? "success" : "muted"}>
-                    {m.status === "active" ? "Actif" : "Inactif"}
-                  </Badge>
-                </td>
-                <td className="hidden px-4 py-4 text-muted-foreground lg:table-cell">
-                  {m.joinedAt}
-                </td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <Switch
-                      checked={m.status === "active"}
-                      onCheckedChange={(c) =>
-                        setManagers((prev) =>
-                          prev.map((x) =>
-                            x.id === m.id
-                              ? { ...x, status: c ? "active" : "inactive" }
-                              : x
-                          )
-                        )
-                      }
-                    />
-                    <Button variant="ghost" size="sm">Voir profil</Button>
-                  </div>
-                </td>
+      <DataGate loading={loading} error={error} empty={filtered.length === 0}>
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b bg-muted/50 text-left [&_th]:px-4 [&_th]:py-3 [&_th]:font-medium">
+              <tr>
+                <th>{t("Manager")}</th>
+                <th className="hidden md:table-cell">{t("Organisation")}</th>
+                <th>{t("Statut")}</th>
+                <th className="hidden lg:table-cell">{t("Inscription")}</th>
+                <th className="text-right">{t("Actions")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
-          <span>Page 1 sur 1</span>
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" disabled>
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button variant="secondary" size="sm" disabled>
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            </thead>
+            <tbody>
+              {filtered.map((m, i) => {
+                const active = managerIsActive(m);
+                return (
+                  <tr key={m.id} className={i % 2 ? "bg-muted/20" : ""}>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">
+                          {managerInitials(m)}
+                        </div>
+                        <div>
+                          <p className="font-semibold">{managerFullName(m)}</p>
+                          <p className="text-xs text-muted-foreground">{m.email}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-4 md:table-cell">
+                      {m.companyName ?? "—"}
+                    </td>
+                    <td className="px-4 py-4">
+                      <Badge variant={active ? "success" : "muted"}>
+                        {active ? "Actif" : "Inactif"}
+                      </Badge>
+                    </td>
+                    <td className="hidden px-4 py-4 text-muted-foreground lg:table-cell">
+                      {formatLastLogin(m.lastLoginAt)}
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="flex items-center justify-end gap-2">
+                        <Tooltip label={active ? "Désactiver" : "Activer"}>
+                          <Switch
+                            checked={active}
+                            disabled={togglingId === m.id}
+                            onCheckedChange={() => handleToggle(m.id)}
+                          />
+                        </Tooltip>
+                        <Tooltip label={t("Voir le profil")}>
+                          <Link
+                            href={`/dashboard/admin/managers/${m.id}`}
+                            className="flex rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-primary"
+                            aria-label={t("Voir le profil")}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                        </Tooltip>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
+            <span>{filtered.length} gestionnaire(s)</span>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" disabled>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="secondary" size="sm" disabled>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </DataGate>
     </div>
   );
 }

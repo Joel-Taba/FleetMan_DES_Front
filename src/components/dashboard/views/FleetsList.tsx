@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Search, Car, Users, BarChart3, Pencil } from "lucide-react";
 import { PageHeader } from "../PageHeader";
+import { DataGate } from "../DataGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -16,44 +17,77 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { mockFleets } from "@/lib/mock-data";
+import { useApiQuery } from "@/hooks/use-api-query";
+import { createFleet, fetchDrivers, fetchFleets } from "@/lib/api/manager";
+import { useLang } from "@/lib/i18n";
 
 export function FleetsList() {
+  const { t } = useLang();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState("all");
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
 
-  const filtered = mockFleets.filter((f) => {
-    const matchSearch = f.name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = status === "all" || f.status === status;
-    return matchSearch && matchStatus;
-  });
+  const { data: fleets, loading, error, refetch } = useApiQuery(fetchFleets, []);
+  const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
+
+  const driverCountByFleet = useMemo(() => {
+    const map = new Map<string, number>();
+    (drivers ?? []).forEach((d) => {
+      map.set(d.fleetId, (map.get(d.fleetId) ?? 0) + 1);
+    });
+    return map;
+  }, [drivers]);
+
+  const filtered = (fleets ?? []).filter((f) =>
+    f.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setCreating(true);
+    try {
+      await createFleet(newName.trim());
+      setNewName("");
+      setDialogOpen(false);
+      refetch();
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <div>
-      <PageHeader title="Mes Flottes" description="Organisez vos véhicules par flotte opérationnelle.">
-        <Dialog>
+      <PageHeader title={t("Mes Flottes")} description={t("Organisez vos véhicules par flotte opérationnelle.")}>
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4" />
-              Créer une flotte
+              {t("Créer une flotte")}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nouvelle flotte</DialogTitle>
+              <DialogTitle>{t("Nouvelle flotte")}</DialogTitle>
             </DialogHeader>
-            <form className="space-y-4">
+            <form className="space-y-4" onSubmit={handleCreate}>
               <div className="space-y-2">
-                <Label>Nom *</Label>
-                <Input required placeholder="Flotte Yaoundé" />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Input placeholder="Optionnel" />
+                <Label>{t("Nom *")}</Label>
+                <Input
+                  required
+                  placeholder="Flotte Yaoundé"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary">Annuler</Button>
-                <Button type="submit">Créer</Button>
+                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
+                  {t("Annuler")}
+                </Button>
+                <Button type="submit" disabled={creating}>
+                  {creating ? t("Création…") : t("Créer")}
+                </Button>
               </div>
             </form>
           </DialogContent>
@@ -65,59 +99,58 @@ export function FleetsList() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             className="pl-10"
-            placeholder="Rechercher par nom..."
+            placeholder={t("Rechercher par nom...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          className="h-11 rounded-lg border border-input px-3 text-sm"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="all">Toutes</option>
-          <option value="active">Actives</option>
-        </select>
       </div>
 
-      <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((fleet) => (
-          <Link key={fleet.id} href={`/dashboard/manager/fleets/${fleet.id}`}>
-            <Card className="h-full transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-soft">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-display text-xl font-semibold">{fleet.name}</h3>
-                    <Badge variant="success" className="mt-2">Actif</Badge>
+      <DataGate loading={loading} error={error} empty={filtered.length === 0}>
+        <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          {filtered.map((fleet) => (
+            <Link key={fleet.id} href={`/dashboard/manager/fleets/${fleet.id}`}>
+              <Card className="h-full transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-soft">
+                <CardContent className="p-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-display text-xl font-semibold">{fleet.name}</h3>
+                      <Badge variant="success" className="mt-2">
+                        {t("Actif")}
+                      </Badge>
+                    </div>
+                    <button
+                      type="button"
+                      className="rounded p-1 hover:bg-muted"
+                      onClick={(e) => e.preventDefault()}
+                      aria-label={t("Modifier")}
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    className="rounded p-1 hover:bg-muted"
-                    onClick={(e) => e.preventDefault()}
-                    aria-label="Modifier"
-                  >
-                    <Pencil className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </div>
-                <p className="mt-3 line-clamp-2 text-sm text-muted-foreground">
-                  {fleet.description}
-                </p>
-                <div className="mt-6 flex gap-4 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Car className="h-4 w-4" /> {fleet.vehicles}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Users className="h-4 w-4" /> {fleet.drivers}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <BarChart3 className="h-4 w-4" /> {fleet.availability}%
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
-      </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    {t("Créée le")}{" "}
+                    {fleet.creationDate
+                      ? new Date(fleet.creationDate).toLocaleDateString("fr-FR")
+                      : "—"}
+                  </p>
+                  <div className="mt-6 flex gap-4 text-sm text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Car className="h-4 w-4" /> {fleet.vehicleCount ?? 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="h-4 w-4" /> {driverCountByFleet.get(fleet.id) ?? 0}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <BarChart3 className="h-4 w-4" /> —
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </DataGate>
     </div>
   );
 }

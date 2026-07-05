@@ -3,15 +3,34 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Bell, Menu, HelpCircle, Home, ChevronRight, Languages } from "lucide-react";
-import { getPageTitle } from "@/lib/navigation";
+import { getNotificationsHref, getPageTitle, getRoleFromPath } from "@/lib/navigation";
+import { useLang } from "@/lib/i18n";
+import { useAuth } from "@/context/AuthProvider";
+import { Tooltip } from "@/components/ui/tooltip";
 
 type DashboardHeaderProps = {
   onMenuClick?: () => void;
 };
 
+const profileHrefByRole: Record<string, string> = {
+  FLEET_SUPER_ADMIN: "/dashboard/super-admin/settings",
+  FLEET_ADMIN: "/dashboard/admin/settings",
+  FLEET_MANAGER: "/dashboard/manager/settings",
+  FLEET_DRIVER: "/dashboard/driver/profile",
+};
+
 export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const pathname = usePathname();
-  const title = getPageTitle(pathname);
+  const role = getRoleFromPath(pathname);
+  const { user } = useAuth();
+  const { t, lang, toggle } = useLang();
+  const initials = user
+    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "FM"
+    : "FM";
+  const title = t(getPageTitle(pathname));
+  const profileHref = profileHrefByRole[role] ?? "/dashboard";
+  const notificationsHref = getNotificationsHref(pathname ?? "");
+  const isSuperAdmin = role === "FLEET_SUPER_ADMIN";
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border/60 bg-fleet-cream/90 px-5 backdrop-blur lg:px-8">
@@ -37,39 +56,60 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
         <span className="hidden items-center rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary sm:inline-flex">
-          4/10 objets utilisés
+          {t("4/10 objets utilisés")}
         </span>
 
-        <button
-          type="button"
-          className="rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Aide"
-        >
-          <HelpCircle className="h-5 w-5" />
-        </button>
+        <Tooltip label={t("Centre d'aide")} side="bottom">
+          <Link
+            href="/dashboard/aide"
+            className="flex rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label={t("Aide")}
+          >
+            <HelpCircle className="h-5 w-5" />
+          </Link>
+        </Tooltip>
 
-        <button
-          type="button"
-          className="relative rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-            4
-          </span>
-        </button>
+        {!isSuperAdmin && (
+          <Tooltip label={t("Notifications")} side="bottom">
+            <Link
+              href={notificationsHref}
+              className="relative rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label={t("Notifications")}
+            >
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
+                4
+              </span>
+            </Link>
+          </Tooltip>
+        )}
 
-        <button
-          type="button"
-          className="hidden items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground sm:inline-flex"
+        <Tooltip
+          label={lang === "fr" ? "Switch to English" : "Passer en français"}
+          side="bottom"
         >
-          <Languages className="h-4 w-4" />
-          <span className="text-xs font-medium">English</span>
-        </button>
+          <button
+            type="button"
+            onClick={toggle}
+            className="flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Langue"
+          >
+            <Languages className="h-4 w-4" />
+            <span className="text-xs font-medium">
+              {lang === "fr" ? "Français" : "English"}
+            </span>
+          </button>
+        </Tooltip>
 
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
-          JD
-        </div>
+        <Tooltip label={t("Mon profil")} side="bottom">
+          <Link
+            href={profileHref}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white transition hover:opacity-90"
+            aria-label={t("Mon profil")}
+          >
+            {initials}
+          </Link>
+        </Tooltip>
       </div>
     </header>
   );

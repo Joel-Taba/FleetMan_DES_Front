@@ -1,4 +1,7 @@
+"use client";
+
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 type PageHeaderProps = {
   title: string;
@@ -13,6 +16,7 @@ export function PageHeader({
   children,
   className,
 }: PageHeaderProps) {
+  const { t } = useLang();
   return (
     <div
       className={cn(
@@ -22,10 +26,10 @@ export function PageHeader({
     >
       <div>
         <h1 className="font-display text-2xl font-bold text-foreground sm:text-3xl">
-          {title}
+          {t(title)}
         </h1>
         {description && (
-          <p className="mt-1 text-muted-foreground">{description}</p>
+          <p className="mt-1 text-muted-foreground">{t(description)}</p>
         )}
       </div>
       {children && <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div>}

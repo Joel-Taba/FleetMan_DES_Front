@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/context/AuthProvider";
+import { ApiError } from "@/lib/api/mock-wrapper";
 
 function GoogleIcon() {
   return (
@@ -32,17 +33,32 @@ function GoogleIcon() {
 }
 
 export function LoginForm() {
-  const router = useRouter();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
-    setTimeout(() => {
+    const form = new FormData(e.currentTarget);
+    const identifier = String(form.get("email") ?? "").trim();
+    const password = String(form.get("password") ?? "");
+
+    try {
+      await login(identifier, password);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.status === 401
+            ? "Identifiants incorrects. Vérifiez votre email et mot de passe."
+            : err.message
+          : "Impossible de se connecter au serveur. Vérifiez que le backend est démarré.";
+      setError(message);
+    } finally {
       setLoading(false);
-      router.push("/dashboard");
-    }, 600);
+    }
   };
 
   return (
@@ -55,13 +71,19 @@ export function LoginForm() {
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        {error && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
             name="email"
             type="email"
-            placeholder="vous@entreprise.cm"
+            placeholder="superadmin@fleetman.cm"
             required
             autoComplete="email"
           />
@@ -118,7 +140,7 @@ export function LoginForm() {
         </div>
       </div>
 
-      <Button variant="authOutline" className="w-full" type="button">
+      <Button variant="authOutline" className="w-full" type="button" disabled>
         <GoogleIcon />
         Continuer avec Google
       </Button>

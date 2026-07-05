@@ -1,105 +1,204 @@
 "use client";
 
+import { useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DataGate } from "../DataGate";
 import { LicensePlate } from "../LicensePlate";
-import { mockVehicleDetail } from "@/lib/mock-manager-data";
+import {
+  DocumentsGrid,
+  VEHICLE_DOC_TAB,
+  type DocumentPreview,
+} from "../DocumentPreviewCard";
+import { useApiQuery } from "@/hooks/use-api-query";
+import { fetchDrivers, fetchVehicle, fetchVehicleDocuments } from "@/lib/api/manager";
+import { driverFullName, mapVehicleStatus, vehicleMileage } from "@/lib/api/mappers/manager";
+import { useLang } from "@/lib/i18n";
 
 export function VehicleDetail({ id }: { id: string }) {
-  const v = { ...mockVehicleDetail, id };
+  const { t } = useLang();
+  const { data: vehicle, loading, error } = useApiQuery(() => fetchVehicle(id), [id]);
+  const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
+  const { data: docsPage } = useApiQuery(() => fetchVehicleDocuments(id), [id]);
+
+  const driver = (drivers ?? []).find((d) => d.assignedVehicleId === id);
+  const uiStatus = vehicle ? mapVehicleStatus(vehicle.status) : "OUT_OF_SERVICE";
+
+  const statusLabels: Record<string, string> = {
+    IN_SERVICE: t("En service"),
+    ON_TRIP: t("En mission"),
+    MAINTENANCE: t("Maintenance"),
+    OUT_OF_SERVICE: t("Hors service"),
+  };
+
+  const allDocs: DocumentPreview[] = useMemo(
+    () =>
+      (docsPage?.content ?? []).map((d) => ({
+        id: d.id,
+        docType: d.docType,
+        docNumber: d.docNumber,
+        fileUrl: d.fileUrl,
+        fileMimeType: d.fileMimeType,
+        fileOriginalName: d.fileOriginalName,
+        status: d.status,
+        expiryDate: d.expiryDate,
+      })),
+    [docsPage]
+  );
+
+  const docsByTab = useMemo(() => {
+    const grouped: Record<string, DocumentPreview[]> = {
+      identity: [],
+      financial: [],
+      maintenance: [],
+      operational: [],
+    };
+    allDocs.forEach((doc) => {
+      const tab = VEHICLE_DOC_TAB[doc.docType] ?? "maintenance";
+      grouped[tab].push(doc);
+    });
+    return grouped;
+  }, [allDocs]);
+
+  const driverName = driver ? driverFullName(driver) ?? driver.licenceNumber : null;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-3">
-      <div className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
-        <Card>
-          <CardContent className="p-4">
-            <div className="relative mb-4 aspect-video overflow-hidden rounded-lg">
-              <Image src="/assets/login-truck-highway.jpg" alt="" fill className="object-cover" />
-            </div>
-            <LicensePlate plate={v.plate} className="text-lg" />
-            <Badge className="mt-3">En mission</Badge>
-            <dl className="mt-4 space-y-2 text-sm">
-              <div><dt className="text-muted-foreground">Marque / Modèle</dt><dd className="font-medium">{v.brand} {v.model} ({v.year})</dd></div>
-              <div><dt className="text-muted-foreground">VIN</dt><dd className="font-mono text-xs">{v.vin}</dd></div>
-              <div><dt className="text-muted-foreground">Kilométrage</dt><dd>{v.mileage.toLocaleString()} km</dd></div>
-              <div><dt className="text-muted-foreground">Chauffeur</dt><dd><Link href="/dashboard/manager/drivers" className="text-primary">{v.driver?.name}</Link></dd></div>
-            </dl>
-            <div className="mt-4 flex flex-col gap-2">
-              <Button size="sm">Démarrer un trajet</Button>
-              <Button size="sm" variant="secondary">Envoyer en maintenance</Button>
-              <Button size="sm" variant="ghost">Désassigner chauffeur</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+    <DataGate loading={loading} error={error}>
+      {vehicle && (
+        <div className="grid gap-6 lg:grid-cols-3">
+          <div className="lg:sticky lg:top-24 lg:col-span-1 lg:self-start">
+            <Card>
+              <CardContent className="p-4">
+                <div className="relative mb-4 aspect-video overflow-hidden rounded-lg bg-muted">
+                  {vehicle.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={vehicle.photoUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Image src="/assets/login-truck-highway.jpg" alt="" fill className="object-cover" />
+                  )}
+                </div>
+                <LicensePlate plate={vehicle.licensePlate} className="text-lg" />
+                <Badge className="mt-3">{statusLabels[uiStatus] ?? vehicle.status}</Badge>
+                <dl className="mt-4 space-y-2 text-sm">
+                  <div>
+                    <dt className="text-muted-foreground">{t("Marque / Modèle")}</dt>
+                    <dd className="font-medium">
+                      {vehicle.brand} {vehicle.model} ({vehicle.manufacturingYear ?? "—"})
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">{t("N° série")}</dt>
+                    <dd className="font-mono text-xs">{vehicle.vehicleSerialNumber ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">{t("Kilométrage")}</dt>
+                    <dd>{vehicleMileage(vehicle).toLocaleString()} km</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">{t("Chauffeur")}</dt>
+                    <dd>
+                      {driver ? (
+                        <Link href={`/dashboard/manager/drivers/${driver.userId}`} className="text-primary font-medium">
+                          {driverName}
+                        </Link>
+                      ) : (
+                        "—"
+                      )}
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-4 flex flex-col gap-2">
+                  <Button size="sm" variant="secondary">{t("Envoyer en maintenance")}</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-      <div className="lg:col-span-2">
-        <Tabs defaultValue="identity">
-          <TabsList className="flex-wrap h-auto">
-            <TabsTrigger value="identity">Identité</TabsTrigger>
-            <TabsTrigger value="financial">Financier</TabsTrigger>
-            <TabsTrigger value="maintenance">Maintenance</TabsTrigger>
-            <TabsTrigger value="operational">Opérationnel</TabsTrigger>
-            <TabsTrigger value="documents">Documents</TabsTrigger>
-            <TabsTrigger value="history">Historique</TabsTrigger>
-          </TabsList>
-          <TabsContent value="identity">
-            <Card><CardContent className="grid gap-4 p-6 sm:grid-cols-2">
-              {[["Type", v.type], ["Couleur", v.color], ["Flotte", v.fleet]].map(([l, val]) => (
-                <div key={l}><p className="text-xs text-muted-foreground">{l}</p><p className="font-medium">{val}</p></div>
-              ))}
-            </CardContent></Card>
-          </TabsContent>
-          <TabsContent value="financial">
-            <Card><CardContent className="p-6">
-              <p className="text-sm">Assurance {v.insurance.number}</p>
-              <Badge variant={v.insurance.expired ? "destructive" : "success"} className="mt-2">
-                Expire {v.insurance.expiry}
-              </Badge>
-            </CardContent></Card>
-          </TabsContent>
-          <TabsContent value="maintenance">
-            <Card><CardContent className="p-6 space-y-4">
-              <div><p className="text-sm">Moteur</p><Badge variant="success">{v.engine}</Badge></div>
-              <div><p className="text-sm">Batterie</p><div className="h-2 rounded-full bg-muted"><div className="h-full bg-success rounded-full" style={{ width: `${v.battery}%` }} /></div></div>
-              <Button size="sm">Planifier une maintenance</Button>
-            </CardContent></Card>
-          </TabsContent>
-          <TabsContent value="operational">
-            <Card><CardContent className="p-6">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div className="rounded-lg bg-muted p-4"><p className="text-2xl font-bold">{v.fuelLevel}%</p><p className="text-xs text-muted-foreground">Carburant</p></div>
-                <div className="rounded-lg bg-muted p-4"><p className="text-2xl font-bold">65</p><p className="text-xs text-muted-foreground">km/h</p></div>
-                <div className="rounded-lg bg-muted p-4"><p className="text-2xl font-bold">NE</p><p className="text-xs text-muted-foreground">Direction</p></div>
-              </div>
-              <div className="mt-4 flex h-40 items-center justify-center rounded-lg bg-gradient-to-br from-primary/20 to-muted text-sm text-muted-foreground">
-                Carte GPS (intégration Leaflet à venir)
-              </div>
-            </CardContent></Card>
-          </TabsContent>
-          <TabsContent value="documents">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {["Assurance", "Carte grise", "Visite technique"].map((doc) => (
-                <Card key={doc}><CardContent className="p-4 flex justify-between items-center">
-                  <span className="font-medium">{doc}</span>
-                  <Badge variant="success">VALIDE</Badge>
-                </CardContent></Card>
-              ))}
-            </div>
-          </TabsContent>
-          <TabsContent value="history">
-            <ul className="space-y-3">
-              {["Trajet terminé — 124 km", "Plein carburant — 65 L", "Maintenance corrective"].map((e, i) => (
-                <li key={i} className="border-l-2 border-primary pl-4 text-sm">{e}</li>
-              ))}
-            </ul>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+          <div className="lg:col-span-2">
+            <Tabs defaultValue="identity">
+              <TabsList className="h-auto flex-wrap">
+                <TabsTrigger value="identity">{t("Identité")}</TabsTrigger>
+                <TabsTrigger value="financial">{t("Financier")}</TabsTrigger>
+                <TabsTrigger value="maintenance">{t("Maintenance")}</TabsTrigger>
+                <TabsTrigger value="operational">{t("Opérationnel")}</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="identity">
+                <Card className="mb-4">
+                  <CardContent className="grid gap-3 p-4 text-sm sm:grid-cols-2">
+                    <div><p className="text-muted-foreground">{t("Carburant")}</p><p>{vehicle.fuelType ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("Transmission")}</p><p>{vehicle.transmissionType ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("Couleur")}</p><p>{vehicle.color ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("Places")}</p><p>{vehicle.totalSeatNumber ?? "—"}</p></div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle className="text-base">{t("Documents — Identité")}</CardTitle></CardHeader>
+                  <CardContent>
+                    <DocumentsGrid documents={docsByTab.identity} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="financial">
+                <Card className="mb-4">
+                  <CardContent className="grid gap-3 p-4 text-sm sm:grid-cols-2">
+                    <div><p className="text-muted-foreground">{t("Assurance")}</p><p>{vehicle.financialParameters?.insuranceNumber ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("Expiration assurance")}</p><p>{vehicle.financialParameters?.insuranceExpiryDate ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("Coût/km")}</p><p>{vehicle.financialParameters?.costPerKm != null ? `${vehicle.financialParameters.costPerKm} XAF` : "—"}</p></div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle className="text-base">{t("Documents — Financier")}</CardTitle></CardHeader>
+                  <CardContent>
+                    <DocumentsGrid documents={docsByTab.financial} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="maintenance">
+                <Card className="mb-4">
+                  <CardContent className="grid gap-3 p-4 text-sm sm:grid-cols-2">
+                    <div><p className="text-muted-foreground">{t("Dernière maintenance")}</p><p>{vehicle.maintenanceParameters?.lastMaintenanceDate ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("Prochaine échéance")}</p><p>{vehicle.maintenanceParameters?.nextMaintenanceDue ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("État moteur")}</p><p>{vehicle.maintenanceParameters?.engineStatus ?? "—"}</p></div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle className="text-base">{t("Documents — Maintenance")}</CardTitle></CardHeader>
+                  <CardContent>
+                    <DocumentsGrid documents={docsByTab.maintenance} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="operational">
+                <Card className="mb-4">
+                  <CardContent className="grid gap-3 p-4 text-sm sm:grid-cols-2">
+                    <div><p className="text-muted-foreground">{t("Vitesse")}</p><p>{vehicle.operationalParameters?.currentSpeed ?? "—"} km/h</p></div>
+                    <div><p className="text-muted-foreground">{t("Carburant")}</p><p>{vehicle.operationalParameters?.fuelLevel ?? "—"}</p></div>
+                    <div><p className="text-muted-foreground">{t("Position")}</p><p>
+                      {vehicle.operationalParameters?.currentLocation
+                        ? `${vehicle.operationalParameters.currentLocation.latitude}, ${vehicle.operationalParameters.currentLocation.longitude}`
+                        : "—"}
+                    </p></div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader><CardTitle className="text-base">{t("Documents — Opérationnel")}</CardTitle></CardHeader>
+                  <CardContent>
+                    <DocumentsGrid documents={docsByTab.operational} emptyMessage={t("Aucun document rattaché à l'onglet opérationnel.")} />
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
+      )}
+    </DataGate>
   );
 }

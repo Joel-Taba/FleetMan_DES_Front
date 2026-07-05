@@ -83,3 +83,16 @@ export function getRoleLabel(role: UserRole): string {
   };
   return labels[role];
 }
+
+export function getNotificationsHref(pathname: string): string {
+  const role = getRoleFromPath(pathname);
+  switch (role) {
+    case "FLEET_ADMIN":
+      return "/dashboard/admin/notifications";
+    case "FLEET_DRIVER":
+      return "/dashboard/driver/notifications";
+    case "FLEET_MANAGER":
+    default:
+      return "/dashboard/manager/notifications";
+  }
+}

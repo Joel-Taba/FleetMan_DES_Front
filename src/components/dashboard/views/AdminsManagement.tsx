@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { MoreVertical, Plus, Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   Dialog,
   DialogContent,
@@ -132,20 +133,19 @@ export function AdminsManagement() {
                   </Badge>
                 </td>
                 <td className="px-4 py-4">
-                  <div className="flex items-center justify-end gap-2">
-                    <Switch
-                      checked={admin.active}
-                      onCheckedChange={(checked) =>
-                        setAdmins((prev) =>
-                          prev.map((a) =>
-                            a.id === admin.id ? { ...a, active: checked } : a
+                  <div className="flex items-center justify-end">
+                    <Tooltip label={admin.active ? "Désactiver le compte" : "Activer le compte"}>
+                      <Switch
+                        checked={admin.active}
+                        onCheckedChange={(checked) =>
+                          setAdmins((prev) =>
+                            prev.map((a) =>
+                              a.id === admin.id ? { ...a, active: checked } : a
+                            )
                           )
-                        )
-                      }
-                    />
-                    <button type="button" className="rounded p-1 hover:bg-muted" aria-label="Menu">
-                      <MoreVertical className="h-4 w-4" />
-                    </button>
+                        }
+                      />
+                    </Tooltip>
                   </div>
                 </td>
               </tr>

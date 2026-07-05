@@ -32,15 +32,31 @@ export const mockDrivers = [
   { id: "3", name: "Marc Tchinda", email: "marc.t@logistics.cm", phone: "+237 6 11 22 33 44", license: "B5551212", licenseExpiry: "2028-01-20", status: "ON_LEAVE", vehicle: null, fleet: "Flotte Douala", initials: "MT" },
 ];
 
+export type LatLng = [number, number];
+
 export const mockTripsHistory = [
-  { id: "1", dateStart: "04 Juin 2026", timeStart: "08:15", dateEnd: "04 Juin 2026", timeEnd: "12:40", driver: "André Mbarga", vehicle: "LT-892-CE", distance: 124, duration: "4h 25m", status: "COMPLETED" },
-  { id: "2", dateStart: "03 Juin 2026", timeStart: "14:00", dateEnd: "03 Juin 2026", timeEnd: "18:30", driver: "Claire Ndjock", vehicle: "SW-123-DL", distance: 89, duration: "4h 30m", status: "COMPLETED" },
-  { id: "3", dateStart: "02 Juin 2026", timeStart: "09:00", dateEnd: "—", timeEnd: "—", driver: "Marc Tchinda", vehicle: "CE-456-AB", distance: 0, duration: "—", status: "CANCELLED" },
+  { id: "1", dateStart: "04 Juin 2026", timeStart: "08:15", dateEnd: "04 Juin 2026", timeEnd: "12:40", driver: "André Mbarga", vehicle: "LT-892-CE", distance: 124, duration: "4h 25m", status: "COMPLETED", from: "Yaoundé", to: "Mbalmayo", fromCoord: [3.848, 11.502] as LatLng, toCoord: [3.516, 11.502] as LatLng },
+  { id: "2", dateStart: "03 Juin 2026", timeStart: "14:00", dateEnd: "03 Juin 2026", timeEnd: "18:30", driver: "Claire Ndjock", vehicle: "SW-123-DL", distance: 89, duration: "4h 30m", status: "COMPLETED", from: "Douala", to: "Edéa", fromCoord: [4.051, 9.768] as LatLng, toCoord: [3.8, 10.133] as LatLng },
+  { id: "3", dateStart: "02 Juin 2026", timeStart: "09:00", dateEnd: "—", timeEnd: "—", driver: "Marc Tchinda", vehicle: "CE-456-AB", distance: 0, duration: "—", status: "CANCELLED", from: "Bafoussam", to: "Bamenda", fromCoord: [5.478, 10.418] as LatLng, toCoord: [5.96, 10.146] as LatLng },
 ];
 
+export function getTripDetail(id: string) {
+  const base = mockTripsHistory.find((t) => t.id === id) ?? mockTripsHistory[0];
+  // Trace simplifiée entre le départ et l'arrivée (points intermédiaires fictifs).
+  const [aLat, aLng] = base.fromCoord;
+  const [bLat, bLng] = base.toCoord;
+  const route: LatLng[] = [
+    base.fromCoord,
+    [(aLat * 2 + bLat) / 3, (aLng * 2 + bLng) / 3],
+    [(aLat + bLat * 2) / 3, (aLng + bLng * 2) / 3],
+    base.toCoord,
+  ];
+  return { ...base, route };
+}
+
 export const mockTripsOngoing = [
-  { id: "o1", driver: "André Mbarga", vehicle: "LT-892-CE", startedAt: "10:32", elapsed: "2h 15m", lat: 3.8667, lng: 11.5167 },
-  { id: "o2", driver: "Jean Kouam", vehicle: "CE-456-AB", startedAt: "09:00", elapsed: "3h 47m", lat: 4.0511, lng: 9.7679 },
+  { id: "o1", driver: "André Mbarga", vehicle: "LT-892-CE", startedAt: "10:32", elapsed: "2h 15m", lat: 3.8667, lng: 11.5167, from: "Yaoundé", to: "Obala" },
+  { id: "o2", driver: "Jean Kouam", vehicle: "CE-456-AB", startedAt: "09:00", elapsed: "3h 47m", lat: 4.0511, lng: 9.7679, from: "Douala", to: "Kribi" },
 ];
 
 export const mockSchedules = [
@@ -126,9 +142,9 @@ export const mockFuelRecords = [
 ];
 
 export const mockGeofenceZones = [
-  { id: "1", name: "Dépôt Yaoundé", color: "#2696e4", area: 0.8, perimeter: 3.2, active: true },
-  { id: "2", name: "Zone Port Douala", color: "#10B981", area: 2.1, perimeter: 6.5, active: true },
-  { id: "3", name: "Centre-ville interdit", color: "#EF4444", area: 1.2, perimeter: 4.8, active: false },
+  { id: "1", name: "Dépôt Yaoundé", color: "#2696e4", area: 0.8, perimeter: 3.2, active: true, center: [3.848, 11.502] as LatLng, radius: 1600 },
+  { id: "2", name: "Zone Port Douala", color: "#10B981", area: 2.1, perimeter: 6.5, active: true, center: [4.051, 9.768] as LatLng, radius: 2600 },
+  { id: "3", name: "Centre-ville interdit", color: "#EF4444", area: 1.2, perimeter: 4.8, active: false, center: [3.866, 11.516] as LatLng, radius: 2000 },
 ];
 
 export const mockGeofenceAlerts = [

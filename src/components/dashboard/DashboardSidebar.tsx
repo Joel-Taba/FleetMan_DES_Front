@@ -31,8 +31,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { getNavForRole, getRoleLabel } from "@/lib/navigation";
+import { useLang } from "@/lib/i18n";
 import type { UserRole, NavItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthProvider";
 
 const iconMap: Record<string, LucideIcon> = {
   LayoutDashboard,
@@ -92,6 +94,14 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const navItems = getNavForRole(role);
+  const { t } = useLang();
+  const { user } = useAuth();
+
+  // Initiales de l'utilisateur connecté
+  const initials = user
+    ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "U"
+    : "U";
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "Utilisateur";
 
   if (collapsed) {
     return (
@@ -129,7 +139,7 @@ export function DashboardSidebar({
               <Link
                 key={item.href}
                 href={item.href}
-                title={item.label}
+                title={t(item.label)}
                 onClick={onNavigate}
                 className={cn(
                   "flex h-11 w-11 items-center justify-center rounded-full transition-all",
@@ -144,8 +154,11 @@ export function DashboardSidebar({
           })}
         </nav>
 
-        <div className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-2 ring-white/30">
-          JD
+        <div
+          className="mt-4 flex h-10 w-10 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-2 ring-white/30"
+          title={fullName}
+        >
+          {initials}
         </div>
       </aside>
     );
@@ -168,7 +181,7 @@ export function DashboardSidebar({
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-display text-lg font-bold leading-tight">FleetMan</p>
-          <p className="truncate text-xs text-white/70">{getRoleLabel(role)}</p>
+          <p className="truncate text-xs text-white/70">{t(getRoleLabel(role))}</p>
         </div>
         {onToggle && (
           <button
@@ -186,10 +199,10 @@ export function DashboardSidebar({
 
       <div className="flex items-center gap-3 border-t border-white/15 px-4 py-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-2 ring-white/30">
-          JD
+          {initials}
         </div>
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">Jean Dupont</p>
+          <p className="truncate text-sm font-semibold">{fullName}</p>
           <p className="truncate text-xs text-white/60">FleetMan v0.1</p>
         </div>
       </div>
@@ -206,6 +219,7 @@ function FullNav({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const { t } = useLang();
   return (
     <nav className="flex-1 space-y-1 overflow-y-auto py-2 pl-3">
       {navItems.map((item) => {
@@ -231,7 +245,7 @@ function FullNav({
             >
               <Icon className="h-5 w-5" />
             </span>
-            <span className="truncate">{item.label}</span>
+            <span className="truncate">{t(item.label)}</span>
           </Link>
         );
       })}
