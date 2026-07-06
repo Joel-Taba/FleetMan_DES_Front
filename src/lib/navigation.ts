@@ -3,6 +3,9 @@ import type { NavItem, UserRole } from "./types";
 const superAdminNav: NavItem[] = [
   { label: "Vue d'ensemble", href: "/dashboard/super-admin", icon: "LayoutDashboard" },
   { label: "Administrateurs", href: "/dashboard/super-admin/admins", icon: "Shield" },
+  { label: "Plans tarifaires", href: "/dashboard/super-admin/plans", icon: "CreditCard" },
+  { label: "Souscriptions", href: "/dashboard/super-admin/subscriptions", icon: "Users" },
+  { label: "Historique", href: "/dashboard/super-admin/history", icon: "History" },
 ];
 
 const adminNav: NavItem[] = [
@@ -17,16 +20,16 @@ const managerNav: NavItem[] = [
   { label: "Flottes", href: "/dashboard/manager/fleets", icon: "Truck" },
   { label: "Véhicules", href: "/dashboard/manager/vehicles", icon: "Car" },
   { label: "Conducteurs", href: "/dashboard/manager/drivers", icon: "UserCircle" },
-  { label: "Trajets", href: "/dashboard/manager/trips", icon: "Route" },
-  { label: "Plannings", href: "/dashboard/manager/schedules", icon: "Calendar" },
-  { label: "Affectations", href: "/dashboard/manager/assignments", icon: "CalendarClock" },
-  { label: "Incidents", href: "/dashboard/manager/operations/incidents", icon: "AlertTriangle" },
-  { label: "Maintenances", href: "/dashboard/manager/operations/maintenances", icon: "Wrench" },
-  { label: "Carburant", href: "/dashboard/manager/operations/fuel", icon: "Droplets" },
-  { label: "Géofencing", href: "/dashboard/manager/geofencing", icon: "MapPin" },
-  { label: "Documents", href: "/dashboard/manager/documents", icon: "FileText" },
-  { label: "KPI & Rapports", href: "/dashboard/manager/kpis", icon: "BarChart3" },
-  { label: "Notifications", href: "/dashboard/manager/notifications", icon: "Bell" },
+  { label: "Trajets", href: "/dashboard/manager/trips", icon: "Route", featureKey: "TRIPS" },
+  { label: "Plannings", href: "/dashboard/manager/schedules", icon: "Calendar", featureKey: "SCHEDULES" },
+  { label: "Affectations", href: "/dashboard/manager/assignments", icon: "CalendarClock", featureKey: "ASSIGNMENTS" },
+  { label: "Incidents", href: "/dashboard/manager/operations/incidents", icon: "AlertTriangle", featureKey: "OPERATIONS" },
+  { label: "Maintenances", href: "/dashboard/manager/operations/maintenances", icon: "Wrench", featureKey: "OPERATIONS" },
+  { label: "Carburant", href: "/dashboard/manager/operations/fuel", icon: "Droplets", featureKey: "OPERATIONS" },
+  { label: "Géofencing", href: "/dashboard/manager/geofencing", icon: "MapPin", featureKey: "GEOFENCING" },
+  { label: "Documents", href: "/dashboard/manager/documents", icon: "FileText", featureKey: "DOCUMENTS" },
+  { label: "KPI & Rapports", href: "/dashboard/manager/kpis", icon: "BarChart3", featureKey: "KPI_REPORTS" },
+  { label: "Notifications", href: "/dashboard/manager/notifications", icon: "Bell", featureKey: "ALERTS" },
   { label: "Mon compte", href: "/dashboard/manager/settings", icon: "Settings" },
 ];
 
@@ -55,14 +58,29 @@ export function getNavForRole(role: UserRole): NavItem[] {
   }
 }
 
-export function getRoleFromPath(pathname: string): UserRole {
+/** Routes dashboard accessibles à tout utilisateur connecté (tous rôles). */
+export const SHARED_DASHBOARD_PATHS = ["/dashboard/aide"] as const;
+
+export function isSharedDashboardPath(pathname: string): boolean {
+  return SHARED_DASHBOARD_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`)
+  );
+}
+
+export function getRoleFromPath(pathname: string, fallbackRole?: UserRole | null): UserRole {
   if (pathname.startsWith("/dashboard/super-admin")) return "FLEET_SUPER_ADMIN";
   if (pathname.startsWith("/dashboard/admin")) return "FLEET_ADMIN";
   if (pathname.startsWith("/dashboard/driver")) return "FLEET_DRIVER";
+  if (pathname.startsWith("/dashboard/manager")) return "FLEET_MANAGER";
+  if (fallbackRole && isSharedDashboardPath(pathname)) return fallbackRole;
   return "FLEET_MANAGER";
 }
 
 export function getPageTitle(pathname: string): string {
+  if (isSharedDashboardPath(pathname)) {
+    if (pathname.startsWith("/dashboard/aide")) return "Centre d'aide";
+  }
+
   const role = getRoleFromPath(pathname);
   const items = getNavForRole(role);
   const match = items

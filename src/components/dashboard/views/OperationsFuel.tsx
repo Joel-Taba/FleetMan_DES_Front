@@ -118,25 +118,31 @@ export function OperationsFuel() {
       <DataGate loading={loading} error={error} empty={(records ?? []).length === 0} emptyMessage="Aucune recharge carburant enregistrée.">
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/50">
+            <thead className="border-b bg-muted/50 text-left [&_th]:px-4 [&_th]:py-3 [&_th]:font-medium">
               <tr>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3">Véhicule</th>
-                <th className="px-4 py-3">Volume</th>
-                <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Prix/L</th>
-                <th className="px-4 py-3">Station</th>
-                <th className="px-4 py-3">Chauffeur</th>
+                <th>{t("Date")}</th>
+                <th>{t("Véhicule")}</th>
+                <th className="text-right">{t("Volume")}</th>
+                <th className="text-right">{t("Total")}</th>
+                <th className="text-right">Prix/L</th>
+                <th>{t("Station")}</th>
+                <th>{t("Chauffeur")}</th>
               </tr>
             </thead>
             <tbody>
-              {(records ?? []).map((r) => (
-                <tr key={r.id} className="border-t">
-                  <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(r.rechargeDateTime)}</td>
-                  <td className="px-4 py-3"><LicensePlate plate={r.vehicleRegistration ?? "—"} /></td>
-                  <td className="px-4 py-3">{r.quantity} L</td>
-                  <td className="px-4 py-3 font-medium">{Number(r.price).toLocaleString()} XAF</td>
-                  <td className="px-4 py-3">{r.unitCost != null ? `${Number(r.unitCost).toFixed(0)} XAF` : "—"}</td>
+              {(records ?? []).map((r, i) => (
+                <tr key={r.id} className={i % 2 ? "bg-muted/20" : undefined}>
+                  <td className="whitespace-nowrap px-4 py-3">{formatDateTime(r.rechargeDateTime)}</td>
+                  <td className="px-4 py-3">
+                    <LicensePlate plate={r.vehicleRegistration ?? "—"} />
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono tabular-nums">{r.quantity} L</td>
+                  <td className="px-4 py-3 text-right font-medium tabular-nums">
+                    {Number(r.price).toLocaleString()} XAF
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {r.unitCost != null ? `${Number(r.unitCost).toFixed(0)} XAF` : "—"}
+                  </td>
                   <td className="px-4 py-3">{r.stationName ?? "—"}</td>
                   <td className="px-4 py-3">{r.driverFullName ?? "—"}</td>
                 </tr>

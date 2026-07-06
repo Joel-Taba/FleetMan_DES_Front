@@ -33,6 +33,32 @@ export type FleetManagerResponse = {
   photoUrl: string | null;
 };
 
+export type PlanFeatureDto = {
+  key: string;
+  label: string;
+  enabled: boolean;
+};
+
+export type ManagerSubscriptionResponse = {
+  managerId: string;
+  planId: string | null;
+  planName: string;
+  subscriptionStatus: string;
+  subscriptionStart: string | null;
+  subscriptionEnd: string | null;
+  graceDays: number;
+  daysUntilExpiry: number;
+  inGracePeriod: boolean;
+  accessAllowed: boolean;
+  maxFleets: number;
+  maxVehicles: number;
+  maxDrivers: number;
+  currentFleets: number;
+  currentVehicles: number;
+  currentDrivers: number;
+  features: PlanFeatureDto[];
+};
+
 export type FleetResponse = {
   id: string;
   name: string;
@@ -90,6 +116,7 @@ export type ApiVehicle = {
   color: string | null;
   status: string;
   photoUrl: string | null;
+  galleryUrls?: string[] | null;
   financialParameters: VehicleFinancial | null;
   maintenanceParameters: VehicleMaintenance | null;
   operationalParameters: VehicleOperational | null;
@@ -121,6 +148,7 @@ export type VehicleDocumentResponse = {
   fileUrl: string;
   fileMimeType?: string | null;
   fileOriginalName?: string | null;
+  fileSizeBytes?: number | null;
   status: string;
   daysUntilExpiry: number;
   notes: string | null;
@@ -139,6 +167,7 @@ export type DriverDocumentResponse = {
   fileUrl: string;
   fileMimeType?: string | null;
   fileOriginalName?: string | null;
+  fileSizeBytes?: number | null;
   status: string;
   daysUntilExpiry: number;
   notes: string | null;
@@ -147,10 +176,29 @@ export type DriverDocumentResponse = {
   updatedAt: string;
 };
 
+export type TripDetailInput = {
+  itemType: "PASSENGER" | "CARGO" | "OTHER";
+  description?: string;
+  quantity: number;
+  weight?: number;
+  departureQuantity?: number;
+};
+
+export type TripDetailLine = {
+  id?: string;
+  itemType?: string;
+  description?: string;
+  quantity?: number;
+  weight?: number;
+  departureQuantity?: number;
+  returnQuantity?: number;
+};
+
 export type ApiTrip = {
   id: string;
   vehicleId: string;
   driverId: string;
+  fleetId?: string | null;
   status: string;
   startDate: string;
   startTime: string;
@@ -162,15 +210,20 @@ export type ApiTrip = {
   departureKmIndex?: number | null;
   departureFuelIndex?: number | null;
   departureLocation?: string | null;
+  departureLat?: number | null;
+  departureLng?: number | null;
+  returnLocation?: string | null;
+  returnLat?: number | null;
+  returnLng?: number | null;
+  returnKmIndex?: number | null;
+  returnFuelIndex?: number | null;
+  computedDistanceKm?: number | null;
+  computedFuelConsumed?: number | null;
   missionObject?: string | null;
   missionCost?: number | null;
-  details?: Array<{
-    id?: string;
-    itemType?: string;
-    description?: string;
-    quantity?: number;
-    departureQuantity?: number;
-  }>;
+  missionCostCurrency?: string | null;
+  departureRegisteredAt?: string | null;
+  details?: TripDetailLine[];
 };
 
 export type ScheduleResponse = {
@@ -265,6 +318,8 @@ export type ExpiringDocumentDto = {
   expiryDate: string;
   daysUntilExpiry: number;
   status: string;
+  fileUrl?: string | null;
+  fileMimeType?: string | null;
 };
 
 export type AlertEventResponse = {

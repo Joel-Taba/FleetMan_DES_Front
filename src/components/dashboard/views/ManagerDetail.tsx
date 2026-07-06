@@ -13,8 +13,10 @@ import {
   managerInitials,
   managerIsActive,
 } from "@/lib/api/mappers/admin";
+import { useLang } from "@/lib/i18n";
 
 export function ManagerDetail({ id }: { id: string }) {
+  const { t } = useLang();
   const { data: manager, loading, error } = useApiQuery(() => fetchFleetManager(id), [id]);
 
   const active = manager ? managerIsActive(manager) : false;
@@ -25,7 +27,7 @@ export function ManagerDetail({ id }: { id: string }) {
         href="/dashboard/admin/managers"
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
       >
-        <ArrowLeft className="h-4 w-4" /> Retour aux gestionnaires
+        <ArrowLeft className="h-4 w-4" /> {t("Retour aux gestionnaires")}
       </Link>
 
       <DataGate loading={loading} error={error}>
@@ -40,7 +42,7 @@ export function ManagerDetail({ id }: { id: string }) {
                   <h2 className="font-display text-xl font-bold">{managerFullName(manager)}</h2>
                   <p className="text-muted-foreground">{manager.companyName ?? "—"}</p>
                   <Badge className="mt-2" variant={active ? "success" : "muted"}>
-                    {active ? "Actif" : "Inactif"}
+                    {active ? t("Actif") : t("Inactif")}
                   </Badge>
                 </div>
               </CardContent>
@@ -48,23 +50,23 @@ export function ManagerDetail({ id }: { id: string }) {
 
             <Card>
               <CardHeader>
-                <CardTitle>Informations personnelles</CardTitle>
+                <CardTitle>{t("Informations personnelles")}</CardTitle>
               </CardHeader>
               <CardContent className="grid gap-4 sm:grid-cols-2">
-                <InfoRow icon={Mail} label="Email" value={manager.email} />
-                <InfoRow icon={Phone} label="Téléphone" value={manager.phone ?? "—"} />
-                <InfoRow icon={Users} label="Dernière connexion" value={formatLastLogin(manager.lastLoginAt)} />
-                <InfoRow icon={Users} label="Identifiant" value={manager.username} />
+                <InfoRow icon={Mail} label={t("Email")} value={manager.email} />
+                <InfoRow icon={Phone} label={t("Téléphone")} value={manager.phone ?? "—"} />
+                <InfoRow icon={Users} label={t("Dernière connexion")} value={formatLastLogin(manager.lastLoginAt)} />
+                <InfoRow icon={Users} label={t("Identifiant")} value={manager.username} />
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle>Rôles & service</CardTitle>
+                <CardTitle>{t("Rôles & service")}</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-sm">
-                  <span className="text-muted-foreground">Service : </span>
+                  <span className="text-muted-foreground">{t("Service :")} </span>
                   {manager.service ?? "FLEET_MANAGEMENT"}
                 </p>
                 <div className="flex flex-wrap gap-2">

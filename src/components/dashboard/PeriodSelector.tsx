@@ -1,8 +1,9 @@
 "use client";
 
+import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-const periods = ["Aujourd'hui", "7 derniers jours", "Ce mois"] as const;
+const PERIOD_KEYS = ["Aujourd'hui", "7 derniers jours", "Ce mois"] as const;
 
 type PeriodSelectorProps = {
   value?: string;
@@ -10,26 +11,32 @@ type PeriodSelectorProps = {
 };
 
 export function PeriodSelector({
-  value = "7 derniers jours",
+  value,
   onChange,
 }: PeriodSelectorProps) {
+  const { t } = useLang();
+  const current = value ?? t("7 derniers jours");
+
   return (
     <div className="inline-flex rounded-lg border border-border bg-muted p-1">
-      {periods.map((period) => (
-        <button
-          key={period}
-          type="button"
-          onClick={() => onChange?.(period)}
-          className={cn(
-            "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-            value === period
-              ? "bg-card text-foreground shadow-sm"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {period}
-        </button>
-      ))}
+      {PERIOD_KEYS.map((periodKey) => {
+        const label = t(periodKey);
+        return (
+          <button
+            key={periodKey}
+            type="button"
+            onClick={() => onChange?.(periodKey)}
+            className={cn(
+              "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+              current === periodKey || current === label
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }

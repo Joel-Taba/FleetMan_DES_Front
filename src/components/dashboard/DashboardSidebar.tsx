@@ -26,11 +26,14 @@ import {
   Droplets,
   MapPin,
   Settings2,
+  CreditCard,
+  History,
   ChevronRight,
   ChevronLeft,
   type LucideIcon,
 } from "lucide-react";
 import { getNavForRole, getRoleLabel } from "@/lib/navigation";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
 import { useLang } from "@/lib/i18n";
 import type { UserRole, NavItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -60,6 +63,8 @@ const iconMap: Record<string, LucideIcon> = {
   MapPin,
   Settings2,
   Settings: Settings2,
+  CreditCard,
+  History,
 };
 
 const SIDEBAR_GRADIENT =
@@ -93,7 +98,8 @@ export function DashboardSidebar({
   onNavigate,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
-  const navItems = getNavForRole(role);
+  const { filterNavItems, planName, daysUntilExpiry, inGracePeriod } = usePlanFeatures();
+  const navItems = filterNavItems(getNavForRole(role));
   const { t } = useLang();
   const { user } = useAuth();
 
@@ -196,6 +202,21 @@ export function DashboardSidebar({
       </div>
 
       <FullNav navItems={navItems} pathname={pathname} onNavigate={onNavigate} />
+
+      {role === "FLEET_MANAGER" && planName && (
+        <div className="mx-4 mb-2 rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-xs">
+          <p className="font-semibold text-white">{planName}</p>
+          {daysUntilExpiry != null && (
+            <p className={cn("text-white/70", inGracePeriod && "text-amber-200")}>
+              {daysUntilExpiry >= 0
+                ? `${daysUntilExpiry} jour${daysUntilExpiry > 1 ? "s" : ""} restant${daysUntilExpiry > 1 ? "s" : ""}`
+                : inGracePeriod
+                  ? `Période de grâce (${Math.abs(daysUntilExpiry)} j)`
+                  : "Abonnement expiré"}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-3 border-t border-white/15 px-4 py-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/20 text-xs font-bold ring-2 ring-white/30">

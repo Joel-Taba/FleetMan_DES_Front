@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Send, Archive, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { DataGate } from "../DataGate";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { fetchSchedule } from "@/lib/api/manager";
+import { archiveSchedule, fetchSchedule, publishSchedule } from "@/lib/api/manager";
+import { useState } from "react";
 
 const statusVariant: Record<string, "muted" | "success" | "default" | "outline"> = {
   DRAFT: "muted",
@@ -17,7 +19,29 @@ const statusVariant: Record<string, "muted" | "success" | "default" | "outline">
 };
 
 export function ScheduleDetail({ id }: { id: string }) {
-  const { data: schedule, loading, error } = useApiQuery(() => fetchSchedule(id), [id]);
+  const router = useRouter();
+  const { data: schedule, loading, error, refetch } = useApiQuery(() => fetchSchedule(id), [id]);
+  const [acting, setActing] = useState(false);
+
+  async function handlePublish() {
+    setActing(true);
+    try {
+      await publishSchedule(id);
+      refetch();
+    } finally {
+      setActing(false);
+    }
+  }
+
+  async function handleArchive() {
+    setActing(true);
+    try {
+      await archiveSchedule(id);
+      refetch();
+    } finally {
+      setActing(false);
+    }
+  }
 
   return (
     <div>
@@ -47,12 +71,16 @@ export function ScheduleDetail({ id }: { id: string }) {
                 </div>
                 <div className="flex gap-2">
                   {schedule.status === "DRAFT" && (
-                    <Button variant="secondary" size="sm"><Send className="h-4 w-4" /> Publier</Button>
+                    <Button variant="secondary" size="sm" disabled={acting} onClick={handlePublish}>
+                      <Send className="h-4 w-4" /> Publier
+                    </Button>
                   )}
                   {schedule.status === "PUBLISHED" && (
-                    <Button variant="secondary" size="sm"><Archive className="h-4 w-4" /> Archiver</Button>
+                    <Button variant="secondary" size="sm" disabled={acting} onClick={handleArchive}>
+                      <Archive className="h-4 w-4" /> Archiver
+                    </Button>
                   )}
-                  <Button variant="secondary" size="sm">
+                  <Button variant="secondary" size="sm" onClick={() => router.push("/dashboard/manager/assignments")}>
                     <Plus className="h-4 w-4" /> Affectation
                   </Button>
                 </div>

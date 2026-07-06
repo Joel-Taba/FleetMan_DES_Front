@@ -47,7 +47,7 @@ export function MapTransition({ active, onComplete }: MapTransitionProps) {
               alt="Carte d'Afrique"
               fill
               className="object-contain"
-              priority
+              sizes="(max-width: 768px) 90vw, 70vh"
             />
           </motion.div>
         </motion.div>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { AlertTriangle, FileText } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
@@ -13,6 +14,7 @@ import {
   fetchExpiredDocuments,
   fetchExpiringDocuments,
 } from "@/lib/api/manager";
+import { DocumentsGrid } from "../DocumentPreviewCard";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 
@@ -21,6 +23,16 @@ const docStatusVariant: Record<string, "success" | "warning" | "destructive"> = 
   EXPIRING_SOON: "warning",
   EXPIRED: "destructive",
 };
+
+function entityHref(entityType: string, entityId: string) {
+  if (entityType === "VEHICLE") {
+    return `/dashboard/manager/vehicles/${entityId}`;
+  }
+  if (entityType === "DRIVER") {
+    return `/dashboard/manager/drivers/${entityId}`;
+  }
+  return null;
+}
 
 export function DocumentsCompliance() {
   const { t } = useLang();
@@ -81,14 +93,26 @@ export function DocumentsCompliance() {
                     {expiringSoon.length === 0 ? (
                       <li className="text-sm text-muted-foreground">{t("Aucun document.")}</li>
                     ) : (
-                      expiringSoon.map((item) => (
-                        <li key={item.documentId} className="flex items-center justify-between text-sm">
-                          <span>
-                            {item.docType} — {item.entityName}
-                          </span>
-                          <Badge variant={docStatusVariant.EXPIRING_SOON}>{item.expiryDate}</Badge>
-                        </li>
-                      ))
+                      expiringSoon.map((item) => {
+                        const href = entityHref(item.entityType, item.entityId);
+                        return (
+                          <li key={item.documentId} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="min-w-0 truncate">
+                              {item.docType} —{" "}
+                              {href ? (
+                                <Link href={href} className="text-primary hover:underline">
+                                  {item.entityName}
+                                </Link>
+                              ) : (
+                                item.entityName
+                              )}
+                            </span>
+                            <Badge variant={docStatusVariant.EXPIRING_SOON} className="shrink-0">
+                              {item.expiryDate}
+                            </Badge>
+                          </li>
+                        );
+                      })
                     )}
                   </ul>
                 </CardContent>
@@ -102,14 +126,26 @@ export function DocumentsCompliance() {
                     {expired.length === 0 ? (
                       <li className="text-sm text-muted-foreground">{t("Aucun document expiré.")}</li>
                     ) : (
-                      expired.map((item) => (
-                        <li key={item.documentId} className="flex items-center justify-between text-sm">
-                          <span>
-                            {item.docType} — {item.entityName}
-                          </span>
-                          <Badge variant="destructive">{item.expiryDate}</Badge>
-                        </li>
-                      ))
+                      expired.map((item) => {
+                        const href = entityHref(item.entityType, item.entityId);
+                        return (
+                          <li key={item.documentId} className="flex items-center justify-between gap-2 text-sm">
+                            <span className="min-w-0 truncate">
+                              {item.docType} —{" "}
+                              {href ? (
+                                <Link href={href} className="text-primary hover:underline">
+                                  {item.entityName}
+                                </Link>
+                              ) : (
+                                item.entityName
+                              )}
+                            </span>
+                            <Badge variant="destructive" className="shrink-0">
+                              {item.expiryDate}
+                            </Badge>
+                          </li>
+                        );
+                      })
                     )}
                   </ul>
                 </CardContent>
@@ -125,29 +161,38 @@ export function DocumentsCompliance() {
           <TabsTrigger value="drivers">{t("Conducteurs")}</TabsTrigger>
         </TabsList>
         <TabsContent value="vehicles">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <FileText className="h-4 w-4" />
-                {t("Documents véhicules — consultez les détails par véhicule.")}
-              </div>
-              <Button className="mt-4" variant="secondary" asChild>
-                <a href="/dashboard/manager/vehicles">{t("Voir les véhicules")}</a>
-              </Button>
-            </CardContent>
-          </Card>
+          <DocumentsGrid
+            readOnly
+            documents={[...expiringSoon, ...expired]
+              .filter((item) => item.entityType === "VEHICLE" && item.fileUrl)
+              .map((item) => ({
+                id: item.documentId,
+                docType: item.docType,
+                docNumber: item.docNumber,
+                fileUrl: item.fileUrl!,
+                fileMimeType: item.fileMimeType,
+                status: item.status,
+                expiryDate: item.expiryDate,
+              }))}
+            emptyMessage={t("Aucun document véhicule à afficher.")}
+          />
         </TabsContent>
         <TabsContent value="drivers">
-          <Card>
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground">
-                {t("Documents conducteurs liés aux permis et certifications.")}
-              </p>
-              <Button className="mt-4" variant="secondary" asChild>
-                <a href="/dashboard/manager/drivers">{t("Voir les conducteurs")}</a>
-              </Button>
-            </CardContent>
-          </Card>
+          <DocumentsGrid
+            readOnly
+            documents={[...expiringSoon, ...expired]
+              .filter((item) => item.entityType === "DRIVER" && item.fileUrl)
+              .map((item) => ({
+                id: item.documentId,
+                docType: item.docType,
+                docNumber: item.docNumber,
+                fileUrl: item.fileUrl!,
+                fileMimeType: item.fileMimeType,
+                status: item.status,
+                expiryDate: item.expiryDate,
+              }))}
+            emptyMessage={t("Aucun document conducteur à afficher.")}
+          />
         </TabsContent>
       </Tabs>
     </div>

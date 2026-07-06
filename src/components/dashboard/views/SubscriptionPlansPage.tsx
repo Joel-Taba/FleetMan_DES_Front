@@ -1,25 +1,30 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Pencil, Trash2, Check, Truck, Car, Users, DollarSign } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Pencil, Trash2, Check, Truck, Car, Users } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
   createSubscriptionPlan,
   deactivateSubscriptionPlan,
+  fetchPlanFeatures,
   fetchSubscriptionPlans,
+  updatePlanFeatures,
   updateSubscriptionPlan,
   type CreatePlanBody,
+  type PlanFeatureItem,
   type SubscriptionPlan,
 } from "@/lib/api/admin";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 const PLAN_COLORS = ["bg-muted/60", "bg-primary/8 border-primary/30", "bg-foreground/5"];
 const POPULAR_INDEX = 1; // Le plan Pro est "le plus choisi"
@@ -37,12 +42,27 @@ const EMPTY_FORM: CreatePlanBody = {
 };
 
 export function SubscriptionPlansPage() {
+  const { t } = useLang();
   const { data: plans, loading, error, refetch } = useApiQuery(fetchSubscriptionPlans, []);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SubscriptionPlan | null>(null);
   const [form, setForm] = useState<CreatePlanBody>(EMPTY_FORM);
+  const [planFeatures, setPlanFeatures] = useState<PlanFeatureItem[]>([]);
+  const [featuresLoading, setFeaturesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!dialogOpen || !editing) {
+      setPlanFeatures([]);
+      return;
+    }
+    setFeaturesLoading(true);
+    fetchPlanFeatures(editing.id)
+      .then(setPlanFeatures)
+      .catch(() => setPlanFeatures([]))
+      .finally(() => setFeaturesLoading(false));
+  }, [dialogOpen, editing]);
 
   function openCreate() {
     setEditing(null);
@@ -72,6 +92,9 @@ export function SubscriptionPlansPage() {
     try {
       if (editing) {
         await updateSubscriptionPlan(editing.id, form);
+        if (planFeatures.length > 0) {
+          await updatePlanFeatures(editing.id, planFeatures);
+        }
       } else {
         await createSubscriptionPlan(form);
       }
@@ -83,10 +106,17 @@ export function SubscriptionPlansPage() {
   }
 
   async function handleDeactivate(id: string) {
-    if (!confirm("Désactiver ce plan ? Les gestionnaires abonnés conservent leur accès jusqu'à renouvellement.")) return;
+    if (!confirm(t("Désactiver ce plan ? Les gestionnaires abonnés conservent leur accès jusqu'à renouvellement."))) return;
     await deactivateSubscriptionPlan(id);
     refetch();
   }
+
+  const fleetLimitLabel = (n: number) =>
+    n === 999 ? t("Flottes illimitées") : `${n} ${n > 1 ? t("flottes") : t("flotte")}`;
+  const vehicleLimitLabel = (n: number) =>
+    n === 999 ? t("Véhicules illimités") : `${n} ${n > 1 ? t("véhicules") : t("véhicule")}`;
+  const driverLimitLabel = (n: number) =>
+    n === 999 ? t("Conducteurs illimités") : `${n} ${n > 1 ? t("conducteurs") : t("conducteur")}`;
 
   const activePlans = (plans ?? []).filter(p => p.isActive);
   const inactivePlans = (plans ?? []).filter(p => !p.isActive);
@@ -97,15 +127,15 @@ export function SubscriptionPlansPage() {
   return (
     <div>
       <PageHeader
-        title="Plans Tarifaires"
-        description="Définissez les offres disponibles pour les gestionnaires de flotte."
+        title={t("Plans Tarifaires")}
+        description={t("Définissez les offres disponibles pour les gestionnaires de flotte.")}
       >
         <Button onClick={openCreate}>
-          <Plus className="h-4 w-4" /> Créer un plan
+          <Plus className="h-4 w-4" /> {t("Créer un plan")}
         </Button>
       </PageHeader>
 
-      <DataGate loading={loading} error={error} empty={(plans ?? []).length === 0} emptyMessage="Aucun plan tarifaire créé.">
+      <DataGate loading={loading} error={error} empty={(plans ?? []).length === 0} emptyMessage={t("Aucun plan tarifaire créé.")}>
 
         {/* Cartes Plans Actifs */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -120,7 +150,7 @@ export function SubscriptionPlansPage() {
             >
               {idx === POPULAR_INDEX && (
                 <div className="absolute right-4 top-4">
-                  <Badge className="bg-primary text-white">Le + choisi</Badge>
+                  <Badge className="bg-primary text-white">{t("Le + choisi")}</Badge>
                 </div>
               )}
               <CardHeader className="pb-2">
@@ -135,7 +165,7 @@ export function SubscriptionPlansPage() {
                   <span className="text-3xl font-bold">
                     {plan.monthlyPrice > 0
                       ? plan.monthlyPrice.toLocaleString()
-                      : "Gratuit"}
+                      : t("Gratuit")}
                   </span>
                   {plan.monthlyPrice > 0 && (
                     <span className="ml-1 text-sm text-muted-foreground">XAF/mois</span>
@@ -151,15 +181,15 @@ export function SubscriptionPlansPage() {
                 <div className="space-y-2 rounded-lg bg-muted/40 p-3 text-sm">
                   <div className="flex items-center gap-2">
                     <Truck className="h-4 w-4 text-muted-foreground" />
-                    <span>{plan.maxFleets === 999 ? "Flottes illimitées" : `${plan.maxFleets} flotte${plan.maxFleets > 1 ? "s" : ""}`}</span>
+                    <span>{fleetLimitLabel(plan.maxFleets)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Car className="h-4 w-4 text-muted-foreground" />
-                    <span>{plan.maxVehicles === 999 ? "Véhicules illimités" : `${plan.maxVehicles} véhicule${plan.maxVehicles > 1 ? "s" : ""}`}</span>
+                    <span>{vehicleLimitLabel(plan.maxVehicles)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <span>{plan.maxDrivers === 999 ? "Conducteurs illimités" : `${plan.maxDrivers} conducteur${plan.maxDrivers > 1 ? "s" : ""}`}</span>
+                    <span>{driverLimitLabel(plan.maxDrivers)}</span>
                   </div>
                 </div>
 
@@ -178,7 +208,7 @@ export function SubscriptionPlansPage() {
                 {/* Actions */}
                 <div className="flex gap-2 pt-2">
                   <Button size="sm" variant="secondary" className="flex-1" onClick={() => openEdit(plan)}>
-                    <Pencil className="h-4 w-4" /> Modifier
+                    <Pencil className="h-4 w-4" /> {t("Modifier")}
                   </Button>
                   <Button
                     size="sm"
@@ -197,7 +227,7 @@ export function SubscriptionPlansPage() {
         {/* Plans Inactifs */}
         {inactivePlans.length > 0 && (
           <div className="mt-10">
-            <h3 className="mb-4 font-semibold text-muted-foreground">Plans désactivés</h3>
+            <h3 className="mb-4 font-semibold text-muted-foreground">{t("Plans désactivés")}</h3>
             <div className="space-y-2">
               {inactivePlans.map((plan) => (
                 <div key={plan.id} className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
@@ -214,55 +244,84 @@ export function SubscriptionPlansPage() {
       <Dialog open={dialogOpen} onOpenChange={(o) => !o && setDialogOpen(false)}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? "Modifier le plan" : "Créer un plan tarifaire"}</DialogTitle>
+            <DialogTitle>{editing ? t("Modifier le plan") : t("Créer un plan tarifaire")}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1.5">
-                <Label>Nom du plan *</Label>
+                <Label>{t("Nom du plan *")}</Label>
                 <Input required placeholder="Ex: Starter, Pro, Enterprise" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label>Description</Label>
-                <Input placeholder="Courte description du plan" value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
+                <Label>{t("Description")}</Label>
+                <Input placeholder={t("Courte description du plan")} value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>Prix mensuel (XAF) *</Label>
+                <Label>{t("Prix mensuel (XAF) *")}</Label>
                 <Input required type="number" min="0" value={form.monthlyPrice} onChange={(e) => setForm(f => ({ ...f, monthlyPrice: parseFloat(e.target.value) || 0 }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>Prix annuel (XAF)</Label>
-                <Input type="number" min="0" placeholder="Optionnel" value={form.annualPrice ?? ""} onChange={(e) => setForm(f => ({ ...f, annualPrice: e.target.value ? parseFloat(e.target.value) : undefined }))} />
+                <Label>{t("Prix annuel (XAF)")}</Label>
+                <Input type="number" min="0" placeholder={t("Optionnel")} value={form.annualPrice ?? ""} onChange={(e) => setForm(f => ({ ...f, annualPrice: e.target.value ? parseFloat(e.target.value) : undefined }))} />
               </div>
               <div className="space-y-1.5">
-                <Label>Max flottes</Label>
+                <Label>{t("Max flottes")}</Label>
                 <Input type="number" min="1" value={form.maxFleets} onChange={(e) => setForm(f => ({ ...f, maxFleets: parseInt(e.target.value) || 1 }))} />
-                <p className="text-xs text-muted-foreground">999 = illimité</p>
+                <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="space-y-1.5">
-                <Label>Max véhicules</Label>
+                <Label>{t("Max véhicules")}</Label>
                 <Input type="number" min="1" value={form.maxVehicles} onChange={(e) => setForm(f => ({ ...f, maxVehicles: parseInt(e.target.value) || 1 }))} />
-                <p className="text-xs text-muted-foreground">999 = illimité</p>
+                <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="space-y-1.5">
-                <Label>Max conducteurs</Label>
+                <Label>{t("Max conducteurs")}</Label>
                 <Input type="number" min="1" value={form.maxDrivers} onChange={(e) => setForm(f => ({ ...f, maxDrivers: parseInt(e.target.value) || 1 }))} />
-                <p className="text-xs text-muted-foreground">999 = illimité</p>
+                <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="col-span-2 space-y-1.5">
-                <Label>Fonctionnalités incluses</Label>
+                <Label>{t("Fonctionnalités incluses")}</Label>
                 <Input
-                  placeholder="Séparées par des virgules : Géofencing, Documents, KPIs..."
+                  placeholder={t("Séparées par des virgules : Géofencing, Documents, KPIs...")}
                   value={form.features ?? ""}
                   onChange={(e) => setForm(f => ({ ...f, features: e.target.value }))}
                 />
-                <p className="text-xs text-muted-foreground">Chaque élément sera affiché avec une coche ✓</p>
+                <p className="text-xs text-muted-foreground">{t("Affichage marketing sur la carte du plan")}</p>
               </div>
+              {editing && (
+                <div className="col-span-2 space-y-2 rounded-lg border bg-muted/30 p-3">
+                  <Label>{t("Fonctionnalités techniques (enforcement)")}</Label>
+                  {featuresLoading ? (
+                    <p className="text-sm text-muted-foreground">{t("Chargement…")}</p>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {planFeatures.map((feat, idx) => (
+                        <label
+                          key={feat.key}
+                          className="flex cursor-pointer items-center gap-2 text-sm"
+                        >
+                          <Checkbox
+                            checked={feat.enabled}
+                            onCheckedChange={(checked) => {
+                              setPlanFeatures((prev) =>
+                                prev.map((f, i) =>
+                                  i === idx ? { ...f, enabled: checked === true } : f
+                                )
+                              );
+                            }}
+                          />
+                          <span>{feat.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
+              <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? "Enregistrement…" : editing ? "Mettre à jour" : "Créer le plan"}
+                {submitting ? t("Enregistrement…") : editing ? t("Mettre à jour") : t("Créer le plan")}
               </Button>
             </div>
           </form>

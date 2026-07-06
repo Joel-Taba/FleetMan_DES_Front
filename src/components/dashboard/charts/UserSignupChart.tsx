@@ -11,14 +11,16 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientOnly } from "@/components/dashboard/ClientOnly";
+import { useLang } from "@/lib/i18n";
 
 type Props = { data: { month: string; count: number }[] };
 
 export function UserSignupChart({ data }: Props) {
+  const { t } = useLang();
   return (
     <Card className="lg:col-span-2">
       <CardHeader>
-        <CardTitle>Évolution des inscriptions</CardTitle>
+        <CardTitle>{t("Évolution des inscriptions")}</CardTitle>
       </CardHeader>
       <CardContent>
         <ClientOnly fallback={<div className="h-[280px] animate-pulse rounded-lg bg-muted" />}>

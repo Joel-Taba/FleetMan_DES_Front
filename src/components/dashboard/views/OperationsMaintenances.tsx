@@ -106,27 +106,27 @@ export function OperationsMaintenances() {
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3">Véhicule</th>
-                <th className="px-4 py-3 text-left">Objet</th>
-                <th className="px-4 py-3 text-left">Rapport</th>
-                <th className="px-4 py-3">Coût</th>
-                <th className="px-4 py-3">Chauffeur</th>
+                <th className="px-4 py-3 text-left align-middle">Date</th>
+                <th className="px-4 py-3 text-left align-middle">Véhicule</th>
+                <th className="px-4 py-3 text-left align-middle">Objet</th>
+                <th className="px-4 py-3 text-left align-middle">Rapport</th>
+                <th className="px-4 py-3 text-left align-middle">Coût</th>
+                <th className="px-4 py-3 text-left align-middle">Chauffeur</th>
               </tr>
             </thead>
             <tbody>
               {(maintenances ?? []).map((m) => (
                 <tr key={m.id} className="border-t">
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  <td className="px-4 py-3 align-middle whitespace-nowrap">
                     {m.dateTime ? new Date(m.dateTime).toLocaleString("fr-FR") : "—"}
                   </td>
-                  <td className="px-4 py-3"><LicensePlate plate={m.vehicleRegistration ?? "—"} /></td>
-                  <td className="px-4 py-3 font-medium">{m.subject}</td>
-                  <td className="px-4 py-3 max-w-xs truncate text-muted-foreground">{m.report ?? "—"}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 align-middle"><LicensePlate plate={m.vehicleRegistration ?? "—"} /></td>
+                  <td className="px-4 py-3 align-middle font-medium">{m.subject}</td>
+                  <td className="max-w-xs truncate px-4 py-3 align-middle text-muted-foreground">{m.report ?? "—"}</td>
+                  <td className="px-4 py-3 align-middle whitespace-nowrap">
                     {m.cost != null ? `${Number(m.cost).toLocaleString()} XAF` : "—"}
                   </td>
-                  <td className="px-4 py-3">{m.driverFullName ?? "—"}</td>
+                  <td className="px-4 py-3 align-middle">{m.driverFullName ?? "—"}</td>
                 </tr>
               ))}
             </tbody>

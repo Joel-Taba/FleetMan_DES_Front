@@ -1,19 +1,34 @@
-import type { PageResponse } from "@/lib/api/types/manager";
+import type {
+  ApiTrip,
+  BudgetResponse,
+  DriverDocumentResponse,
+  ExpenseResponse,
+  PageResponse,
+  VehicleDocumentResponse,
+} from "@/lib/api/types/manager";
+import { computeDocStatus } from "@/lib/documents";
 import {
+  assertMockPlanLimit,
+  buildActiveSubscriptions,
   buildComplianceReport,
   buildExpenseSummary,
   buildFleetKpi,
+  buildFleetKpiHistory,
+  buildVehicleKpiHistory,
   buildManagerKpis,
   buildManagerProfile,
+  buildManagerSubscription,
   buildPublicStats,
   DEMO_MANAGER_ID,
+  enabledFeaturesForPlan,
   getMockDatabase,
+  linkDriverToVehicleForTrip,
   saveMockDatabase,
+  unlinkDriverFromVehicleForTrip,
   type MockDatabase,
   type PendingSubscriptionRecord,
   type SubscriptionPlanRecord,
 } from "@/lib/mock-store";
-import type { BudgetResponse, ExpenseResponse } from "@/lib/api/types/manager";
 
 function delay(ms = 150) {
   return new Promise((r) => setTimeout(r, ms));
@@ -52,6 +67,11 @@ function referenceKind(pathname: string): string | null {
   return m?.[1] ?? null;
 }
 
+function daysUntil(expiryDate?: string | null): number {
+  if (!expiryDate) return 999;
+  return Math.ceil((new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
+
 export class MockApiProvider {
   private static db(): MockDatabase {
     return getMockDatabase();
@@ -59,6 +79,29 @@ export class MockApiProvider {
 
   private static persist(db: MockDatabase) {
     saveMockDatabase(db);
+  }
+
+  static async upload(
+    file: File,
+    category = "document"
+  ): Promise<{ fileUrl: string; originalName: string; mimeType: string; sizeBytes: number }> {
+    await delay();
+    const allowed = [".pdf", ".jpg", ".jpeg", ".png", ".webp"];
+    const ext = file.name.includes(".")
+      ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase()
+      : "";
+    if (!allowed.includes(ext)) {
+      throw new Error("Format non autorisé. Utilisez PDF, JPEG, PNG ou WebP.");
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      throw new Error("Fichier trop volumineux (max 10 Mo).");
+    }
+    return {
+      fileUrl: URL.createObjectURL(file),
+      originalName: file.name,
+      mimeType: file.type || "application/octet-stream",
+      sizeBytes: file.size,
+    };
   }
 
   static async get(path: string): Promise<unknown> {
@@ -72,6 +115,9 @@ export class MockApiProvider {
     // Manager profile & KPIs
     if (pathname === "/api/v1/fleet-managers/kpis") return buildManagerKpis(db);
     if (pathname === "/api/v1/fleet-managers/me") return buildManagerProfile(db);
+    if (pathname === "/api/v1/fleet-managers/me/subscription") {
+      return buildManagerSubscription(db, DEMO_MANAGER_ID);
+    }
 
     // Fleets
     if (pathname === "/api/v1/fleets") return db.fleets;
@@ -131,6 +177,9 @@ export class MockApiProvider {
     }
 
     // Trips
+    if (pathname === "/api/v1/trips/open") {
+      return db.trips.filter((t) => t.status === "DEPARTED" || t.status === "RETURNING");
+    }
     if (pathname === "/api/v1/trips") {
       let list = db.trips;
       const status = params.get("status");
@@ -229,10 +278,44 @@ export class MockApiProvider {
     const kpiHistory = pathname.match(/^\/api\/v1\/kpis\/fleet\/([^/]+)\/history$/);
     if (kpiHistory) {
       const fid = kpiHistory[1];
-      return [buildFleetKpi(fid), buildFleetKpi(fid)];
+      const period = params.get("period") ?? "MONTHLY";
+      const from = params.get("from") ?? new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
+      const to = params.get("to") ?? new Date().toISOString().slice(0, 10);
+      return buildFleetKpiHistory(fid, period, from, to);
     }
+
+    const vehicleKpiHistory = pathname.match(/^\/api\/v1\/kpis\/vehicle\/([^/]+)\/history$/);
+    if (vehicleKpiHistory) {
+      const vid = vehicleKpiHistory[1];
+      const vehicle = db.vehicles.find((v) => v.id === vid);
+      const fleetId = vehicle?.fleetId ?? db.fleets[0]?.id ?? "f1";
+      const period = params.get("period") ?? "MONTHLY";
+      const from = params.get("from") ?? new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
+      const to = params.get("to") ?? new Date().toISOString().slice(0, 10);
+      return buildVehicleKpiHistory(vid, fleetId, period, from, to);
+    }
+
+    const vehicleKpi = pathname.match(/^\/api\/v1\/kpis\/vehicle\/([^/?]+)$/);
+    if (vehicleKpi) {
+      const vid = vehicleKpi[1];
+      const vehicle = db.vehicles.find((v) => v.id === vid);
+      const fleetId = vehicle?.fleetId ?? db.fleets[0]?.id ?? "f1";
+      const period = params.get("period") ?? "MONTHLY";
+      const history = buildVehicleKpiHistory(
+        vid,
+        fleetId,
+        period,
+        new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
+        new Date().toISOString().slice(0, 10)
+      );
+      return history[history.length - 1] ?? buildFleetKpi(fleetId, period);
+    }
+
     const kpiFleet = pathname.match(/^\/api\/v1\/kpis\/fleet\/([^/?]+)$/);
-    if (kpiFleet) return buildFleetKpi(kpiFleet[1]);
+    if (kpiFleet) {
+      const period = params.get("period") ?? "MONTHLY";
+      return buildFleetKpi(kpiFleet[1], period);
+    }
 
     // Geofencing
     if (pathname === "/api/v1/geofence/my-zones") return db.geofenceZones;
@@ -268,6 +351,19 @@ export class MockApiProvider {
     // Super admin — plans & subscriptions
     if (pathname === "/api/v1/admin/super/plans") return db.subscriptionPlans;
     if (pathname === "/api/v1/admin/super/subscriptions/pending") return db.pendingSubscriptions;
+    if (pathname === "/api/v1/admin/super/subscriptions/history") {
+      return [...db.subscriptionHistory].sort(
+        (a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime()
+      );
+    }
+    if (pathname === "/api/v1/admin/super/subscriptions/active") {
+      return buildActiveSubscriptions(db);
+    }
+    const planFeaturesGet = pathname.match(/^\/api\/v1\/admin\/super\/plans\/([^/]+)\/features$/);
+    if (planFeaturesGet) {
+      const planId = planFeaturesGet[1];
+      return db.planFeatures[planId] ?? enabledFeaturesForPlan(planId);
+    }
 
     console.warn("[MOCK] GET non géré:", path);
     return [];
@@ -279,6 +375,9 @@ export class MockApiProvider {
     const { pathname } = parsePath(path);
 
     if (pathname === "/api/v1/fleets") {
+      const managerId =
+        db.users.find((u) => u.roles.includes("FLEET_MANAGER"))?.id ?? DEMO_MANAGER_ID;
+      assertMockPlanLimit(db, managerId, "fleet");
       const fleet = {
         id: `f-${Date.now()}`,
         name: String(body.name ?? "Nouvelle flotte"),
@@ -289,6 +388,38 @@ export class MockApiProvider {
       db.fleets.push(fleet);
       this.persist(db);
       return fleet;
+    }
+
+    if (pathname === "/api/v1/vehicles") {
+      assertMockPlanLimit(db, DEMO_MANAGER_ID, "vehicle");
+      const fleetId = String(body.fleetId ?? "f1");
+      const id = `v-${Date.now()}`;
+      const vehicle = {
+        id,
+        fleetId,
+        managerId: DEMO_MANAGER_ID,
+        currentDriverId: null,
+        vehicleTypeId: String(body.vehicleTypeId ?? "vt-truck"),
+        licensePlate: String(body.licensePlate ?? `XX-${id.slice(-3)}`),
+        vehicleSerialNumber: String(body.vehicleSerialNumber ?? `VIN-${id}`),
+        brand: String(body.brand ?? "Toyota"),
+        model: String(body.model ?? "Hilux"),
+        manufacturingYear: Number(body.manufacturingYear ?? 2022),
+        transmissionType: String(body.transmissionType ?? "MANUAL"),
+        fuelType: String(body.fuelType ?? "DIESEL"),
+        tankCapacity: Number(body.tankCapacity ?? 80),
+        totalSeatNumber: Number(body.totalSeatNumber ?? 3),
+        averageFuelConsumption: Number(body.averageFuelConsumption ?? 12),
+        color: String(body.color ?? "Bleu"),
+        status: "AVAILABLE",
+        photoUrl: null,
+        financialParameters: body.financialParameters ?? null,
+      };
+      db.vehicles.push(vehicle as (typeof db.vehicles)[number]);
+      const fleet = db.fleets.find((f) => f.id === fleetId);
+      if (fleet) fleet.vehicleCount = (fleet.vehicleCount ?? 0) + 1;
+      this.persist(db);
+      return vehicle;
     }
 
     if (pathname === "/api/v1/budget/budgets") {
@@ -347,14 +478,180 @@ export class MockApiProvider {
       const code = String(body.tripCode ?? "").toUpperCase();
       const trip = db.trips.find((t) => t.tripCode?.toUpperCase() === code);
       if (!trip) throw new Error("Trajet introuvable");
+      if (trip.status === "COMPLETED" || trip.status === "CANCELLED") {
+        throw new Error("Trajet déjà clôturé");
+      }
+      const returnKm = body.returnKmIndex != null ? Number(body.returnKmIndex) : null;
+      const returnFuel = body.returnFuelIndex != null ? Number(body.returnFuelIndex) : null;
       trip.status = "COMPLETED";
       trip.endDate = String(body.returnDate ?? new Date().toISOString().slice(0, 10));
       trip.endTime = String(body.returnTime ?? "18:00:00");
-      if (body.returnKmIndex != null && trip.distanceKm == null) {
-        trip.distanceKm = Number(body.returnKmIndex);
+      trip.returnLocation = body.returnLocation ? String(body.returnLocation) : trip.departureLocation ?? null;
+      trip.returnLat = body.returnLat != null ? Number(body.returnLat) : trip.departureLat ?? null;
+      trip.returnLng = body.returnLng != null ? Number(body.returnLng) : trip.departureLng ?? null;
+      trip.returnKmIndex = returnKm;
+      trip.returnFuelIndex = returnFuel;
+      if (returnKm != null && trip.departureKmIndex != null) {
+        const dist = returnKm - trip.departureKmIndex;
+        trip.computedDistanceKm = dist > 0 ? dist : 0;
+        trip.distanceKm = trip.computedDistanceKm;
+      }
+      if (returnFuel != null && trip.departureFuelIndex != null) {
+        const fuel = trip.departureFuelIndex - returnFuel;
+        trip.computedFuelConsumed = fuel > 0 ? fuel : 0;
+      }
+      const vehicle = db.vehicles.find((v) => v.id === trip.vehicleId);
+      if (vehicle) vehicle.status = "AVAILABLE";
+      unlinkDriverFromVehicleForTrip(db, trip.driverId, trip.vehicleId);
+      const assignment = db.assignments.find(
+        (a) => a.missionId === trip.id || a.notes?.includes(trip.tripCode ?? "")
+      );
+      if (assignment) {
+        assignment.status = "COMPLETED";
+        assignment.endDatetime = new Date().toISOString();
+        if (trip.computedDistanceKm != null) assignment.actualKm = trip.computedDistanceKm;
       }
       this.persist(db);
       return trip;
+    }
+
+    if (pathname === "/api/v1/trips") {
+      const vehicle = db.vehicles.find((v) => v.id === body.vehicleId);
+      const driverBusy = db.trips.some(
+        (t) =>
+          t.driverId === body.driverId &&
+          (t.status === "DEPARTED" || t.status === "RETURNING")
+      );
+      if (driverBusy) throw new Error("Ce conducteur est déjà affecté à un trajet en cours.");
+      const vehicleBusy = db.trips.some(
+        (t) =>
+          t.vehicleId === body.vehicleId &&
+          (t.status === "DEPARTED" || t.status === "RETURNING")
+      );
+      if (vehicleBusy || (vehicle && vehicle.status === "ON_TRIP")) {
+        throw new Error("Ce véhicule est déjà utilisé pour une autre course.");
+      }
+      const seq = db.trips.length + 1;
+      const tripCode = `TRJ-2026-${String(seq).padStart(4, "0")}`;
+      const details = Array.isArray(body.details)
+        ? (body.details as Array<Record<string, unknown>>).map((d, i) => ({
+            id: `td-new-${Date.now()}-${i}`,
+            itemType: String(d.itemType ?? "OTHER"),
+            description: d.description ? String(d.description) : "",
+            quantity: Number(d.quantity ?? 0),
+            departureQuantity: Number(d.departureQuantity ?? d.quantity ?? 0),
+          }))
+        : [];
+      const trip: ApiTrip = {
+        id: `t-${Date.now()}`,
+        vehicleId: String(body.vehicleId),
+        driverId: String(body.driverId),
+        fleetId: String(body.fleetId ?? vehicle?.fleetId ?? "f1"),
+        status: "DEPARTED",
+        startDate: String(body.startDate ?? new Date().toISOString().slice(0, 10)),
+        startTime: String(body.startTime ?? "08:00:00"),
+        endDate: null,
+        endTime: null,
+        distanceKm: null,
+        durationMinutes: null,
+        tripCode,
+        departureKmIndex: body.departureKmIndex != null ? Number(body.departureKmIndex) : null,
+        departureFuelIndex: body.departureFuelIndex != null ? Number(body.departureFuelIndex) : null,
+        departureLocation: body.departureLocation ? String(body.departureLocation) : null,
+        departureLat: body.departureLat != null ? Number(body.departureLat) : null,
+        departureLng: body.departureLng != null ? Number(body.departureLng) : null,
+        missionObject: body.missionObject ? String(body.missionObject) : null,
+        missionCost: body.missionCost != null ? Number(body.missionCost) : null,
+        missionCostCurrency: body.missionCostCurrency ? String(body.missionCostCurrency) : "XAF",
+        departureRegisteredAt: new Date().toISOString(),
+        details,
+      };
+      if (vehicle) vehicle.status = "ON_TRIP";
+      linkDriverToVehicleForTrip(db, trip.driverId, trip.vehicleId);
+      db.trips.unshift(trip);
+      const startIso = `${trip.startDate}T${trip.startTime ?? "08:00:00"}`;
+      const endDate = new Date(startIso);
+      endDate.setHours(endDate.getHours() + 8);
+      db.assignments.unshift({
+        id: `a-trip-${trip.id}`,
+        scheduleId: db.schedules[0]?.id ?? "s1",
+        fleetId: trip.fleetId ?? vehicle?.fleetId ?? "f1",
+        vehicleId: trip.vehicleId,
+        driverId: trip.driverId,
+        missionId: trip.id,
+        startDatetime: startIso,
+        endDatetime: endDate.toISOString(),
+        status: "IN_PROGRESS",
+        startLocation: trip.departureLocation ?? "Départ mission",
+        endLocation: null,
+        estimatedKm: null,
+        actualKm: null,
+        notes: trip.tripCode ? `Trajet ${trip.tripCode}` : null,
+        createdAt: new Date().toISOString(),
+      });
+      this.persist(db);
+      return trip;
+    }
+
+    const vehicleDocPost = pathname.match(/^\/api\/v1\/vehicles\/([^/]+)\/documents$/);
+    if (vehicleDocPost) {
+      const vehicleId = vehicleDocPost[1];
+      const vehicle = db.vehicles.find((v) => v.id === vehicleId);
+      if (!vehicle) throw new Error("Véhicule introuvable");
+      const expiry = body.expiryDate ? String(body.expiryDate) : null;
+      const status = computeDocStatus(expiry);
+      const doc: VehicleDocumentResponse = {
+        id: `vd-${Date.now()}`,
+        vehicleId,
+        docType: String(body.docType ?? "OTHER"),
+        docNumber: String(body.docNumber ?? `DOC-${Date.now()}`),
+        issuer: body.issuer ? String(body.issuer) : null,
+        issueDate: body.issueDate ? String(body.issueDate) : null,
+        expiryDate: expiry,
+        fileUrl: String(body.fileUrl ?? ""),
+        fileMimeType: body.fileMimeType ? String(body.fileMimeType) : null,
+        fileOriginalName: body.fileOriginalName ? String(body.fileOriginalName) : null,
+        fileSizeBytes: body.fileSizeBytes != null ? Number(body.fileSizeBytes) : null,
+        status,
+        daysUntilExpiry: daysUntil(expiry),
+        notes: body.notes ? String(body.notes) : null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      db.vehicleDocuments.push(doc);
+      this.persist(db);
+      return doc;
+    }
+
+    const driverDocPost = pathname.match(/^\/api\/v1\/drivers\/([^/]+)\/documents$/);
+    if (driverDocPost) {
+      const driverId = driverDocPost[1];
+      const driver = db.drivers.find((d) => d.userId === driverId);
+      if (!driver) throw new Error("Conducteur introuvable");
+      const expiry = body.expiryDate ? String(body.expiryDate) : null;
+      const status = computeDocStatus(expiry);
+      const doc: DriverDocumentResponse = {
+        id: `dd-${Date.now()}`,
+        driverId,
+        docType: String(body.docType ?? "OTHER"),
+        docNumber: String(body.docNumber ?? `DOC-${Date.now()}`),
+        issuer: body.issuer ? String(body.issuer) : null,
+        issueDate: body.issueDate ? String(body.issueDate) : null,
+        expiryDate: expiry,
+        fileUrl: String(body.fileUrl ?? ""),
+        fileMimeType: body.fileMimeType ? String(body.fileMimeType) : null,
+        fileOriginalName: body.fileOriginalName ? String(body.fileOriginalName) : null,
+        fileSizeBytes: body.fileSizeBytes != null ? Number(body.fileSizeBytes) : null,
+        status,
+        daysUntilExpiry: daysUntil(expiry),
+        notes: body.notes ? String(body.notes) : null,
+        licenseCategories: body.licenseCategories ? String(body.licenseCategories) : null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      db.driverDocuments.push(doc);
+      this.persist(db);
+      return doc;
     }
 
     const recalcBudget = pathname.match(/^\/api\/v1\/budget\/budgets\/([^/]+)\/recalculate$/);
@@ -399,7 +696,7 @@ export class MockApiProvider {
         vehicleId: String(body.vehicleId),
         vehicleRegistration: vehicle?.licensePlate ?? null,
         driverId: body.driverId ? String(body.driverId) : null,
-        driverFullName: null,
+        driverFullName: body.reportedBy ? String(body.reportedBy) : null,
       };
       db.incidents.unshift(incident);
       this.persist(db);
@@ -445,6 +742,72 @@ export class MockApiProvider {
       return fr;
     }
 
+    if (pathname === "/api/v1/schedules") {
+      const schedule = {
+        id: `s-${Date.now()}`,
+        fleetId: String(body.fleetId ?? db.fleets[0]?.id ?? "f1"),
+        managerId: DEMO_MANAGER_ID,
+        title: String(body.title ?? "Nouveau planning"),
+        periodType: String(body.periodType ?? "WEEKLY"),
+        startDate: String(body.startDate ?? new Date().toISOString().slice(0, 10)),
+        endDate: String(body.endDate ?? new Date().toISOString().slice(0, 10)),
+        status: "DRAFT",
+        notes: body.notes ? String(body.notes) : null,
+        createdAt: new Date().toISOString(),
+      };
+      db.schedules.unshift(schedule);
+      this.persist(db);
+      return schedule;
+    }
+
+    if (pathname === "/api/v1/drivers") {
+      assertMockPlanLimit(db, DEMO_MANAGER_ID, "driver");
+      const firstName = String(body.firstName ?? "Nouveau");
+      const lastName = String(body.lastName ?? "Conducteur");
+      const userId = `d-${Date.now()}`;
+      const newDriver = {
+        userId,
+        fleetId: String(body.fleetId ?? db.fleets[0]?.id ?? "f1"),
+        managerId: DEMO_MANAGER_ID,
+        firstName,
+        lastName,
+        email: body.email ? String(body.email) : `${firstName.toLowerCase()}.${lastName.toLowerCase()}@fleetman.cm`,
+        phone: body.phone ? String(body.phone) : "+237690000000",
+        username: `${firstName.toLowerCase()}.${lastName.toLowerCase()}`,
+        licenceNumber: String(body.licenceNumber ?? `LIC-${Date.now().toString().slice(-6)}`),
+        status: "ACTIVE",
+        assignedVehicleId: null,
+        photoUrl: null,
+      };
+      db.drivers.push(newDriver);
+      this.persist(db);
+      return newDriver;
+    }
+
+    if (pathname === "/api/v1/assignments") {
+      const vehicle = db.vehicles.find((v) => v.id === body.vehicleId);
+      const assignment = {
+        id: `a-${Date.now()}`,
+        scheduleId: String(body.scheduleId ?? db.schedules[0]?.id ?? "s1"),
+        fleetId: String(body.fleetId ?? vehicle?.fleetId ?? "f1"),
+        vehicleId: String(body.vehicleId),
+        driverId: String(body.driverId),
+        missionId: body.missionId ? String(body.missionId) : null,
+        startDatetime: String(body.startDatetime ?? new Date().toISOString()),
+        endDatetime: String(body.endDatetime ?? new Date(Date.now() + 8 * 3600000).toISOString()),
+        status: "PLANNED",
+        startLocation: body.startLocation ? String(body.startLocation) : null,
+        endLocation: body.endLocation ? String(body.endLocation) : null,
+        estimatedKm: body.estimatedKm != null ? Number(body.estimatedKm) : null,
+        actualKm: null,
+        notes: body.notes ? String(body.notes) : null,
+        createdAt: new Date().toISOString(),
+      };
+      db.assignments.unshift(assignment);
+      this.persist(db);
+      return assignment;
+    }
+
     if (pathname === "/api/v1/admin/super/plans") {
       const now = new Date().toISOString();
       const plan: SubscriptionPlanRecord = {
@@ -463,6 +826,7 @@ export class MockApiProvider {
         updatedAt: now,
       };
       db.subscriptionPlans.push(plan);
+      db.planFeatures[plan.id] = enabledFeaturesForPlan(plan.id);
       this.persist(db);
       return plan;
     }
@@ -489,12 +853,114 @@ export class MockApiProvider {
     const db = this.db();
     const { pathname } = parsePath(path);
 
+    if (pathname === "/api/v1/fleet-managers/me/company") {
+      const user = db.users.find((u) => u.id === DEMO_MANAGER_ID);
+      if (user) {
+        user.companyName = String(body.companyName ?? user.companyName ?? "");
+        const mgr = db.fleetManagers.find((m) => m.id === DEMO_MANAGER_ID);
+        if (mgr) mgr.companyName = user.companyName;
+      }
+      this.persist(db);
+      return undefined;
+    }
+
     const fleetId = idFromPath(pathname, "/api/v1/fleets");
     if (fleetId) {
       const fleet = db.fleets.find((f) => f.id === fleetId);
       if (fleet) fleet.name = String(body.name ?? fleet.name);
       this.persist(db);
       return fleet;
+    }
+
+    const vehicleGalleryPut = pathname.match(/^\/api\/v1\/vehicles\/([^/]+)\/gallery$/);
+    if (vehicleGalleryPut) {
+      const vehicle = db.vehicles.find((v) => v.id === vehicleGalleryPut[1]);
+      if (vehicle) {
+        if (body.photoUrl !== undefined) vehicle.photoUrl = body.photoUrl ? String(body.photoUrl) : null;
+        if (Array.isArray(body.galleryUrls)) {
+          vehicle.galleryUrls = body.galleryUrls.map(String);
+          if (!vehicle.photoUrl && vehicle.galleryUrls.length > 0) {
+            vehicle.photoUrl = vehicle.galleryUrls[0];
+          }
+        }
+      }
+      this.persist(db);
+      return vehicle;
+    }
+
+    const vehicleDocPut = pathname.match(/^\/api\/v1\/vehicles\/([^/]+)\/documents\/([^/]+)$/);
+    if (vehicleDocPut) {
+      const doc = db.vehicleDocuments.find((d) => d.id === vehicleDocPut[2]);
+      if (doc) {
+        if (body.docType != null) doc.docType = String(body.docType);
+        if (body.docNumber != null) doc.docNumber = String(body.docNumber);
+        if (body.issuer !== undefined) doc.issuer = body.issuer ? String(body.issuer) : null;
+        if (body.issueDate !== undefined) doc.issueDate = body.issueDate ? String(body.issueDate) : null;
+        if (body.expiryDate !== undefined) doc.expiryDate = body.expiryDate ? String(body.expiryDate) : null;
+        if (body.notes !== undefined) doc.notes = body.notes ? String(body.notes) : null;
+        if (body.fileUrl != null) doc.fileUrl = String(body.fileUrl);
+        doc.status = computeDocStatus(doc.expiryDate);
+        doc.daysUntilExpiry = daysUntil(doc.expiryDate);
+        doc.updatedAt = new Date().toISOString();
+      }
+      this.persist(db);
+      return doc;
+    }
+
+    const driverDocPut = pathname.match(/^\/api\/v1\/drivers\/([^/]+)\/documents\/([^/]+)$/);
+    if (driverDocPut) {
+      const doc = db.driverDocuments.find((d) => d.id === driverDocPut[2]);
+      if (doc) {
+        if (body.docType != null) doc.docType = String(body.docType);
+        if (body.docNumber != null) doc.docNumber = String(body.docNumber);
+        if (body.issuer !== undefined) doc.issuer = body.issuer ? String(body.issuer) : null;
+        if (body.issueDate !== undefined) doc.issueDate = body.issueDate ? String(body.issueDate) : null;
+        if (body.expiryDate !== undefined) doc.expiryDate = body.expiryDate ? String(body.expiryDate) : null;
+        if (body.notes !== undefined) doc.notes = body.notes ? String(body.notes) : null;
+        if (body.licenseCategories !== undefined) {
+          doc.licenseCategories = body.licenseCategories ? String(body.licenseCategories) : null;
+        }
+        if (body.fileUrl != null) doc.fileUrl = String(body.fileUrl);
+        doc.status = computeDocStatus(doc.expiryDate);
+        doc.daysUntilExpiry = daysUntil(doc.expiryDate);
+        doc.updatedAt = new Date().toISOString();
+      }
+      this.persist(db);
+      return doc;
+    }
+
+    const driverPut = idFromPath(pathname, "/api/v1/drivers");
+    if (driverPut && !pathname.includes("/documents")) {
+      const driver = db.drivers.find((d) => d.userId === driverPut);
+      if (driver) {
+        if (body.firstName != null) driver.firstName = String(body.firstName);
+        if (body.lastName != null) driver.lastName = String(body.lastName);
+        if (body.email != null) driver.email = String(body.email);
+        if (body.phone != null) driver.phone = String(body.phone);
+        if (body.licenceNumber != null) driver.licenceNumber = String(body.licenceNumber);
+        if (body.status != null) driver.status = String(body.status);
+        if (body.photoUrl !== undefined) driver.photoUrl = body.photoUrl ? String(body.photoUrl) : null;
+        if (body.fleetId != null) driver.fleetId = String(body.fleetId);
+      }
+      this.persist(db);
+      return driver;
+    }
+
+    const vehicleId = idFromPath(pathname, "/api/v1/vehicles");
+    if (vehicleId && !pathname.includes("/documents") && !pathname.includes("/gallery")) {
+      const vehicle = db.vehicles.find((v) => v.id === vehicleId);
+      if (vehicle) {
+        if (body.licensePlate != null) vehicle.licensePlate = String(body.licensePlate);
+        if (body.brand != null) vehicle.brand = String(body.brand);
+        if (body.model != null) vehicle.model = String(body.model);
+        if (body.manufacturingYear != null) vehicle.manufacturingYear = Number(body.manufacturingYear);
+        if (body.fuelType != null) vehicle.fuelType = String(body.fuelType);
+        if (body.transmissionType != null) vehicle.transmissionType = String(body.transmissionType);
+        if (body.color != null) vehicle.color = String(body.color);
+        if (body.status != null) vehicle.status = String(body.status);
+      }
+      this.persist(db);
+      return vehicle;
     }
 
     const planId = idFromPath(pathname, "/api/v1/admin/super/plans");
@@ -515,6 +981,22 @@ export class MockApiProvider {
       }
       this.persist(db);
       return plan;
+    }
+
+    const planFeaturesPut = pathname.match(/^\/api\/v1\/admin\/super\/plans\/([^/]+)\/features$/);
+    if (planFeaturesPut) {
+      const planId = planFeaturesPut[1];
+      const features = Array.isArray(body.features) ? body.features : [];
+      db.planFeatures[planId] = features.map((f) => {
+        const row = f as { key?: string; label?: string; enabled?: boolean };
+        return {
+          key: String(row.key ?? ""),
+          label: String(row.label ?? row.key ?? ""),
+          enabled: row.enabled !== false,
+        };
+      });
+      this.persist(db);
+      return undefined;
     }
 
     const refKind = referenceKind(pathname);
@@ -626,6 +1108,37 @@ export class MockApiProvider {
 
     const approveSub = pathname.match(/^\/api\/v1\/admin\/super\/subscriptions\/([^/]+)\/approve$/);
     if (approveSub) {
+      const pending = db.pendingSubscriptions.find((s) => s.id === approveSub[1]);
+      if (pending) {
+        const plan = body?.planId
+          ? db.subscriptionPlans.find((p) => p.id === String(body.planId))
+          : null;
+        db.subscriptionHistory.unshift({
+          id: `sub-hist-${Date.now()}`,
+          username: pending.username,
+          email: pending.email,
+          firstName: pending.firstName,
+          lastName: pending.lastName,
+          companyName: pending.companyName,
+          requestedAt: pending.createdAt,
+          processedAt: new Date().toISOString(),
+          status: "APPROVED",
+          planName: plan?.name ?? null,
+          processedBy: "Super Admin",
+        });
+        if (body?.planId) {
+          const start = new Date();
+          const end = new Date(start);
+          end.setFullYear(end.getFullYear() + 1);
+          const newManagerId = `user-mgr-${Date.now()}`;
+          db.managerSubscriptions[newManagerId] = {
+            planId: String(body.planId),
+            subscriptionStatus: "ACTIVE",
+            subscriptionStart: start.toISOString().slice(0, 10),
+            subscriptionEnd: end.toISOString().slice(0, 10),
+          };
+        }
+      }
       db.pendingSubscriptions = db.pendingSubscriptions.filter((s) => s.id !== approveSub[1]);
       this.persist(db);
       return undefined;
@@ -633,9 +1146,77 @@ export class MockApiProvider {
 
     const rejectSub = pathname.match(/^\/api\/v1\/admin\/super\/subscriptions\/([^/]+)\/reject$/);
     if (rejectSub) {
+      const pending = db.pendingSubscriptions.find((s) => s.id === rejectSub[1]);
+      if (pending) {
+        db.subscriptionHistory.unshift({
+          id: `sub-hist-${Date.now()}`,
+          username: pending.username,
+          email: pending.email,
+          firstName: pending.firstName,
+          lastName: pending.lastName,
+          companyName: pending.companyName,
+          requestedAt: pending.createdAt,
+          processedAt: new Date().toISOString(),
+          status: "REJECTED",
+          rejectionReason: body?.reason ? String(body.reason) : null,
+          processedBy: "Super Admin",
+        });
+      }
       db.pendingSubscriptions = db.pendingSubscriptions.filter((s) => s.id !== rejectSub[1]);
       this.persist(db);
       return undefined;
+    }
+
+    const updateAssignment = pathname.match(/^\/api\/v1\/assignments\/([^/]+)$/);
+    if (updateAssignment && body) {
+      const assignment = db.assignments.find((a) => a.id === updateAssignment[1]);
+      if (assignment) {
+        if (body.vehicleId) assignment.vehicleId = String(body.vehicleId);
+        if (body.driverId) assignment.driverId = String(body.driverId);
+      }
+      this.persist(db);
+      return assignment;
+    }
+
+    const cancelTrip = pathname.match(/^\/api\/v1\/trips\/([^/]+)\/cancel$/);
+    if (cancelTrip) {
+      const trip = db.trips.find((t) => t.id === cancelTrip[1]);
+      if (trip) {
+        trip.status = "CANCELLED";
+        const vehicle = db.vehicles.find((v) => v.id === trip.vehicleId);
+        if (vehicle && vehicle.status === "ON_TRIP") vehicle.status = "AVAILABLE";
+        unlinkDriverFromVehicleForTrip(db, trip.driverId, trip.vehicleId);
+      }
+      this.persist(db);
+      return trip;
+    }
+
+    const updateTrip = idFromPath(pathname, "/api/v1/trips");
+    if (updateTrip && !pathname.endsWith("/cancel") && !pathname.endsWith("/driver") && !pathname.endsWith("/vehicle")) {
+      const trip = db.trips.find((t) => t.id === updateTrip);
+      if (trip) {
+        if (body?.missionObject != null) trip.missionObject = String(body.missionObject);
+        if (body?.missionCost != null) trip.missionCost = Number(body.missionCost);
+        if (body?.departureLocation != null) trip.departureLocation = String(body.departureLocation);
+      }
+      this.persist(db);
+      return trip;
+    }
+
+    const updateTripDriver = pathname.match(/^\/api\/v1\/trips\/([^/]+)\/driver$/);
+    if (updateTripDriver && body?.newDriverId) {
+      const trip = db.trips.find((t) => t.id === updateTripDriver[1]);
+      if (trip) trip.driverId = String(body.newDriverId);
+      this.persist(db);
+      return trip;
+    }
+
+    const updateTripVehicle = pathname.match(/^\/api\/v1\/trips\/([^/]+)\/vehicle$/);
+    if (updateTripVehicle && body?.newVehicleId) {
+      const trip = db.trips.find((t) => t.id === updateTripVehicle[1]);
+      if (trip) trip.vehicleId = String(body.newVehicleId);
+      this.persist(db);
+      return trip;
     }
 
     return body ?? { success: true };
@@ -645,6 +1226,23 @@ export class MockApiProvider {
     await delay();
     const db = this.db();
     const { pathname } = parsePath(path);
+
+    const tripId = idFromPath(pathname, "/api/v1/trips");
+    if (tripId) {
+      db.trips = db.trips.filter((t) => t.id !== tripId);
+      this.persist(db);
+      return undefined;
+    }
+
+    const vehicleId = idFromPath(pathname, "/api/v1/vehicles");
+    if (vehicleId && !pathname.includes("/documents")) {
+      db.vehicles = db.vehicles.filter((v) => v.id !== vehicleId);
+      db.drivers.forEach((d) => {
+        if (d.assignedVehicleId === vehicleId) d.assignedVehicleId = null;
+      });
+      this.persist(db);
+      return undefined;
+    }
 
     const fleetId = idFromPath(pathname, "/api/v1/fleets");
     if (fleetId) {
@@ -672,6 +1270,22 @@ export class MockApiProvider {
     if (refKind) {
       const refId = idFromPath(pathname, `/api/v1/admin/resources/${refKind}`);
       db.references[refKind] = (db.references[refKind] ?? []).filter((x) => x.id !== refId);
+      this.persist(db);
+      return undefined;
+    }
+
+    const vehicleDocDelete = pathname.match(/^\/api\/v1\/vehicles\/([^/]+)\/documents\/([^/]+)$/);
+    if (vehicleDocDelete) {
+      const docId = vehicleDocDelete[2];
+      db.vehicleDocuments = db.vehicleDocuments.filter((d) => d.id !== docId);
+      this.persist(db);
+      return undefined;
+    }
+
+    const driverDocDelete = pathname.match(/^\/api\/v1\/drivers\/([^/]+)\/documents\/([^/]+)$/);
+    if (driverDocDelete) {
+      const docId = driverDocDelete[2];
+      db.driverDocuments = db.driverDocuments.filter((d) => d.id !== docId);
       this.persist(db);
       return undefined;
     }

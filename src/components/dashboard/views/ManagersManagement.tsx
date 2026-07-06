@@ -58,15 +58,15 @@ export function ManagersManagement() {
   return (
     <div>
       <PageHeader
-        title="Gestionnaires de Flottes"
-        description="Supervisez les managers de votre tenant."
+        title={t("Gestionnaires de Flottes")}
+        description={t("Supervisez les managers de votre tenant.")}
       />
 
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Rechercher..."
+            placeholder={t("Rechercher...")}
             className="pl-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -77,9 +77,9 @@ export function ManagersManagement() {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
-          <option value="all">Tous</option>
-          <option value="active">Actifs</option>
-          <option value="inactive">Inactifs</option>
+          <option value="all">{t("Tous")}</option>
+          <option value="active">{t("Actifs")}</option>
+          <option value="inactive">{t("Inactifs")}</option>
         </select>
       </div>
 
@@ -116,7 +116,7 @@ export function ManagersManagement() {
                     </td>
                     <td className="px-4 py-4">
                       <Badge variant={active ? "success" : "muted"}>
-                        {active ? "Actif" : "Inactif"}
+                        {active ? t("Actif") : t("Inactif")}
                       </Badge>
                     </td>
                     <td className="hidden px-4 py-4 text-muted-foreground lg:table-cell">
@@ -124,7 +124,7 @@ export function ManagersManagement() {
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex items-center justify-end gap-2">
-                        <Tooltip label={active ? "Désactiver" : "Activer"}>
+                        <Tooltip label={active ? t("Désactiver") : t("Activer")}>
                           <Switch
                             checked={active}
                             disabled={togglingId === m.id}
@@ -148,7 +148,7 @@ export function ManagersManagement() {
             </tbody>
           </table>
           <div className="flex items-center justify-between border-t px-4 py-3 text-sm text-muted-foreground">
-            <span>{filtered.length} gestionnaire(s)</span>
+            <span>{filtered.length} {t("gestionnaire(s)")}</span>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" disabled>
                 <ChevronLeft className="h-4 w-4" />

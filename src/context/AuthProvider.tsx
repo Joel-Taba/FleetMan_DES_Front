@@ -26,6 +26,7 @@ type AuthContextValue = {
   login: (identifier: string, password: string) => Promise<void>;
   logout: () => void;
   hasRole: (role: UserRole) => boolean;
+  updateProfile: (patch: Partial<AuthUser>) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -56,6 +57,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.replace("/login");
   }, [router]);
 
+  const updateProfile = useCallback((patch: Partial<AuthUser>) => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const next: AuthSession = {
+        ...prev,
+        user: { ...prev.user, ...patch },
+      };
+      saveSession(next);
+      return next;
+    });
+  }, []);
+
   const hasRole = useCallback(
     (role: UserRole) => session?.user.roles.includes(role) ?? false,
     [session]
@@ -69,8 +82,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       hasRole,
+      updateProfile,
     }),
-    [session, isLoading, login, logout, hasRole]
+    [session, isLoading, login, logout, hasRole, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

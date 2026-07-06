@@ -11,14 +11,16 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientOnly } from "@/components/dashboard/ClientOnly";
+import { useLang } from "@/lib/i18n";
 
 type Props = { data: { type: string; count: number }[] };
 
 export function VehicleBarChart({ data }: Props) {
+  const { t } = useLang();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Véhicules par type</CardTitle>
+        <CardTitle>{t("Véhicules par type")}</CardTitle>
       </CardHeader>
       <CardContent>
         <ClientOnly fallback={<div className="h-[240px] animate-pulse rounded-lg bg-muted" />}>

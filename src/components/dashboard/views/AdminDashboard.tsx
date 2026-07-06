@@ -16,8 +16,10 @@ import {
   fetchReferenceItems,
 } from "@/lib/api/admin";
 import { formatLastLogin, managerFullName } from "@/lib/api/mappers/admin";
+import { useLang } from "@/lib/i18n";
 
 export function AdminDashboard() {
+  const { t } = useLang();
   const [period, setPeriod] = useState("Ce mois");
 
   const { data: managers, loading: managersLoading, error: managersError } = useApiQuery(
@@ -29,8 +31,8 @@ export function AdminDashboard() {
 
   const chartData = useMemo(
     () =>
-      (vehicleTypes ?? []).map((t) => ({
-        type: t.code,
+      (vehicleTypes ?? []).map((vt) => ({
+        type: vt.code,
         count: 1,
       })),
     [vehicleTypes]
@@ -43,31 +45,37 @@ export function AdminDashboard() {
       .slice(0, 5)
       .map((m) => ({
         id: m.id,
-        text: `${managerFullName(m)} — dernière connexion`,
+        text: `${managerFullName(m)}${t(" — dernière connexion")}`,
         time: formatLastLogin(m.lastLoginAt),
       }));
-  }, [managers]);
+  }, [managers, t]);
 
   const managerCount = managers?.length ?? stats?.activeManagers ?? 0;
   const fleetCount = stats?.totalFleets ?? 0;
   const refCount = vehicleTypes?.length ?? 0;
 
+  const shortcuts = [
+    t("Types de véhicules"),
+    t("Marques"),
+    t("Modèles"),
+  ];
+
   return (
     <div>
       <PageHeader
-        title="Vue d'ensemble Admin"
-        description="Ressources opérationnelles de votre organisation."
+        title={t("Vue d'ensemble Admin")}
+        description={t("Ressources opérationnelles de votre organisation.")}
       >
         <PeriodSelector value={period} onChange={setPeriod} />
       </PageHeader>
 
       <DataGate loading={managersLoading} error={managersError}>
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <StatCard title="Gestionnaires" value={String(managerCount)} icon={Users} />
-          <StatCard title="Flottes" value={String(fleetCount)} icon={Truck} />
-          <StatCard title="Types véhicules" value={String(refCount)} icon={MapPin} />
+          <StatCard title={t("Gestionnaires")} value={String(managerCount)} icon={Users} />
+          <StatCard title={t("Flottes")} value={String(fleetCount)} icon={Truck} />
+          <StatCard title={t("Types véhicules")} value={String(refCount)} icon={MapPin} />
           <StatCard
-            title="Véhicules gérés"
+            title={t("Véhicules gérés")}
             value={String(stats?.managedVehicles ?? "—")}
             icon={FileWarning}
             accent="warning"
@@ -80,17 +88,17 @@ export function AdminDashboard() {
           ) : (
             <Card>
               <CardContent className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-                Aucun type de véhicule configuré.
+                {t("Aucun type de véhicule configuré.")}
               </CardContent>
             </Card>
           )}
           <Card>
             <CardHeader>
-              <CardTitle>5 dernières activités</CardTitle>
+              <CardTitle>{t("5 dernières activités")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {activities.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Aucune activité récente.</p>
+                <p className="text-sm text-muted-foreground">{t("Aucune activité récente.")}</p>
               ) : (
                 activities.map((a) => (
                   <div key={a.id} className="flex gap-3 border-b border-border pb-3 last:border-0">
@@ -107,14 +115,14 @@ export function AdminDashboard() {
         </div>
 
         <div className="mt-8">
-          <h2 className="mb-4 font-display text-lg font-semibold">Raccourcis référentiels</h2>
+          <h2 className="mb-4 font-display text-lg font-semibold">{t("Raccourcis référentiels")}</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {["Types de véhicules", "Marques", "Modèles"].map((label) => (
+            {shortcuts.map((label) => (
               <Link key={label} href="/dashboard/admin/references">
                 <Card className="transition-all hover:-translate-y-1 hover:border-primary/30">
                   <CardContent className="flex items-center gap-3 p-4">
                     <Database className="h-8 w-8 text-primary" />
-                    <span className="font-medium">Gérer les {label}</span>
+                    <span className="font-medium">{t("Gérer les")} {label}</span>
                   </CardContent>
                 </Card>
               </Link>

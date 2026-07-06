@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import Image from "next/image";
+import { Camera } from "lucide-react";
 import { useAuth } from "@/context/AuthProvider";
 import { useLang } from "@/lib/i18n";
 import { PageHeader } from "../PageHeader";
@@ -9,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PasswordInput } from "@/components/ui/password-input";
 import { cn } from "@/lib/utils";
 
 const PHONE_PLACEHOLDER = "+237 6XX XX XX XX";
@@ -26,11 +29,15 @@ function passwordStrength(pw: string) {
 
 export function AccountSettings() {
   const { t } = useLang();
-  const { user } = useAuth();
+  const { user, updateProfile } = useAuth();
+  const fileRef = useRef<HTMLInputElement>(null);
   const [firstName, setFirstName] = useState(user?.firstName ?? "");
   const [lastName, setLastName] = useState(user?.lastName ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const [photoUrl, setPhotoUrl] = useState(user?.photoUrl ?? "");
+  const [pendingPhotoUrl, setPendingPhotoUrl] = useState<string | null>(null);
+  const [photoSaving, setPhotoSaving] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -64,6 +71,29 @@ export function AccountSettings() {
     return Object.keys(next).length === 0;
   }
 
+  function handlePhotoSelect(file: File | null) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setPendingPhotoUrl(String(reader.result ?? ""));
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function confirmPhotoChange() {
+    if (!pendingPhotoUrl) return;
+    setPhotoSaving(true);
+    try {
+      setPhotoUrl(pendingPhotoUrl);
+      updateProfile({ photoUrl: pendingPhotoUrl });
+      setPendingPhotoUrl(null);
+    } finally {
+      setPhotoSaving(false);
+    }
+  }
+
+  const displayPhoto = pendingPhotoUrl ?? photoUrl;
+
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
@@ -73,12 +103,54 @@ export function AccountSettings() {
 
       <Card className="mb-6">
         <CardContent className="flex flex-col items-center pt-6">
-          <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
-            {initials}
+          <div className="relative">
+            {displayPhoto ? (
+              <Image
+                src={displayPhoto}
+                alt={t("Photo de profil")}
+                width={96}
+                height={96}
+                unoptimized
+                className={cn(
+                  "h-24 w-24 rounded-full object-cover ring-2",
+                  pendingPhotoUrl ? "ring-warning/60" : "ring-primary/20"
+                )}
+              />
+            ) : (
+              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
+                {initials}
+              </div>
+            )}
+            <button
+              type="button"
+              className="absolute bottom-0 right-0 rounded-full border bg-card p-2 shadow-md hover:bg-muted"
+              onClick={() => fileRef.current?.click()}
+              aria-label={t("Téléverser une photo")}
+            >
+              <Camera className="h-4 w-4 text-primary" />
+            </button>
           </div>
-          <Button variant="secondary" size="sm" className="mt-3">
-            {t("Changer la photo")}
-          </Button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              handlePhotoSelect(e.target.files?.[0] ?? null);
+              e.target.value = "";
+            }}
+          />
+          {pendingPhotoUrl && (
+            <Button
+              type="button"
+              size="sm"
+              className="mt-3"
+              disabled={photoSaving}
+              onClick={confirmPhotoChange}
+            >
+              {photoSaving ? t("Enregistrement…") : t("Valider la photo")}
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -115,7 +187,14 @@ export function AccountSettings() {
             {errors.phone && <p className="text-xs text-destructive">{errors.phone}</p>}
           </div>
           <div className="sm:col-span-2">
-            <Button type="button" onClick={() => validateProfile() && alert(t("Profil enregistré (démo)"))}>
+            <Button
+              type="button"
+              onClick={() => {
+                if (!validateProfile()) return;
+                updateProfile({ firstName, lastName, email, phone });
+                alert(t("Profil enregistré (démo)"));
+              }}
+            >
               {t("Enregistrer")}
             </Button>
           </div>
@@ -127,12 +206,12 @@ export function AccountSettings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>{t("Ancien mot de passe")}</Label>
-            <Input type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
+            <PasswordInput value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
             {errors.oldPassword && <p className="text-xs text-destructive">{errors.oldPassword}</p>}
           </div>
           <div className="space-y-2">
             <Label>{t("Nouveau mot de passe")}</Label>
-            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
             {newPassword && (
               <p className={cn("text-xs", strength >= 4 ? "text-success" : "text-warning")}>
                 {t("Robustesse")} : {strengthLabel}
@@ -142,7 +221,7 @@ export function AccountSettings() {
           </div>
           <div className="space-y-2">
             <Label>{t("Confirmer")}</Label>
-            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            <PasswordInput value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
             {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
           </div>
           <Button
@@ -167,7 +246,15 @@ export function AccountSettings() {
       </Card>
 
       <div className="flex justify-end pb-8">
-        <Button variant="destructive" type="button">
+        <Button
+          variant="destructive"
+          type="button"
+          onClick={() => {
+            if (window.confirm(t("Confirmer la désactivation de votre compte ?"))) {
+              alert(t("Compte désactivé (démo)"));
+            }
+          }}
+        >
           {t("Désactiver mon compte")}
         </Button>
       </div>

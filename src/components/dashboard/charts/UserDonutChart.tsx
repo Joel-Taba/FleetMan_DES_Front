@@ -3,16 +3,18 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ClientOnly } from "@/components/dashboard/ClientOnly";
+import { useLang } from "@/lib/i18n";
 
 type Props = {
   data: { name: string; value: number; color: string }[];
 };
 
 export function UserDonutChart({ data }: Props) {
+  const { t } = useLang();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Répartition utilisateurs</CardTitle>
+        <CardTitle>{t("Répartition utilisateurs")}</CardTitle>
       </CardHeader>
       <CardContent>
         <ClientOnly fallback={<div className="h-[280px] animate-pulse rounded-lg bg-muted" />}>

@@ -1,20 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardHeader } from "./DashboardHeader";
 import { getRoleFromPath } from "@/lib/navigation";
+import { useAuth } from "@/context/AuthProvider";
+import { getPrimaryRole } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const role = getRoleFromPath(pathname);
+  const { user } = useAuth();
+  const primaryRole = user ? getPrimaryRole(user.roles) : null;
+  const role = getRoleFromPath(pathname, primaryRole);
   const isDriver = role === "FLEET_DRIVER";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const expanded = window.localStorage.getItem("fleetman-sidebar-expanded");
+    if (expanded === "true") setCollapsed(false);
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((current) => {
+      const next = !current;
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("fleetman-sidebar-expanded", next ? "false" : "true");
+      }
+      return next;
+    });
+  }, []);
 
   if (isDriver) {
     return (
@@ -74,7 +94,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         <DashboardSidebar
           role={role}
           collapsed={collapsed}
-          onToggle={() => setCollapsed((c) => !c)}
+          onToggle={toggleCollapsed}
         />
       </div>
       {sidebarOpen && (

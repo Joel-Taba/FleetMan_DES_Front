@@ -25,8 +25,10 @@ import type {
   ScheduleResponse,
   VehicleDocumentResponse,
   DriverDocumentResponse,
+  ManagerSubscriptionResponse,
 } from "@/lib/api/types/manager";
 import type { GeofenceZone } from "@/lib/api/manager";
+import { FEATURE_LABELS, PLAN_FEATURE_KEYS, type PlanFeatureKey } from "./plan-features";
 
 export const MOCK_STORAGE_KEY = "fleetman_mock_db";
 export const MOCK_PASSWORD = "FleetMan2026!";
@@ -69,6 +71,69 @@ export type PendingSubscriptionRecord = {
   createdAt: string;
 };
 
+export type SubscriptionHistoryRecord = {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyName: string | null;
+  requestedAt: string;
+  processedAt: string;
+  status: "APPROVED" | "REJECTED";
+  planName?: string | null;
+  rejectionReason?: string | null;
+  processedBy?: string;
+};
+
+export type PlanFeatureRecord = {
+  key: string;
+  label: string;
+  enabled: boolean;
+};
+
+export type ManagerSubscriptionRecord = {
+  planId: string;
+  subscriptionStatus: string;
+  subscriptionStart: string;
+  subscriptionEnd: string;
+};
+
+function subscriptionYearDates() {
+  const start = new Date();
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + 1);
+  return {
+    subscriptionStart: start.toISOString().slice(0, 10),
+    subscriptionEnd: end.toISOString().slice(0, 10),
+  };
+}
+
+export function enabledFeaturesForPlan(planId: string): PlanFeatureRecord[] {
+  const starter = new Set<PlanFeatureKey>([
+    "TRIPS",
+    "DOCUMENTS",
+    "SCHEDULES",
+    "ASSIGNMENTS",
+    "OPERATIONS",
+  ]);
+  const proDisabled = new Set<PlanFeatureKey>(["API_ACCESS"]);
+  return PLAN_FEATURE_KEYS.map((key) => {
+    let enabled = true;
+    if (planId === "plan-starter" || planId === "plan-legacy") enabled = starter.has(key);
+    else if (planId === "plan-pro") enabled = !proDisabled.has(key);
+    return { key, label: FEATURE_LABELS[key], enabled };
+  });
+}
+
+function seedPlanFeatures(plans: SubscriptionPlanRecord[]): Record<string, PlanFeatureRecord[]> {
+  const map: Record<string, PlanFeatureRecord[]> = {};
+  for (const plan of plans) {
+    map[plan.id] = enabledFeaturesForPlan(plan.id);
+  }
+  return map;
+}
+
 export type MockDatabase = {
   users: MockUserRecord[];
   fleets: FleetResponse[];
@@ -87,7 +152,10 @@ export type MockDatabase = {
   fleetManagers: AdminUserDetail[];
   references: Record<string, ResourceItem[]>;
   subscriptionPlans: SubscriptionPlanRecord[];
+  planFeatures: Record<string, PlanFeatureRecord[]>;
+  managerSubscriptions: Record<string, ManagerSubscriptionRecord>;
   pendingSubscriptions: PendingSubscriptionRecord[];
+  subscriptionHistory: SubscriptionHistoryRecord[];
   budgets: BudgetResponse[];
   expenses: ExpenseResponse[];
   vehicleDocuments: VehicleDocumentResponse[];
@@ -211,6 +279,7 @@ function vehicle(
     color: "Bleu",
     status,
     photoUrl: null,
+    galleryUrls: [],
     financialParameters: {
       insuranceNumber: `ASS-${id}`,
       insuranceExpiryDate: dateOnly(180),
@@ -294,14 +363,16 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const trips: ApiTrip[] = [
-    { id: "t1", vehicleId: "v1", driverId: "d1", status: "ONGOING", startDate: dateOnly(0), startTime: "08:15:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0001", departureKmIndex: 87200, departureFuelIndex: 68, departureLocation: "Yaoundé", missionObject: "Livraison Mbalmayo", missionCost: 85000, details: [{ id: "td1", itemType: "COLIS", description: "Matériaux", quantity: 12, departureQuantity: 12 }] },
-    { id: "t2", vehicleId: "v6", driverId: "d4", status: "ONGOING", startDate: dateOnly(0), startTime: "09:00:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0002" },
-    { id: "t3", vehicleId: "v11", driverId: "d6", status: "ONGOING", startDate: dateOnly(0), startTime: "07:30:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0003" },
-    { id: "t4", vehicleId: "v1", driverId: "d1", status: "COMPLETED", startDate: dateOnly(-1), startTime: "08:00:00", endDate: dateOnly(-1), endTime: "12:40:00", distanceKm: 124, durationMinutes: 265, tripCode: "TRJ-2026-0004" },
-    { id: "t5", vehicleId: "v5", driverId: "d3", status: "COMPLETED", startDate: dateOnly(-2), startTime: "14:00:00", endDate: dateOnly(-2), endTime: "18:30:00", distanceKm: 89, durationMinutes: 270, tripCode: "TRJ-2026-0005" },
+    { id: "t1", vehicleId: "v1", driverId: "d1", fleetId: "f1", status: "DEPARTED", startDate: dateOnly(0), startTime: "08:15:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0001", departureKmIndex: 87200, departureFuelIndex: 68, departureLocation: "Yaoundé", departureLat: 3.848, departureLng: 11.502, missionObject: "Livraison Mbalmayo", missionCost: 85000, missionCostCurrency: "XAF", details: [{ id: "td1", itemType: "CARGO", description: "Matériaux", quantity: 12, departureQuantity: 12 }] },
+    { id: "t2", vehicleId: "v6", driverId: "d4", fleetId: "f2", status: "DEPARTED", startDate: dateOnly(0), startTime: "09:00:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0002", departureKmIndex: 45100, departureFuelIndex: 42, departureLocation: "Douala", departureLat: 4.051, departureLng: 9.768, missionObject: "Approvisionnement Kribi", missionCost: 110000, missionCostCurrency: "XAF" },
+    { id: "t3", vehicleId: "v11", driverId: "d6", fleetId: "f2", status: "RETURNING", startDate: dateOnly(0), startTime: "07:30:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0003", departureKmIndex: 120500, departureFuelIndex: 55, departureLocation: "Yaoundé", departureLat: 3.848, departureLng: 11.502, missionObject: "Transport marchandises Douala", missionCost: 120000, missionCostCurrency: "XAF" },
+    { id: "t9", vehicleId: "v8", driverId: "d5", fleetId: "f3", status: "DEPARTED", startDate: dateOnly(-1), startTime: "06:45:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0009", departureKmIndex: 28800, departureFuelIndex: 72, departureLocation: "Douala", departureLat: 4.051, departureLng: 9.768, missionObject: "Livraison Kribi", missionCost: 95000, missionCostCurrency: "XAF" },
+    { id: "t10", vehicleId: "v5", driverId: "d3", fleetId: "f1", status: "RETURNING", startDate: dateOnly(0), startTime: "06:00:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0010", departureKmIndex: 65200, departureFuelIndex: 58, departureLocation: "Yaoundé", departureLat: 3.848, departureLng: 11.502, missionObject: "Course Obala", missionCost: 45000, missionCostCurrency: "XAF" },
+    { id: "t4", vehicleId: "v1", driverId: "d1", status: "COMPLETED", startDate: dateOnly(-1), startTime: "08:00:00", endDate: dateOnly(-1), endTime: "12:40:00", distanceKm: 124, computedDistanceKm: 124, durationMinutes: 265, tripCode: "TRJ-2026-0004", departureKmIndex: 87200, returnKmIndex: 87324 },
+    { id: "t5", vehicleId: "v5", driverId: "d3", status: "COMPLETED", startDate: dateOnly(-2), startTime: "14:00:00", endDate: dateOnly(-2), endTime: "18:30:00", distanceKm: 89, computedDistanceKm: 89, durationMinutes: 270, tripCode: "TRJ-2026-0005", departureKmIndex: 65200, returnKmIndex: 65289 },
     { id: "t6", vehicleId: "v2", driverId: "d8", status: "CANCELLED", startDate: dateOnly(-3), startTime: "09:00:00", endDate: dateOnly(-3), endTime: "09:15:00", distanceKm: 0, durationMinutes: 15, tripCode: "TRJ-2026-0006" },
     { id: "t7", vehicleId: "v8", driverId: "d5", status: "SCHEDULED", startDate: dateOnly(1), startTime: "10:00:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0007" },
-    { id: "t8", vehicleId: "v10", driverId: "d7", status: "COMPLETED", startDate: dateOnly(-5), startTime: "06:30:00", endDate: dateOnly(-5), endTime: "14:00:00", distanceKm: 310, durationMinutes: 450, tripCode: "TRJ-2026-0008" },
+    { id: "t8", vehicleId: "v10", driverId: "d7", status: "COMPLETED", startDate: dateOnly(-5), startTime: "06:30:00", endDate: dateOnly(-5), endTime: "14:00:00", distanceKm: 310, computedDistanceKm: 310, durationMinutes: 450, tripCode: "TRJ-2026-0008", departureKmIndex: 98000, returnKmIndex: 98310 },
   ];
 
   const schedules: ScheduleResponse[] = [
@@ -320,9 +391,9 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const incidents: IncidentResponse[] = [
-    { id: "i1", type: "MECHANICAL", description: "Panne moteur sur route", severity: "HIGH", status: "IN_PROGRESS", incidentDateTime: isoDaysAgo(1, 15), resolvedAt: null, cost: 85000, isCritical: false, isOpen: true, vehicleId: "v3", vehicleRegistration: "SW-123-DL", driverId: "d2", driverFullName: "Conducteur d2" },
+    { id: "i1", type: "MECHANICAL", description: "Panne moteur sur route", severity: "HIGH", status: "IN_PROGRESS", incidentDateTime: isoDaysAgo(1, 15), resolvedAt: null, cost: 85000, isCritical: false, isOpen: true, vehicleId: "v3", vehicleRegistration: "SW-123-DL", driverId: "d2", driverFullName: "Claire Ndjock" },
     { id: "i2", type: "ACCIDENT", description: "Accrochage léger parking", severity: "MEDIUM", status: "RESOLVED", incidentDateTime: isoDaysAgo(4, 11), resolvedAt: isoDaysAgo(3), cost: 120000, isCritical: false, isOpen: false, vehicleId: "v4", vehicleRegistration: "AB-789-YA", driverId: null, driverFullName: null },
-    { id: "i3", type: "TIRE", description: "Crevaison pneu arrière", severity: "LOW", status: "REPORTED", incidentDateTime: isoDaysAgo(0, 6), resolvedAt: null, cost: 25000, isCritical: false, isOpen: true, vehicleId: "v11", vehicleRegistration: "NO-445-WX", driverId: "d6", driverFullName: "Conducteur d6" },
+    { id: "i3", type: "TIRE", description: "Crevaison pneu arrière", severity: "LOW", status: "REPORTED", incidentDateTime: isoDaysAgo(0, 6), resolvedAt: null, cost: 25000, isCritical: false, isOpen: true, vehicleId: "v11", vehicleRegistration: "NO-445-WX", driverId: "d6", driverFullName: "Paul Abega" },
     { id: "i4", type: "ELECTRICAL", description: "Batterie défaillante", severity: "MEDIUM", status: "CLOSED", incidentDateTime: isoDaysAgo(8), resolvedAt: isoDaysAgo(7), cost: 45000, isCritical: false, isOpen: false, vehicleId: "v9", vehicleRegistration: "SU-118-RT", driverId: null, driverFullName: null },
   ];
 
@@ -346,18 +417,18 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const expiringDocuments: ExpiringDocumentDto[] = [
-    { documentId: "doc1", entityType: "VEHICLE", entityId: "v2", entityName: "CE-456-AB", docType: "INSURANCE", docNumber: "ASS-v2", expiryDate: dateOnly(7), daysUntilExpiry: 7, status: "EXPIRING_SOON" },
-    { documentId: "doc2", entityType: "DRIVER", entityId: "d7", entityName: "CM-B-667788", docType: "MEDICAL", docNumber: "MED-d7", expiryDate: dateOnly(14), daysUntilExpiry: 14, status: "EXPIRING_SOON" },
+    { documentId: "doc1", entityType: "VEHICLE", entityId: "v2", entityName: "CE-456-AB", docType: "INSURANCE", docNumber: "ASS-v2", expiryDate: dateOnly(7), daysUntilExpiry: 7, status: "EXPIRING_SOON", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf" },
+    { documentId: "doc2", entityType: "DRIVER", entityId: "d7", entityName: "Marie Nguema", docType: "MEDICAL_CERT", docNumber: "MED-d7", expiryDate: dateOnly(14), daysUntilExpiry: 14, status: "EXPIRING_SOON", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf" },
   ];
 
   const expiredDocuments: ExpiringDocumentDto[] = [
-    { documentId: "doc3", entityType: "VEHICLE", entityId: "v4", entityName: "AB-789-YA", docType: "INSURANCE", docNumber: "ASS-v4", expiryDate: dateOnly(-12), daysUntilExpiry: -12, status: "EXPIRED" },
+    { documentId: "doc3", entityType: "VEHICLE", entityId: "v4", entityName: "AB-789-YA", docType: "INSURANCE", docNumber: "ASS-v4", expiryDate: dateOnly(-12), daysUntilExpiry: -12, status: "EXPIRED", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf" },
   ];
 
   const geofenceZones: GeofenceZone[] = [
-    { id: "gz1", name: "Dépôt Yaoundé", type: "DEPOT", active: true, fleetId: "f1", createdAt: isoDaysAgo(60) },
-    { id: "gz2", name: "Zone Port Douala", type: "RESTRICTED", active: true, fleetId: "f2", createdAt: isoDaysAgo(45) },
-    { id: "gz3", name: "Centre-ville VIP", type: "SERVICE", active: false, fleetId: "f3", createdAt: isoDaysAgo(30) },
+    { id: "gz1", name: "Dépôt Yaoundé", type: "DEPOT", active: true, fleetId: "f1", createdAt: isoDaysAgo(60), latitude: 3.848, longitude: 11.502, radius: 800 },
+    { id: "gz2", name: "Zone Port Douala", type: "RESTRICTED", active: true, fleetId: "f2", createdAt: isoDaysAgo(45), latitude: 4.051, longitude: 9.767, radius: 1200 },
+    { id: "gz3", name: "Centre-ville VIP", type: "SERVICE", active: false, fleetId: "f3", createdAt: isoDaysAgo(30), latitude: 4.05, longitude: 9.7, radius: 600 },
   ];
 
   const fleetManagers: AdminUserDetail[] = [
@@ -389,7 +460,7 @@ export function createDefaultMockDatabase(): MockDatabase {
   };
 
   const subscriptionPlans: SubscriptionPlanRecord[] = [
-    { id: "plan-starter", name: "Starter", description: "Pour les petites flottes", maxFleets: 1, maxVehicles: 10, maxDrivers: 15, monthlyPrice: 25000, annualPrice: 250000, currency: "XAF", features: "Tableau de bord,KPIs de base,Support email", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
+    { id: "plan-starter", name: "Starter", description: "Pour les petites flottes", maxFleets: 3, maxVehicles: 50, maxDrivers: 30, monthlyPrice: 25000, annualPrice: 250000, currency: "XAF", features: "Trajets,Documents,Plannings", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
     { id: "plan-pro", name: "Pro", description: "Flottes en croissance", maxFleets: 5, maxVehicles: 50, maxDrivers: 80, monthlyPrice: 75000, annualPrice: 750000, currency: "XAF", features: "Géofencing,Alertes avancées,Rapports PDF,Support prioritaire", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
     { id: "plan-enterprise", name: "Enterprise", description: "Grandes organisations", maxFleets: 999, maxVehicles: 999, maxDrivers: 999, monthlyPrice: 200000, annualPrice: 2000000, currency: "XAF", features: "API illimitée,SLA 99.9%,Account manager dédié", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
     { id: "plan-legacy", name: "Legacy", description: "Ancien plan — désactivé", maxFleets: 2, maxVehicles: 20, maxDrivers: 30, monthlyPrice: 40000, annualPrice: null, currency: "XAF", features: "Fonctionnalités limitées", isActive: false, createdAt: isoDaysAgo(200), updatedAt: isoDaysAgo(30) },
@@ -399,6 +470,64 @@ export function createDefaultMockDatabase(): MockDatabase {
     { id: "sub-pending-1", username: "jean.kouam", email: "jean.kouam@express.cm", firstName: "Jean", lastName: "Kouam", companyName: "Express Logistics", createdAt: isoDaysAgo(2) },
     { id: "sub-pending-2", username: "sophie.mballa", email: "sophie.m@logistics.cm", firstName: "Sophie", lastName: "Mballa", companyName: "Mballa Transport", createdAt: isoDaysAgo(1) },
   ];
+
+  const subscriptionHistory: SubscriptionHistoryRecord[] = [
+    {
+      id: "sub-hist-1",
+      username: "marie.ngono",
+      email: "marie.ngono@trans.cm",
+      firstName: "Marie",
+      lastName: "Ngono",
+      companyName: "Trans Cameroun",
+      requestedAt: isoDaysAgo(14),
+      processedAt: isoDaysAgo(12),
+      status: "APPROVED",
+      planName: "Starter",
+      processedBy: "Super Admin",
+    },
+    {
+      id: "sub-hist-2",
+      username: "eric.fotso",
+      email: "eric.f@cargo.cm",
+      firstName: "Eric",
+      lastName: "Fotso",
+      companyName: "Cargo Express",
+      requestedAt: isoDaysAgo(10),
+      processedAt: isoDaysAgo(9),
+      status: "REJECTED",
+      rejectionReason: "Documents d'entreprise incomplets",
+      processedBy: "Super Admin",
+    },
+    {
+      id: "sub-hist-3",
+      username: "claire.abe",
+      email: "claire.abe@fleet.cm",
+      firstName: "Claire",
+      lastName: "Abe",
+      companyName: "Fleet Services",
+      requestedAt: isoDaysAgo(7),
+      processedAt: isoDaysAgo(6),
+      status: "APPROVED",
+      planName: "Pro",
+      processedBy: "Super Admin",
+    },
+  ];
+
+  const subDates = subscriptionYearDates();
+  const managerSubscriptions: Record<string, ManagerSubscriptionRecord> = {
+    [DEMO_MANAGER_ID]: {
+      planId: "plan-starter",
+      subscriptionStatus: "ACTIVE",
+      ...subDates,
+    },
+    "user-mgr-002": {
+      planId: "plan-pro",
+      subscriptionStatus: "ACTIVE",
+      ...subDates,
+    },
+  };
+
+  const planFeatures = seedPlanFeatures(subscriptionPlans);
 
   const month = new Date().toISOString().slice(0, 7) + "-01";
   const budgets: BudgetResponse[] = [
@@ -448,7 +577,10 @@ export function createDefaultMockDatabase(): MockDatabase {
     fleetManagers,
     references,
     subscriptionPlans,
+    planFeatures,
+    managerSubscriptions,
     pendingSubscriptions,
+    subscriptionHistory,
     budgets,
     expenses,
     vehicleDocuments,
@@ -475,7 +607,10 @@ export function saveMockDatabase(db: MockDatabase) {
 export function getMockDatabase(): MockDatabase {
   const existing = loadMockDatabase();
   if (existing) return migrateMockDatabase(existing);
-  return createDefaultMockDatabase();
+  const db = createDefaultMockDatabase();
+  syncDriverVehicleLinksFromTrips(db);
+  saveMockDatabase(db);
+  return db;
 }
 
 export function ensureMockDatabaseSeeded(): MockDatabase {
@@ -509,6 +644,63 @@ function migrateMockDatabase(db: MockDatabase): MockDatabase {
     db.expenses = defaults.expenses;
     changed = true;
   }
+  if (!db.planFeatures || Object.keys(db.planFeatures).length === 0) {
+    db.planFeatures = defaults.planFeatures;
+    changed = true;
+  }
+  if (!db.managerSubscriptions || Object.keys(db.managerSubscriptions).length === 0) {
+    db.managerSubscriptions = defaults.managerSubscriptions;
+    changed = true;
+  }
+  if (!Array.isArray(db.subscriptionHistory) || db.subscriptionHistory.length === 0) {
+    db.subscriptionHistory = defaults.subscriptionHistory;
+    changed = true;
+  }
+  const starter = db.subscriptionPlans.find((p) => p.id === "plan-starter");
+  if (starter && starter.maxVehicles < 50) {
+    starter.maxVehicles = 50;
+    starter.maxDrivers = 30;
+    starter.maxFleets = 3;
+    changed = true;
+  }
+
+  const openStatuses = new Set(["DEPARTED", "RETURNING"]);
+  const demoOpenTripIds = new Set(["t1", "t2", "t3", "t9", "t10"]);
+  const seedOpenTrips = defaults.trips.filter((t) => openStatuses.has(t.status));
+  const openCount = db.trips.filter((t) => openStatuses.has(t.status)).length;
+
+  const isTripClosedByUser = (trip: (typeof defaults.trips)[number]) =>
+    (trip.status === "COMPLETED" && trip.returnKmIndex != null) ||
+    trip.status === "CANCELLED";
+
+  for (const seed of seedOpenTrips) {
+    const idx = db.trips.findIndex((t) => t.id === seed.id);
+    if (idx === -1) {
+      db.trips.push({ ...seed });
+      changed = true;
+      continue;
+    }
+    if (!demoOpenTripIds.has(seed.id)) continue;
+    const existing = db.trips[idx];
+    if (isTripClosedByUser(existing)) continue;
+    if (
+      existing.status !== seed.status ||
+      existing.status === "COMPLETED" ||
+      !openStatuses.has(existing.status)
+    ) {
+      db.trips[idx] = { ...existing, ...seed };
+      changed = true;
+    }
+  }
+
+  if (openCount < 5) {
+    for (const seed of seedOpenTrips) {
+      if (!db.trips.some((t) => t.id === seed.id)) {
+        db.trips.push({ ...seed });
+        changed = true;
+      }
+    }
+  }
 
   for (const driver of db.drivers) {
     const seed = defaults.drivers.find((d) => d.userId === driver.userId);
@@ -531,8 +723,159 @@ function migrateMockDatabase(db: MockDatabase): MockDatabase {
     }
   }
 
-  if (changed) saveMockDatabase(db);
+  if (backfillTripRequiredFields(db)) changed = true;
+
+  syncDriverVehicleLinksFromTrips(db);
+  saveMockDatabase(db);
   return db;
+}
+
+const TRIP_LOCATIONS = [
+  { label: "Yaoundé", lat: 3.848, lng: 11.502 },
+  { label: "Douala", lat: 4.051, lng: 9.768 },
+  { label: "Bafoussam", lat: 5.478, lng: 10.417 },
+  { label: "Kribi", lat: 2.95, lng: 9.91 },
+];
+
+/** Complète les champs obligatoires manquants sur les trajets persistés. */
+function backfillTripRequiredFields(db: MockDatabase): boolean {
+  let changed = false;
+
+  db.trips.forEach((trip, i) => {
+    const vehicle = db.vehicles.find((v) => v.id === trip.vehicleId);
+    const loc = TRIP_LOCATIONS[i % TRIP_LOCATIONS.length];
+    const odo =
+      vehicle?.operationalParameters?.odometerReading ??
+      vehicle?.operationalParameters?.mileage ??
+      45000 + i * 137;
+
+    if (trip.departureKmIndex == null) {
+      trip.departureKmIndex = odo;
+      changed = true;
+    }
+    if (trip.departureFuelIndex == null) {
+      trip.departureFuelIndex = 35 + (i % 40);
+      changed = true;
+    }
+    if (!trip.departureLocation) {
+      trip.departureLocation = loc.label;
+      changed = true;
+    }
+    if (trip.departureLat == null) {
+      trip.departureLat = loc.lat;
+      changed = true;
+    }
+    if (trip.departureLng == null) {
+      trip.departureLng = loc.lng;
+      changed = true;
+    }
+    if (!trip.missionObject) {
+      trip.missionObject = `Mission ${trip.tripCode ?? trip.id}`;
+      changed = true;
+    }
+    if (trip.missionCost == null) {
+      trip.missionCost = 45000 + (i % 20) * 2500;
+      trip.missionCostCurrency = "XAF";
+      changed = true;
+    }
+    if (!trip.fleetId && vehicle?.fleetId) {
+      trip.fleetId = vehicle.fleetId;
+      changed = true;
+    }
+
+    const isClosed = trip.status === "COMPLETED" || trip.status === "CANCELLED";
+    const dist = trip.computedDistanceKm ?? trip.distanceKm ?? 60 + (i % 45);
+
+    if (isClosed && trip.status === "COMPLETED") {
+      if (trip.computedDistanceKm == null && trip.distanceKm != null) {
+        trip.computedDistanceKm = trip.distanceKm;
+        changed = true;
+      }
+      if (trip.distanceKm == null && trip.computedDistanceKm != null) {
+        trip.distanceKm = trip.computedDistanceKm;
+        changed = true;
+      }
+      if (trip.returnKmIndex == null && trip.departureKmIndex != null) {
+        trip.returnKmIndex = trip.departureKmIndex + dist;
+        changed = true;
+      }
+      if (trip.returnFuelIndex == null && trip.departureFuelIndex != null) {
+        trip.returnFuelIndex = Math.max(5, trip.departureFuelIndex - (12 + (i % 8)));
+        changed = true;
+      }
+      if (!trip.returnLocation) {
+        trip.returnLocation = trip.departureLocation;
+        trip.returnLat = trip.departureLat;
+        trip.returnLng = trip.departureLng;
+        changed = true;
+      }
+    }
+
+    if (
+      vehicle?.operationalParameters &&
+      (trip.status === "DEPARTED" || trip.status === "RETURNING")
+    ) {
+      const dest = TRIP_LOCATIONS[(i + 1) % TRIP_LOCATIONS.length];
+      if (!vehicle.operationalParameters.currentLocation) {
+        vehicle.operationalParameters.currentLocation = {
+          latitude: dest.lat,
+          longitude: dest.lng,
+        };
+        changed = true;
+      }
+    }
+  });
+
+  return changed;
+}
+
+const OPEN_TRIP_STATUSES = new Set(["DEPARTED", "RETURNING"]);
+
+/** Lie chauffeur ↔ véhicule uniquement pour un trajet actif. */
+export function linkDriverToVehicleForTrip(
+  db: MockDatabase,
+  driverId: string,
+  vehicleId: string
+) {
+  const driver = db.drivers.find((d) => d.userId === driverId);
+  const vehicle = db.vehicles.find((v) => v.id === vehicleId);
+  if (!driver || !vehicle) return;
+
+  if (driver.assignedVehicleId && driver.assignedVehicleId !== vehicleId) {
+    const prev = db.vehicles.find((v) => v.id === driver.assignedVehicleId);
+    if (prev?.currentDriverId === driverId) prev.currentDriverId = null;
+  }
+  if (vehicle.currentDriverId && vehicle.currentDriverId !== driverId) {
+    const prev = db.drivers.find((d) => d.userId === vehicle.currentDriverId);
+    if (prev?.assignedVehicleId === vehicleId) prev.assignedVehicleId = null;
+  }
+
+  driver.assignedVehicleId = vehicleId;
+  vehicle.currentDriverId = driverId;
+}
+
+/** Dissocie chauffeur et véhicule à la fin d'un trajet. */
+export function unlinkDriverFromVehicleForTrip(
+  db: MockDatabase,
+  driverId: string,
+  vehicleId: string
+) {
+  const driver = db.drivers.find((d) => d.userId === driverId);
+  const vehicle = db.vehicles.find((v) => v.id === vehicleId);
+  if (driver?.assignedVehicleId === vehicleId) driver.assignedVehicleId = null;
+  if (vehicle?.currentDriverId === driverId) vehicle.currentDriverId = null;
+}
+
+/** Recalcule les liens permanents à partir des seuls trajets ouverts. */
+export function syncDriverVehicleLinksFromTrips(db: MockDatabase) {
+  for (const d of db.drivers) d.assignedVehicleId = null;
+  for (const v of db.vehicles) v.currentDriverId = null;
+  for (const trip of db.trips) {
+    if (!OPEN_TRIP_STATUSES.has(trip.status)) continue;
+    linkDriverToVehicleForTrip(db, trip.driverId, trip.vehicleId);
+    const vehicle = db.vehicles.find((x) => x.id === trip.vehicleId);
+    if (vehicle) vehicle.status = "ON_TRIP";
+  }
 }
 
 export function resetMockDatabase(): MockDatabase {
@@ -557,7 +900,7 @@ export function buildManagerKpis(db: MockDatabase): ManagerKpiResponse {
     totalFleets: db.fleets.length,
     totalVehicles: db.vehicles.length,
     totalDrivers: db.drivers.length,
-    activeTrips: db.trips.filter((t) => t.status === "ONGOING").length,
+    activeTrips: db.trips.filter((t) => t.status === "DEPARTED" || t.status === "RETURNING").length,
     maintenancesThisMonth,
     openIncidents,
     totalIncidentCost: incidentCost,
@@ -579,6 +922,115 @@ export function buildManagerProfile(db: MockDatabase): FleetManagerResponse {
     fleetCount: db.fleets.length,
     photoUrl: null,
   };
+}
+
+export function buildManagerSubscription(
+  db: MockDatabase,
+  managerId = DEMO_MANAGER_ID
+): ManagerSubscriptionResponse {
+  const sub = db.managerSubscriptions[managerId];
+  const plan = sub ? db.subscriptionPlans.find((p) => p.id === sub.planId) : null;
+  const features = sub ? (db.planFeatures[sub.planId] ?? []) : [];
+  const graceDays = 7;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let daysUntilExpiry = 365;
+  let inGracePeriod = false;
+  let accessAllowed = true;
+
+  if (sub?.subscriptionEnd) {
+    const end = new Date(sub.subscriptionEnd);
+    end.setHours(0, 0, 0, 0);
+    daysUntilExpiry = Math.ceil((end.getTime() - today.getTime()) / 86_400_000);
+    if (sub.subscriptionStatus === "EXPIRED") {
+      accessAllowed = false;
+    } else if (daysUntilExpiry < 0) {
+      inGracePeriod = Math.abs(daysUntilExpiry) <= graceDays;
+      accessAllowed = inGracePeriod;
+    }
+  }
+
+  return {
+    managerId,
+    planId: plan?.id ?? null,
+    planName: plan?.name ?? "Aucun",
+    subscriptionStatus: sub?.subscriptionStatus ?? "NONE",
+    subscriptionStart: sub?.subscriptionStart ?? null,
+    subscriptionEnd: sub?.subscriptionEnd ?? null,
+    graceDays,
+    daysUntilExpiry,
+    inGracePeriod,
+    accessAllowed,
+    maxFleets: plan?.maxFleets ?? 999,
+    maxVehicles: plan?.maxVehicles ?? 999,
+    maxDrivers: plan?.maxDrivers ?? 999,
+    currentFleets: db.fleets.filter((f) => f.managerUserId === managerId).length,
+    currentVehicles: db.vehicles.filter((v) => v.managerId === managerId).length,
+    currentDrivers: db.drivers.filter((d) => d.managerId === managerId).length,
+    features,
+  };
+}
+
+export type ActiveSubscriptionRecord = {
+  managerId: string;
+  companyName: string;
+  email: string;
+  planName: string;
+  subscriptionStatus: string;
+  subscriptionStart: string | null;
+  subscriptionEnd: string | null;
+  daysUntilExpiry: number;
+};
+
+export function buildActiveSubscriptions(db: MockDatabase): ActiveSubscriptionRecord[] {
+  return Object.entries(db.managerSubscriptions).map(([managerId, sub]) => {
+    const mgr =
+      db.fleetManagers.find((m) => m.id === managerId) ??
+      db.users.find((u) => u.id === managerId);
+    const plan = db.subscriptionPlans.find((p) => p.id === sub.planId);
+    const built = buildManagerSubscription(db, managerId);
+    return {
+      managerId,
+      companyName: mgr && "companyName" in mgr ? (mgr.companyName ?? "") : "",
+      email: mgr?.email ?? "",
+      planName: plan?.name ?? "—",
+      subscriptionStatus: sub.subscriptionStatus,
+      subscriptionStart: sub.subscriptionStart,
+      subscriptionEnd: sub.subscriptionEnd,
+      daysUntilExpiry: built.daysUntilExpiry,
+    };
+  });
+}
+
+export function assertMockPlanLimit(
+  db: MockDatabase,
+  managerId: string,
+  resource: "fleet" | "vehicle" | "driver"
+) {
+  const sub = db.managerSubscriptions[managerId];
+  if (!sub) return;
+  const plan = db.subscriptionPlans.find((p) => p.id === sub.planId);
+  if (!plan) return;
+
+  if (resource === "fleet") {
+    const count = db.fleets.filter((f) => f.managerUserId === managerId).length;
+    if (count >= plan.maxFleets) {
+      throw new Error(`Limite du plan atteinte : maximum ${plan.maxFleets} flotte(s).`);
+    }
+  }
+  if (resource === "vehicle") {
+    const count = db.vehicles.filter((v) => v.managerId === managerId).length;
+    if (count >= plan.maxVehicles) {
+      throw new Error(`Limite du plan atteinte : maximum ${plan.maxVehicles} véhicule(s).`);
+    }
+  }
+  if (resource === "driver") {
+    const count = db.drivers.filter((d) => d.managerId === managerId).length;
+    if (count >= plan.maxDrivers) {
+      throw new Error(`Limite du plan atteinte : maximum ${plan.maxDrivers} conducteur(s).`);
+    }
+  }
 }
 
 export function buildComplianceReport(db: MockDatabase): ComplianceReportDto {
@@ -620,6 +1072,9 @@ export function buildExpenseSummary(db: MockDatabase) {
 export function buildPublicStats(db: MockDatabase): PublicStatsResponse {
   return {
     activeManagers: db.fleetManagers.filter((m) => m.isActive !== false).length,
+    activeAdmins: db.users.filter(
+      (u) => u.roles.includes("FLEET_ADMIN") || u.roles.includes("FLEET_SUPER_ADMIN")
+    ).length,
     totalFleets: db.fleets.length,
     managedVehicles: db.vehicles.length,
     totalDrivers: db.drivers.length,
@@ -627,17 +1082,17 @@ export function buildPublicStats(db: MockDatabase): PublicStatsResponse {
   };
 }
 
-export function buildFleetKpi(fleetId: string): KpiSnapshot {
+export function buildFleetKpi(fleetId: string, period = "MONTHLY"): KpiSnapshot {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   return {
-    id: `kpi-${fleetId}`,
+    id: `kpi-${fleetId}-${period}`,
     fleetId,
     entityType: "FLEET",
     entityId: fleetId,
-    periodType: "MONTHLY",
-    periodStart: start.toISOString(),
-    periodEnd: now.toISOString(),
+    periodType: period,
+    periodStart: start.toISOString().slice(0, 10),
+    periodEnd: now.toISOString().slice(0, 10),
     totalKm: 12450,
     totalTrips: 48,
     totalDrivingHours: 320,
@@ -654,6 +1109,88 @@ export function buildFleetKpi(fleetId: string): KpiSnapshot {
     docComplianceRate: 91,
     calculatedAt: now.toISOString(),
   };
+}
+
+function periodMonthsBetween(from: string, to: string): number {
+  const start = new Date(from);
+  const end = new Date(to);
+  return Math.max(
+    1,
+    (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1
+  );
+}
+
+export function buildFleetKpiHistory(
+  fleetId: string,
+  period: string,
+  from: string,
+  to: string
+): KpiSnapshot[] {
+  const months = periodMonthsBetween(from, to);
+  const points: KpiSnapshot[] = [];
+  const end = new Date(to);
+
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(end.getFullYear(), end.getMonth() - i, 1);
+    const periodStart = d.toISOString().slice(0, 10);
+    const periodEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+    const kmBase = 8000 + (months - i) * 420 + (parseInt(fleetId.replace(/\D/g, "") || "1", 10) % 5) * 200;
+    points.push({
+      id: `kpi-hist-${fleetId}-${periodStart}`,
+      fleetId,
+      entityType: "FLEET",
+      entityId: fleetId,
+      periodType: period,
+      periodStart,
+      periodEnd,
+      totalKm: kmBase,
+      totalTrips: 30 + i * 2,
+      totalDrivingHours: 200 + i * 15,
+      availabilityRate: 82 + (i % 4) * 2,
+      totalFuelCost: kmBase * 18,
+      totalFuelLiters: kmBase * 0.12,
+      totalMaintenanceCost: 120000 + i * 8000,
+      totalIncidentCost: 40000 + i * 5000,
+      costPerKm: 380 + i * 5,
+      fuelPer100Km: 13.5 + (i % 3) * 0.3,
+      totalIncidents: Math.max(0, 2 + (i % 3) - 1),
+      incidentRate: 4 + (i % 5),
+      avgDriverScore: 78 + (i % 6),
+      docComplianceRate: 88 + (i % 4),
+      calculatedAt: new Date(d.getFullYear(), d.getMonth(), 15).toISOString(),
+    });
+  }
+  return points;
+}
+
+export function buildVehicleKpiHistory(
+  vehicleId: string,
+  fleetId: string,
+  period: string,
+  from: string,
+  to: string
+): KpiSnapshot[] {
+  const fleetHistory = buildFleetKpiHistory(fleetId, period, from, to);
+  const factor = 0.15 + (parseInt(vehicleId.replace(/\D/g, "") || "1", 10) % 7) * 0.03;
+  return fleetHistory.map((snap, idx) => ({
+    ...snap,
+    id: `kpi-v-${vehicleId}-${snap.periodStart}`,
+    entityType: "VEHICLE",
+    entityId: vehicleId,
+    totalKm: Math.round((snap.totalKm ?? 0) * factor),
+    totalTrips: Math.max(1, Math.round((snap.totalTrips ?? 0) * factor)),
+    totalFuelCost: Math.round((snap.totalFuelCost ?? 0) * factor),
+    totalFuelLiters: Math.round((snap.totalFuelLiters ?? 0) * factor * 10) / 10,
+    totalMaintenanceCost: Math.round((snap.totalMaintenanceCost ?? 0) * factor),
+    totalIncidentCost: Math.round((snap.totalIncidentCost ?? 0) * factor),
+    costPerKm: snap.costPerKm,
+    fuelPer100Km: snap.fuelPer100Km,
+    totalIncidents: idx % 4 === 0 ? 1 : 0,
+    incidentRate: idx % 4 === 0 ? 3.5 : 0,
+    availabilityRate: null,
+    avgDriverScore: null,
+    docComplianceRate: null,
+  }));
 }
 
 export function authenticateMockUser(
@@ -736,30 +1273,58 @@ export function seedExtendedMockDatabase(config: SeedConfig = {}): MockDatabase 
     );
   });
 
-  base.drivers = Array.from({ length: drivers }, (_, i) => ({
-    userId: `d${i + 1}`,
-    fleetId: fleetIds[i % fleetIds.length],
-    managerId: DEMO_MANAGER_ID,
-    licenceNumber: `CM-B-${100000 + i}`,
-    status: i % 7 === 0 ? "ON_LEAVE" : "ACTIVE",
-    assignedVehicleId: i % 3 === 0 ? `v${i + 1}` : null,
-    photoUrl: null,
-  }));
+  base.drivers = Array.from({ length: drivers }, (_, i) => {
+    const firstNames = ["André", "Claire", "Marc", "Jean", "Sophie", "Paul", "Marie", "Roger", "Emile", "Fatou"];
+    const lastNames = ["Mbarga", "Ndjock", "Tchinda", "Kouam", "Mballa", "Abega", "Nguema", "Essomba", "Fouda", "Diallo"];
+    const fn = firstNames[i % firstNames.length];
+    const ln = lastNames[i % lastNames.length];
+    return driver(
+      `d${i + 1}`,
+      fleetIds[i % fleetIds.length],
+      fn,
+      ln,
+      `CM-B-${100000 + i}`,
+      i % 7 === 0 ? "ON_LEAVE" : "ACTIVE",
+      i % 3 === 0 ? `v${i + 1}` : null
+    );
+  });
 
-  const tripStatuses = ["ONGOING", "COMPLETED", "SCHEDULED", "CANCELLED"];
-  base.trips = Array.from({ length: trips }, (_, i) => ({
-    id: `t${i + 1}`,
-    vehicleId: `v${(i % vehicles) + 1}`,
-    driverId: `d${(i % drivers) + 1}`,
-    status: tripStatuses[i % tripStatuses.length],
-    startDate: dateOnly(-(i % 30)),
-    startTime: "08:00:00",
-    endDate: tripStatuses[i % tripStatuses.length] === "COMPLETED" ? dateOnly(-(i % 30)) : null,
-    endTime: tripStatuses[i % tripStatuses.length] === "COMPLETED" ? "17:00:00" : null,
-    distanceKm: tripStatuses[i % tripStatuses.length] === "COMPLETED" ? 50 + i * 3 : null,
-    durationMinutes: tripStatuses[i % tripStatuses.length] === "COMPLETED" ? 120 + i : null,
-    tripCode: `TRJ-2026-${String(i + 1).padStart(4, "0")}`,
-  }));
+  const tripStatuses = ["DEPARTED", "RETURNING", "COMPLETED", "CANCELLED"];
+  base.trips = Array.from({ length: trips }, (_, i) => {
+    const status = tripStatuses[i % tripStatuses.length];
+    const loc = TRIP_LOCATIONS[i % TRIP_LOCATIONS.length];
+    const vehicleId = `v${(i % vehicles) + 1}`;
+    const vehicle = base.vehicles.find((v) => v.id === vehicleId);
+    const odo = vehicle?.operationalParameters?.odometerReading ?? 10000 + i * 150;
+    const dist = 50 + i * 3;
+    const isCompleted = status === "COMPLETED";
+    return {
+      id: `t${i + 1}`,
+      vehicleId,
+      driverId: `d${(i % drivers) + 1}`,
+      fleetId: vehicle?.fleetId ?? fleetIds[i % fleetIds.length],
+      status,
+      startDate: dateOnly(-(i % 30)),
+      startTime: "08:00:00",
+      endDate: isCompleted ? dateOnly(-(i % 30)) : null,
+      endTime: isCompleted ? "17:00:00" : null,
+      distanceKm: isCompleted ? dist : null,
+      computedDistanceKm: isCompleted ? dist : null,
+      durationMinutes: isCompleted ? 120 + i : null,
+      tripCode: `TRJ-2026-${String(i + 1).padStart(4, "0")}`,
+      departureKmIndex: odo,
+      departureFuelIndex: 40 + (i % 35),
+      departureLocation: loc.label,
+      departureLat: loc.lat,
+      departureLng: loc.lng,
+      returnKmIndex: isCompleted ? odo + dist : null,
+      returnFuelIndex: isCompleted ? Math.max(5, 40 + (i % 35) - 15) : null,
+      returnLocation: isCompleted ? loc.label : null,
+      missionObject: `Mission ${i + 1}`,
+      missionCost: 50000 + i * 1000,
+      missionCostCurrency: "XAF",
+    };
+  });
 
   base.assignments = Array.from({ length: assignments }, (_, i) => ({
     id: `a${i + 1}`,

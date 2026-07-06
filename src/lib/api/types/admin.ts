@@ -19,6 +19,7 @@ export type AdminUserDetail = {
 
 export type PublicStatsResponse = {
   activeManagers: number;
+  activeAdmins: number;
   totalFleets: number;
   managedVehicles: number;
   totalDrivers: number;

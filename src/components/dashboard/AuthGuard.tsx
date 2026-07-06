@@ -3,11 +3,12 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
-import { getRoleFromPath } from "@/lib/navigation";
+import { getRoleFromPath, isSharedDashboardPath } from "@/lib/navigation";
 import type { UserRole } from "@/lib/types";
 import { getDashboardPathForRole, getPrimaryRole } from "@/lib/auth/session";
 
 function userCanAccess(pathname: string, roles: UserRole[]): boolean {
+  if (isSharedDashboardPath(pathname)) return true;
   const required = getRoleFromPath(pathname);
   return roles.includes(required);
 }

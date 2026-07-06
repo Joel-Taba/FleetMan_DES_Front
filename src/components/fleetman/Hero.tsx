@@ -12,13 +12,14 @@ export function Hero() {
       className="relative flex min-h-screen items-center justify-center overflow-hidden bg-fleet-dark pt-24"
     >
       <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <Image
-          src="/assets/africa-globe-hero.jpg"
-          alt=""
-          fill
-          className="object-cover opacity-70"
-          priority
-        />
+      <Image
+        src="/assets/africa-globe-hero.jpg"
+        alt=""
+        fill
+        className="object-cover opacity-70"
+        sizes="100vw"
+        quality={75}
+      />
       </div>
       <div className="absolute inset-0 bg-gradient-to-b from-fleet-dark/25 via-fleet-dark/15 to-fleet-dark/45" />
 

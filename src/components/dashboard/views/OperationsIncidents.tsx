@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
@@ -11,8 +11,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { createIncident, fetchIncidents, fetchVehicles, updateIncidentStatus } from "@/lib/api/manager";
-import { formatDateTime } from "@/lib/api/mappers/manager";
+import { useAuth } from "@/context/AuthProvider";
+import {
+  createIncident,
+  fetchDrivers,
+  fetchIncidents,
+  fetchManagerProfile,
+  fetchVehicles,
+  updateIncidentStatus,
+} from "@/lib/api/manager";
+import { driverLabel, formatDateTime } from "@/lib/api/mappers/manager";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 
@@ -25,8 +33,19 @@ const severityVariant: Record<string, "muted" | "warning" | "destructive"> = {
 
 export function OperationsIncidents() {
   const { t } = useLang();
+  const { user } = useAuth();
   const { data: incidents, loading, error, refetch } = useApiQuery(fetchIncidents, []);
   const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
+  const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
+  const { data: manager } = useApiQuery(fetchManagerProfile, []);
+
+  const reporters = useMemo(() => {
+    const list: string[] = [];
+    if (manager) list.push(`${manager.firstName} ${manager.lastName}`.trim());
+    if (user) list.push(`${user.firstName} ${user.lastName}`.trim());
+    (drivers ?? []).forEach((d) => list.push(driverLabel(d)));
+    return [...new Set(list.filter(Boolean))];
+  }, [manager, user, drivers]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -75,12 +94,7 @@ export function OperationsIncidents() {
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
                 <Label>Véhicule *</Label>
-                <select
-                  required
-                  className="h-10 w-full rounded-lg border px-3 text-sm"
-                  value={form.vehicleId}
-                  onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
-                >
+                <select required className="h-10 w-full rounded-lg border px-3 text-sm" value={form.vehicleId} onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}>
                   <option value="">Sélectionner un véhicule</option>
                   {(vehicles ?? []).map((v) => (
                     <option key={v.id} value={v.id}>{v.licensePlate} — {v.brand} {v.model}</option>
@@ -89,43 +103,37 @@ export function OperationsIncidents() {
               </div>
               <div className="space-y-2">
                 <Label>Type *</Label>
-                <select
-                  className="h-10 w-full rounded-lg border px-3 text-sm"
-                  value={form.type}
-                  onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
-                >
-                  {["ACCIDENT","BREAKDOWN","THEFT","VANDALISM","TRAFFIC_VIOLATION","OTHER"].map((t) => (
-                    <option key={t} value={t}>{t}</option>
+                <select className="h-10 w-full rounded-lg border px-3 text-sm" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
+                  {["ACCIDENT", "BREAKDOWN", "THEFT", "VANDALISM", "TRAFFIC_VIOLATION", "OTHER"].map((type) => (
+                    <option key={type} value={type}>{type}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
                 <Label>Sévérité</Label>
-                <select
-                  className="h-10 w-full rounded-lg border px-3 text-sm"
-                  value={form.severity}
-                  onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))}
-                >
-                  {["LOW","MEDIUM","HIGH","CRITICAL"].map((s) => (
+                <select className="h-10 w-full rounded-lg border px-3 text-sm" value={form.severity} onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))}>
+                  {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
                 <Label>Description</Label>
-                <Input
-                  placeholder="Description de l'incident"
-                  value={form.description}
-                  onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                />
+                <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
               </div>
               <div className="space-y-2">
                 <Label>Signalé par</Label>
                 <Input
-                  placeholder="Nom du déclarant"
+                  list="incident-reporters"
                   value={form.reportedBy}
                   onChange={(e) => setForm((f) => ({ ...f, reportedBy: e.target.value }))}
+                  placeholder="Nom du déclarant"
                 />
+                <datalist id="incident-reporters">
+                  {reporters.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
@@ -141,29 +149,29 @@ export function OperationsIncidents() {
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3">Véhicule</th>
-                <th className="px-4 py-3">Chauffeur</th>
-                <th className="px-4 py-3">Type</th>
-                <th className="px-4 py-3">Sévérité</th>
-                <th className="px-4 py-3 text-left">Description</th>
-                <th className="px-4 py-3">Statut</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-left align-middle">Date</th>
+                <th className="px-4 py-3 text-left align-middle">Véhicule</th>
+                <th className="px-4 py-3 text-left align-middle">Chauffeur</th>
+                <th className="px-4 py-3 text-left align-middle">Type</th>
+                <th className="px-4 py-3 text-left align-middle">Sévérité</th>
+                <th className="px-4 py-3 text-left align-middle">Description</th>
+                <th className="px-4 py-3 text-left align-middle">Statut</th>
+                <th className="px-4 py-3 text-right align-middle">Actions</th>
               </tr>
             </thead>
             <tbody>
               {(incidents ?? []).map((inc) => (
                 <tr key={inc.id} className={cn("border-t", inc.isCritical && "bg-destructive/5")}>
-                  <td className="px-4 py-3 whitespace-nowrap">{formatDateTime(inc.incidentDateTime)}</td>
-                  <td className="px-4 py-3"><LicensePlate plate={inc.vehicleRegistration ?? "—"} /></td>
-                  <td className="px-4 py-3">{inc.driverFullName ?? "—"}</td>
-                  <td className="px-4 py-3"><Badge variant="outline">{inc.type}</Badge></td>
-                  <td className="px-4 py-3"><Badge variant={severityVariant[inc.severity] ?? "muted"}>{inc.severity}</Badge></td>
-                  <td className="max-w-xs truncate px-4 py-3">{inc.description ?? "—"}</td>
-                  <td className="px-4 py-3"><Badge>{inc.status}</Badge></td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 align-middle whitespace-nowrap">{formatDateTime(inc.incidentDateTime)}</td>
+                  <td className="px-4 py-3 align-middle"><LicensePlate plate={inc.vehicleRegistration ?? "—"} /></td>
+                  <td className="px-4 py-3 align-middle">{inc.driverFullName ?? "—"}</td>
+                  <td className="px-4 py-3 align-middle"><Badge variant="outline">{inc.type}</Badge></td>
+                  <td className="px-4 py-3 align-middle"><Badge variant={severityVariant[inc.severity] ?? "muted"}>{inc.severity}</Badge></td>
+                  <td className="max-w-xs truncate px-4 py-3 align-middle">{inc.description ?? "—"}</td>
+                  <td className="px-4 py-3 align-middle"><Badge>{inc.status}</Badge></td>
+                  <td className="px-4 py-3 align-middle text-right">
                     {inc.isOpen && (
-                      <Button size="sm" variant="ghost" onClick={() => handleResolve(inc.id)}>
+                      <Button size="sm" variant="default" onClick={() => void handleResolve(inc.id)}>
                         Résoudre
                       </Button>
                     )}

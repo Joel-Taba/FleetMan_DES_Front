@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Bell, Menu, HelpCircle, Home, ChevronRight, Languages } from "lucide-react";
-import { getNotificationsHref, getPageTitle, getRoleFromPath } from "@/lib/navigation";
+import { getRoleFromPath, getPageTitle, getNotificationsHref } from "@/lib/navigation";
 import { useLang } from "@/lib/i18n";
 import { useAuth } from "@/context/AuthProvider";
+import { getPrimaryRole } from "@/lib/auth/session";
 import { Tooltip } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 type DashboardHeaderProps = {
   onMenuClick?: () => void;
@@ -21,8 +24,9 @@ const profileHrefByRole: Record<string, string> = {
 
 export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const pathname = usePathname();
-  const role = getRoleFromPath(pathname);
   const { user } = useAuth();
+  const primaryRole = user ? getPrimaryRole(user.roles) : null;
+  const role = getRoleFromPath(pathname, primaryRole);
   const { t, lang, toggle } = useLang();
   const initials = user
     ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "FM"
@@ -30,7 +34,7 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const title = t(getPageTitle(pathname));
   const profileHref = profileHrefByRole[role] ?? "/dashboard";
   const notificationsHref = getNotificationsHref(pathname ?? "");
-  const isSuperAdmin = role === "FLEET_SUPER_ADMIN";
+  const showNotifications = role === "FLEET_MANAGER" || role === "FLEET_DRIVER";
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border/60 bg-fleet-cream/90 px-5 backdrop-blur lg:px-8">
@@ -69,7 +73,7 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
           </Link>
         </Tooltip>
 
-        {!isSuperAdmin && (
+        {showNotifications && (
           <Tooltip label={t("Notifications")} side="bottom">
             <Link
               href={notificationsHref}
@@ -104,10 +108,24 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         <Tooltip label={t("Mon profil")} side="bottom">
           <Link
             href={profileHref}
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white transition hover:opacity-90"
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full transition hover:opacity-90",
+              user?.photoUrl ? "ring-2 ring-primary/20" : "bg-primary text-sm font-semibold text-white"
+            )}
             aria-label={t("Mon profil")}
           >
-            {initials}
+            {user?.photoUrl ? (
+              <Image
+                src={user.photoUrl}
+                alt={t("Photo de profil")}
+                width={36}
+                height={36}
+                unoptimized
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              initials
+            )}
           </Link>
         </Tooltip>
       </div>

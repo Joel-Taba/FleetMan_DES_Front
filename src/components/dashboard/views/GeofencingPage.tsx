@@ -1,11 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { MapPin } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { MapView, type MapZone } from "../MapView";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchGeofenceZones } from "@/lib/api/manager";
@@ -28,6 +32,8 @@ function zoneToMapZone(z: Record<string, unknown>): MapZone | null {
 export function GeofencingPage() {
   const { t } = useLang();
   const { data: zonesRaw, loading, error } = useApiQuery(fetchGeofenceZones, []);
+  const [editZone, setEditZone] = useState<Record<string, unknown> | null>(null);
+  const [zoneName, setZoneName] = useState("");
 
   const zones: MapZone[] = (zonesRaw ?? [])
     .map(zoneToMapZone)
@@ -72,7 +78,16 @@ export function GeofencingPage() {
                         {String(z.type ?? z.zoneType ?? "ZONE")}
                       </p>
                       <div className="mt-2 flex gap-1">
-                        <Button size="sm" variant="ghost">Modifier</Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setEditZone(z);
+                            setZoneName(String(z.name ?? z.label ?? ""));
+                          }}
+                        >
+                          Modifier
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -90,6 +105,22 @@ export function GeofencingPage() {
           </Card>
         </div>
       </DataGate>
+
+      <Dialog open={!!editZone} onOpenChange={(open) => !open && setEditZone(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Modifier la zone</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nom de la zone</Label>
+              <Input value={zoneName} onChange={(e) => setZoneName(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setEditZone(null)}>Annuler</Button>
+              <Button onClick={() => { setEditZone(null); }}>Enregistrer</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

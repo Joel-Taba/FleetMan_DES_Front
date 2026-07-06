@@ -1,25 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle, XCircle, Clock } from "lucide-react";
+import { CheckCircle, XCircle, Clock, CreditCard } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
   approveSubscription,
+  fetchActiveSubscriptions,
   fetchPendingSubscriptions,
   fetchSubscriptionPlans,
   rejectSubscription,
 } from "@/lib/api/admin";
-import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 export function SubscriptionsPage() {
+  const { t } = useLang();
   const { data: pending, loading, error, refetch } = useApiQuery(fetchPendingSubscriptions, []);
+  const { data: active, loading: activeLoading, error: activeError } = useApiQuery(
+    fetchActiveSubscriptions,
+    []
+  );
   const { data: plans } = useApiQuery(fetchSubscriptionPlans, []);
 
   const [rejectTarget, setRejectTarget] = useState<string | null>(null);
@@ -57,14 +64,15 @@ export function SubscriptionsPage() {
   const count = (pending ?? []).length;
 
   return (
-    <div>
+    <div className="space-y-10">
+      <section>
       <PageHeader
-        title="Demandes de Souscription"
-        description="Inscriptions de gestionnaires en attente de validation."
+        title={t("Demandes de Souscription")}
+        description={t("Inscriptions de gestionnaires en attente de validation.")}
       >
         {count > 0 && (
           <Badge variant="destructive" className="text-base px-3 py-1">
-            {count} en attente
+            {count} {t("en attente")}
           </Badge>
         )}
       </PageHeader>
@@ -73,18 +81,18 @@ export function SubscriptionsPage() {
         loading={loading}
         error={error}
         empty={count === 0}
-        emptyMessage="Aucune demande en attente. Toutes les inscriptions ont été traitées ✓"
+        emptyMessage={t("Aucune demande en attente. Toutes les inscriptions ont été traitées ✓")}
       >
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left">Gestionnaire</th>
-                <th className="px-4 py-3 text-left">Email</th>
-                <th className="px-4 py-3 text-left">Entreprise</th>
-                <th className="px-4 py-3 text-left">Date d'inscription</th>
-                <th className="px-4 py-3 text-center">Statut</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-left">{t("Gestionnaire")}</th>
+                <th className="px-4 py-3 text-left">{t("Email")}</th>
+                <th className="px-4 py-3 text-left">{t("Entreprise")}</th>
+                <th className="px-4 py-3 text-left">{t("Date d'inscription")}</th>
+                <th className="px-4 py-3 text-center">{t("Statut")}</th>
+                <th className="px-4 py-3 text-right">{t("Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -107,12 +115,9 @@ export function SubscriptionsPage() {
                     {new Date(sub.createdAt).toLocaleDateString("fr-FR")}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <Badge
-                      variant="warning"
-                      className="gap-1"
-                    >
+                    <Badge variant="warning" className="gap-1">
                       <Clock className="h-3 w-3" />
-                      En attente
+                      {t("En attente")}
                     </Badge>
                   </td>
                   <td className="px-4 py-3">
@@ -124,7 +129,7 @@ export function SubscriptionsPage() {
                         onClick={() => setApproveTarget(sub.id)}
                       >
                         <CheckCircle className="h-4 w-4" />
-                        Approuver
+                        {t("Approuver")}
                       </Button>
                       <Button
                         size="sm"
@@ -133,7 +138,7 @@ export function SubscriptionsPage() {
                         onClick={() => { setRejectTarget(sub.id); setReason(""); }}
                       >
                         <XCircle className="h-4 w-4" />
-                        Rejeter
+                        {t("Rejeter")}
                       </Button>
                     </div>
                   </td>
@@ -143,27 +148,72 @@ export function SubscriptionsPage() {
           </table>
         </div>
       </DataGate>
+      </section>
 
-      {/* Modal Approbation */}
+      <section>
+        <PageHeader
+          title={t("Abonnements actifs")}
+          description={t("Gestionnaires avec un plan tarifaire en cours.")}
+        />
+        <DataGate
+          loading={activeLoading}
+          error={activeError}
+          empty={(active ?? []).length === 0}
+          emptyMessage={t("Aucun abonnement actif enregistré.")}
+        >
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {(active ?? []).map((sub) => (
+              <Card key={sub.managerId}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <CardTitle className="text-base font-semibold">{sub.companyName || "—"}</CardTitle>
+                    <Badge
+                      variant={sub.daysUntilExpiry < 0 ? "destructive" : sub.daysUntilExpiry <= 30 ? "warning" : "muted"}
+                    >
+                      {sub.planName}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{sub.email}</p>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <CreditCard className="h-4 w-4" />
+                    <span>{t("Statut :")} {sub.subscriptionStatus}</span>
+                  </div>
+                  {sub.subscriptionEnd && (
+                    <p className="text-muted-foreground">
+                      {t("Expire le")} {new Date(sub.subscriptionEnd).toLocaleDateString("fr-FR")}
+                      {sub.daysUntilExpiry >= 0
+                        ? ` (${sub.daysUntilExpiry} ${t("j restants")})`
+                        : ` (${t("expiré depuis")} ${Math.abs(sub.daysUntilExpiry)} j)`}
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </DataGate>
+      </section>
+
       <Dialog open={!!approveTarget} onOpenChange={(o) => !o && setApproveTarget(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-success">
               <CheckCircle className="h-5 w-5" />
-              Approuver l'inscription
+              {t("Approuver l'inscription")}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Le compte sera activé immédiatement. Vous pouvez optionnellement affecter un plan tarifaire.
+            {t("Le compte sera activé immédiatement. Vous pouvez optionnellement affecter un plan tarifaire.")}
           </p>
           <div className="space-y-2">
-            <Label>Plan tarifaire (optionnel)</Label>
+            <Label>{t("Plan tarifaire (optionnel)")}</Label>
             <select
               className="h-10 w-full rounded-lg border px-3 text-sm"
               value={selectedPlan}
               onChange={(e) => setSelectedPlan(e.target.value)}
             >
-              <option value="">Aucun plan (accès libre)</option>
+              <option value="">{t("Aucun plan (accès libre)")}</option>
               {(plans ?? []).filter(p => p.isActive).map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name} — {p.monthlyPrice.toLocaleString()} XAF/mois
@@ -172,32 +222,31 @@ export function SubscriptionsPage() {
             </select>
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setApproveTarget(null)}>Annuler</Button>
+            <Button variant="secondary" onClick={() => setApproveTarget(null)}>{t("Annuler")}</Button>
             <Button
               className="bg-success text-white hover:bg-success/90"
               onClick={handleApprove}
               disabled={submitting}
             >
-              {submitting ? "Approbation…" : "Confirmer l'approbation"}
+              {submitting ? t("Approbation…") : t("Confirmer l'approbation")}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal Rejet */}
       <Dialog open={!!rejectTarget} onOpenChange={(o) => !o && setRejectTarget(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <XCircle className="h-5 w-5" />
-              Rejeter l'inscription
+              {t("Rejeter l'inscription")}
             </DialogTitle>
           </DialogHeader>
           <p className="text-sm text-muted-foreground">
-            Le gestionnaire recevra une notification avec le motif de rejet.
+            {t("Le gestionnaire recevra une notification avec le motif de rejet.")}
           </p>
           <div className="space-y-2">
-            <Label>Motif du rejet *</Label>
+            <Label>{t("Motif du rejet *")}</Label>
             <Input
               required
               placeholder="Ex: Informations incomplètes, activité non conforme..."
@@ -206,13 +255,13 @@ export function SubscriptionsPage() {
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setRejectTarget(null)}>Annuler</Button>
+            <Button variant="secondary" onClick={() => setRejectTarget(null)}>{t("Annuler")}</Button>
             <Button
               variant="destructive"
               onClick={handleReject}
               disabled={submitting || !reason.trim()}
             >
-              {submitting ? "Rejet…" : "Confirmer le rejet"}
+              {submitting ? t("Rejet…") : t("Confirmer le rejet")}
             </Button>
           </div>
         </DialogContent>

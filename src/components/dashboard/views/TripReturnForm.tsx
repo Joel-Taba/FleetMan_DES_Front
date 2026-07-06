@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Search, RotateCcw, Check, AlertTriangle } from "lucide-react";
 import { PageHeader } from "../PageHeader";
@@ -10,81 +10,123 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { fetchTripByCode, registerTripReturn } from "@/lib/api/manager";
+import { fetchTripByCode, fetchOpenTrips, registerTripReturn } from "@/lib/api/manager";
+import { useApiQuery } from "@/hooks/use-api-query";
 import type { ApiTrip } from "@/lib/api/types/manager";
+import { tripStatusBadgeVariant, tripStatusLabel } from "@/lib/api/mappers/manager";
+import { LocationPicker, type PlaceResult } from "../LocationPicker";
+import { useLang } from "@/lib/i18n";
 
-const STATUS_LABELS: Record<string, string> = {
-  SCHEDULED: "Planifié",
-  DEPARTED: "En cours",
-  RETURNING: "En retour",
-  COMPLETED: "Terminé",
-  CANCELLED: "Annulé",
-};
-
-const STATUS_VARIANTS: Record<string, "default" | "success" | "muted" | "warning" | "destructive"> = {
-  SCHEDULED: "default",
-  DEPARTED: "warning",
-  RETURNING: "warning",
-  COMPLETED: "success",
-  CANCELLED: "destructive",
-};
+const TRIP_CODE_PREFIX = "TRJ-2026-";
 
 export function TripReturnForm() {
+  const { t } = useLang();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const presetCode = searchParams.get("code")?.trim().toUpperCase() ?? "";
+  const autoSearchDone = useRef(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const { data: openTrips } = useApiQuery(fetchOpenTrips, []);
 
-  // Phase 1 : Saisie du code
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState(TRIP_CODE_PREFIX);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [trip, setTrip] = useState<ApiTrip | null>(null);
 
-  // Phase 2 : Données du retour
   const [returnDate, setReturnDate] = useState(new Date().toISOString().split("T")[0]);
   const [returnTime, setReturnTime] = useState(new Date().toTimeString().slice(0, 5));
-  const [returnLocation, setReturnLocation] = useState("");
+  const [returnPlace, setReturnPlace] = useState<PlaceResult | null>(null);
   const [returnKm, setReturnKm] = useState("");
   const [returnFuel, setReturnFuel] = useState("");
 
-  // Phase 3 : Enregistrement
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // ── Recherche par code ─────────────────────────────────────────────────────
+  const codeSuggestions = useMemo(() => {
+    const query = code.trim().toUpperCase();
+    if (!query || query.length < TRIP_CODE_PREFIX.length) return [];
+    return (openTrips ?? [])
+      .filter((t) => t.tripCode?.toUpperCase().startsWith(query))
+      .slice(0, 8);
+  }, [code, openTrips]);
 
-  const searchTrip = async () => {
-    if (!code.trim()) return;
+  const handleCodeChange = (raw: string) => {
+    let next = raw.toUpperCase();
+    if (!next.startsWith(TRIP_CODE_PREFIX)) {
+      const suffix = next.replace(/^TRJ-?2026-?/i, "");
+      next = TRIP_CODE_PREFIX + suffix.replace(/[^0-9]/g, "").slice(0, 4);
+    } else {
+      const suffix = next.slice(TRIP_CODE_PREFIX.length).replace(/[^0-9]/g, "").slice(0, 4);
+      next = TRIP_CODE_PREFIX + suffix;
+    }
+    setCode(next);
+    setShowSuggestions(true);
+    setSearchError(null);
+  };
+
+  const searchTrip = useCallback(async (tripCode?: string) => {
+    const query = (tripCode ?? code).trim();
+    if (!query || query.length < TRIP_CODE_PREFIX.length + 1) {
+      setSearchError("Complétez le code du trajet (ex. TRJ-2026-0001).");
+      return;
+    }
     setSearching(true);
     setSearchError(null);
     setTrip(null);
+    setShowSuggestions(false);
     try {
-      const found = await fetchTripByCode(code.trim().toUpperCase());
+      const found = await fetchTripByCode(query.toUpperCase());
       if (found.status === "COMPLETED" || found.status === "CANCELLED") {
-        setSearchError(`Ce trajet est déjà ${STATUS_LABELS[found.status].toLowerCase()}.`);
+        setSearchError(`Ce trajet est déjà ${tripStatusLabel(found.status).toLowerCase()}.`);
       } else {
         setTrip(found);
+        setCode(found.tripCode ?? query.toUpperCase());
+        if (found.departureLocation && found.departureLat != null && found.departureLng != null) {
+          setReturnPlace({
+            label: found.departureLocation,
+            lat: found.departureLat,
+            lng: found.departureLng,
+          });
+        }
       }
     } catch {
       setSearchError("Aucun trajet trouvé avec ce code. Vérifiez et réessayez.");
     } finally {
       setSearching(false);
     }
-  };
+  }, [code]);
 
-  // ── Calculs prévisionnels ─────────────────────────────────────────────────
+  useEffect(() => {
+    if (!presetCode || autoSearchDone.current) return;
+    autoSearchDone.current = true;
+    setCode(presetCode);
+    searchTrip(presetCode).catch(() => {
+      /* erreurs gérées dans searchTrip */
+    });
+  }, [presetCode, searchTrip]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node)) {
+        setShowSuggestions(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
 
   const previewDistance = () => {
-    if (!trip?.departureKmIndex || !returnKm) return null;
+    if (trip?.departureKmIndex == null || !returnKm) return null;
     const d = parseFloat(returnKm) - trip.departureKmIndex;
     return d > 0 ? d.toFixed(1) : null;
   };
 
   const previewFuel = () => {
-    if (!trip?.departureFuelIndex || !returnFuel) return null;
+    if (trip?.departureFuelIndex == null || !returnFuel) return null;
     const f = trip.departureFuelIndex - parseFloat(returnFuel);
     return f > 0 ? f.toFixed(1) : null;
   };
-
-  // ── Enregistrement du retour ──────────────────────────────────────────────
 
   const submit = async () => {
     if (!trip) return;
@@ -95,7 +137,9 @@ export function TripReturnForm() {
         tripCode: trip.tripCode!,
         returnDate,
         returnTime,
-        returnLocation: returnLocation || undefined,
+        returnLocation: returnPlace?.label,
+        returnLat: returnPlace?.lat,
+        returnLng: returnPlace?.lng,
         returnKmIndex: returnKm ? parseFloat(returnKm) : undefined,
         returnFuelIndex: returnFuel ? parseFloat(returnFuel) : undefined,
       });
@@ -105,8 +149,6 @@ export function TripReturnForm() {
       setSaving(false);
     }
   };
-
-  // ── Rendu ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
@@ -123,7 +165,6 @@ export function TripReturnForm() {
         />
       </div>
 
-      {/* ── ÉTAPE 1 : Saisie du code ── */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -131,15 +172,48 @@ export function TripReturnForm() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Le préfixe <span className="font-mono">{TRIP_CODE_PREFIX}</span> est prérempli — complétez uniquement le numéro (ex. 0001).
+          </p>
           <div className="flex gap-3">
-            <Input
-              placeholder="Ex: TRJ-2026-0001"
-              value={code}
-              onChange={(e) => setCode(e.target.value.toUpperCase())}
-              onKeyDown={(e) => e.key === "Enter" && searchTrip()}
-              className="font-mono uppercase max-w-xs"
-            />
-            <Button type="button" onClick={searchTrip} disabled={searching || !code.trim()}>
+            <div className="relative max-w-xs flex-1" ref={suggestionsRef}>
+              <Input
+                placeholder={`${TRIP_CODE_PREFIX}0001`}
+                value={code}
+                onChange={(e) => handleCodeChange(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void searchTrip();
+                  }
+                }}
+                className="font-mono uppercase"
+              />
+              {showSuggestions && codeSuggestions.length > 0 && (
+                <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border bg-popover py-1 shadow-md">
+                  {codeSuggestions.map((t) => (
+                    <li key={t.id}>
+                      <button
+                        type="button"
+                        className="w-full px-3 py-2 text-left font-mono text-sm hover:bg-muted"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          setCode(t.tripCode ?? TRIP_CODE_PREFIX);
+                          void searchTrip(t.tripCode ?? undefined);
+                        }}
+                      >
+                        {t.tripCode}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {tripStatusLabel(t.status)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <Button type="button" onClick={() => searchTrip()} disabled={searching || code.length <= TRIP_CODE_PREFIX.length}>
               {searching ? "Recherche…" : <><Search className="h-4 w-4" /> Rechercher</>}
             </Button>
           </div>
@@ -152,17 +226,15 @@ export function TripReturnForm() {
         </CardContent>
       </Card>
 
-      {/* ── ÉTAPE 2 : Récapitulatif départ + données retour ── */}
       {trip && (
         <>
-          {/* Récapitulatif départ */}
           <Card className="border-primary/30 bg-primary/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <RotateCcw className="h-5 w-5" />
                 Trajet retrouvé
-                <Badge variant={STATUS_VARIANTS[trip.status] ?? "default"} className="ml-2">
-                  {STATUS_LABELS[trip.status] ?? trip.status}
+                <Badge variant={tripStatusBadgeVariant(trip.status)} className="ml-2">
+                  {tripStatusLabel(trip.status)}
                 </Badge>
                 <span className="ml-auto font-mono text-sm text-primary">{trip.tripCode}</span>
               </CardTitle>
@@ -210,7 +282,6 @@ export function TripReturnForm() {
             </CardContent>
           </Card>
 
-          {/* Formulaire retour */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -233,10 +304,13 @@ export function TripReturnForm() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Lieu de retour</Label>
-                <Input placeholder="Ex: Dépôt Yaoundé Centre" value={returnLocation} onChange={(e) => setReturnLocation(e.target.value)} />
-              </div>
+              <LocationPicker
+                label={t("Lieu de retour")}
+                value={returnPlace}
+                onChange={setReturnPlace}
+                placeholder="Dépôt, parking, adresse de retour…"
+                mapHeightClassName="h-[260px]"
+              />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

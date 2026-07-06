@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, Clock, Gauge, User, Flag } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +10,10 @@ import { LicensePlate } from "../LicensePlate";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchDrivers, fetchTrip, fetchVehicles } from "@/lib/api/manager";
 import {
+  driverFullName,
+  driverLabel,
   formatTripDateTime,
+  formatTripDistance,
   tripStatusLabel,
   vehiclePlateById,
 } from "@/lib/api/mappers/manager";
@@ -17,6 +21,12 @@ import { useLang } from "@/lib/i18n";
 
 export function TripDetail({ id }: { id: string }) {
   const { t } = useLang();
+  const searchParams = useSearchParams();
+  const returnTab = searchParams.get("returnTab");
+  const backHref =
+    returnTab && ["ongoing", "history", "live"].includes(returnTab)
+      ? `/dashboard/manager/trips?tab=${returnTab}`
+      : "/dashboard/manager/trips";
   const { data: trip, loading, error } = useApiQuery(() => fetchTrip(id), [id]);
   const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
   const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
@@ -26,8 +36,8 @@ export function TripDetail({ id }: { id: string }) {
 
   const facts = trip
     ? [
-        { icon: User, label: t("Chauffeur"), value: driver ? `Permis ${driver.licenceNumber}` : "—" },
-        { icon: Gauge, label: t("Distance"), value: trip.distanceKm != null ? `${trip.distanceKm} km` : "—" },
+        { icon: User, label: t("Chauffeur"), value: driver ? (driverFullName(driver) ?? driverLabel(driver)) : "—" },
+        { icon: Gauge, label: t("Distance"), value: formatTripDistance(trip) },
         { icon: Clock, label: "Durée", value: trip.durationMinutes != null ? `${trip.durationMinutes} min` : "—" },
         { icon: Flag, label: t("Statut"), value: tripStatusLabel(trip.status) },
       ]
@@ -36,7 +46,7 @@ export function TripDetail({ id }: { id: string }) {
   return (
     <div className="space-y-6">
       <Link
-        href="/dashboard/manager/trips"
+        href={backHref}
         className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" /> {t("Trajets")}

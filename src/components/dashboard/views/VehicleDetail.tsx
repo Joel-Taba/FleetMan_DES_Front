@@ -14,6 +14,7 @@ import {
   VEHICLE_DOC_TAB,
   type DocumentPreview,
 } from "../DocumentPreviewCard";
+import { DocumentUploadDialog } from "../DocumentUploadDialog";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchDrivers, fetchVehicle, fetchVehicleDocuments } from "@/lib/api/manager";
 import { driverFullName, mapVehicleStatus, vehicleMileage } from "@/lib/api/mappers/manager";
@@ -23,7 +24,7 @@ export function VehicleDetail({ id }: { id: string }) {
   const { t } = useLang();
   const { data: vehicle, loading, error } = useApiQuery(() => fetchVehicle(id), [id]);
   const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
-  const { data: docsPage } = useApiQuery(() => fetchVehicleDocuments(id), [id]);
+  const { data: docsPage, refetch: refetchDocs } = useApiQuery(() => fetchVehicleDocuments(id), [id]);
 
   const driver = (drivers ?? []).find((d) => d.assignedVehicleId === id);
   const uiStatus = vehicle ? mapVehicleStatus(vehicle.status) : "OUT_OF_SERVICE";
@@ -119,6 +120,13 @@ export function VehicleDetail({ id }: { id: string }) {
           </div>
 
           <div className="lg:col-span-2">
+            <div className="mb-4 flex justify-end">
+              <DocumentUploadDialog
+                entityKind="vehicle"
+                entityId={id}
+                onUploaded={refetchDocs}
+              />
+            </div>
             <Tabs defaultValue="identity">
               <TabsList className="h-auto flex-wrap">
                 <TabsTrigger value="identity">{t("Identité")}</TabsTrigger>

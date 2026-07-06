@@ -183,3 +183,54 @@ export function rejectSubscription(id: string, reason: string) {
     body: JSON.stringify({ reason }),
   });
 }
+
+export type PlanFeatureItem = {
+  key: string;
+  label: string;
+  enabled: boolean;
+};
+
+export type ActiveSubscription = {
+  managerId: string;
+  companyName: string;
+  email: string;
+  planName: string;
+  subscriptionStatus: string;
+  subscriptionStart: string | null;
+  subscriptionEnd: string | null;
+  daysUntilExpiry: number;
+};
+
+export function fetchPlanFeatures(planId: string) {
+  return fetchList<PlanFeatureItem>(`/api/v1/admin/super/plans/${planId}/features`);
+}
+
+export function updatePlanFeatures(planId: string, features: PlanFeatureItem[]) {
+  return apiFetch<void>(`/api/v1/admin/super/plans/${planId}/features`, {
+    method: "PUT",
+    body: JSON.stringify({ features }),
+  });
+}
+
+export function fetchActiveSubscriptions() {
+  return fetchList<ActiveSubscription>("/api/v1/admin/super/subscriptions/active");
+}
+
+export type SubscriptionHistoryItem = {
+  id: string;
+  username: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  companyName: string | null;
+  requestedAt: string;
+  processedAt: string;
+  status: "APPROVED" | "REJECTED";
+  planName?: string | null;
+  rejectionReason?: string | null;
+  processedBy?: string;
+};
+
+export function fetchSubscriptionHistory() {
+  return fetchList<SubscriptionHistoryItem>("/api/v1/admin/super/subscriptions/history");
+}

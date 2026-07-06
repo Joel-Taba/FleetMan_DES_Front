@@ -23,8 +23,11 @@ import {
   updateReferenceItem,
 } from "@/lib/api/admin";
 import { ADMIN_REFERENCE_TABS } from "@/lib/admin-references";
+import { useLang } from "@/lib/i18n";
 
-function ReferenceTabPanel({ kind, label }: { kind: ReferenceKind; label: string }) {
+function ReferenceTabPanel({ kind, labelKey }: { kind: ReferenceKind; labelKey: string }) {
+  const { t } = useLang();
+  const label = t(labelKey);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [code, setCode] = useState("");
@@ -77,7 +80,7 @@ function ReferenceTabPanel({ kind, label }: { kind: ReferenceKind; label: string
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Supprimer cette entrée ?")) return;
+    if (!confirm(t("Supprimer cette entrée ?"))) return;
     setDeletingId(id);
     try {
       await deleteReferenceItem(kind, id);
@@ -92,48 +95,48 @@ function ReferenceTabPanel({ kind, label }: { kind: ReferenceKind; label: string
       <div className="mb-4 flex justify-end">
         <Button size="sm" onClick={openCreate}>
           <Plus className="h-4 w-4" />
-          Ajouter {label.toLowerCase()}
+          {t("Ajouter")} {label.toLowerCase()}
         </Button>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
-                {editingId ? "Modifier" : "Nouvelle entrée"} — {label}
+                {editingId ? t("Modifier") : t("Nouvelle entrée")} — {label}
               </DialogTitle>
             </DialogHeader>
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
-                <Label>Code</Label>
+                <Label>{t("Code")}</Label>
                 <Input
-                  placeholder="ex: CAR"
+                  placeholder={t("ex: CAR")}
                   required
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Libellé</Label>
+                <Label>{t("Libellé")}</Label>
                 <Input
-                  placeholder="ex: Voiture"
+                  placeholder={t("ex: Voiture")}
                   required
                   value={itemLabel}
                   onChange={(e) => setItemLabel(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>{t("Description")}</Label>
                 <Input
-                  placeholder="Optionnel"
+                  placeholder={t("Optionnel")}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
               <div className="flex justify-end gap-2">
                 <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>
-                  Annuler
+                  {t("Annuler")}
                 </Button>
                 <Button type="submit" disabled={saving}>
-                  {saving ? "Enregistrement…" : "Enregistrer"}
+                  {saving ? t("Enregistrement…") : t("Enregistrer")}
                 </Button>
               </div>
             </form>
@@ -146,10 +149,10 @@ function ReferenceTabPanel({ kind, label }: { kind: ReferenceKind; label: string
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left">Code</th>
-                <th className="px-4 py-3 text-left">Libellé</th>
-                <th className="hidden px-4 py-3 text-left md:table-cell">Description</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-4 py-3 text-left">{t("Code")}</th>
+                <th className="px-4 py-3 text-left">{t("Libellé")}</th>
+                <th className="hidden px-4 py-3 text-left md:table-cell">{t("Description")}</th>
+                <th className="px-4 py-3 text-right">{t("Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +168,7 @@ function ReferenceTabPanel({ kind, label }: { kind: ReferenceKind; label: string
                       <button
                         type="button"
                         className="rounded p-2 hover:bg-muted"
-                        aria-label="Éditer"
+                        aria-label={t("Éditer")}
                         onClick={() => openEdit(item)}
                       >
                         <Pencil className="h-4 w-4 text-primary" />
@@ -173,7 +176,7 @@ function ReferenceTabPanel({ kind, label }: { kind: ReferenceKind; label: string
                       <button
                         type="button"
                         className="rounded p-2 hover:bg-muted"
-                        aria-label="Supprimer"
+                        aria-label={t("Supprimer")}
                         disabled={deletingId === item.id}
                         onClick={() => handleDelete(item.id)}
                       >
@@ -192,27 +195,28 @@ function ReferenceTabPanel({ kind, label }: { kind: ReferenceKind; label: string
 }
 
 export function ReferencesManagement() {
+  const { t } = useLang();
   const defaultTab = ADMIN_REFERENCE_TABS[0]?.id ?? "vehicle-types";
 
   return (
     <div>
       <PageHeader
-        title="Gestion des Référentiels"
-        description="Types, marques, modèles et autres ressources de configuration."
+        title={t("Gestion des Référentiels")}
+        description={t("Types, marques, modèles et autres ressources de configuration.")}
       />
 
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList className="mb-4 flex h-auto w-full flex-wrap justify-start gap-1">
           {ADMIN_REFERENCE_TABS.map((tab) => (
             <TabsTrigger key={tab.id} value={tab.id} className="text-xs sm:text-sm">
-              {tab.label}
+              {t(tab.label)}
             </TabsTrigger>
           ))}
         </TabsList>
 
         {ADMIN_REFERENCE_TABS.map((tab) => (
           <TabsContent key={tab.id} value={tab.id}>
-            <ReferenceTabPanel kind={tab.id} label={tab.label} />
+            <ReferenceTabPanel kind={tab.id} labelKey={tab.label} />
           </TabsContent>
         ))}
       </Tabs>

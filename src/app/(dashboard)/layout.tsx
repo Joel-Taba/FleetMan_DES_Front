@@ -1,5 +1,6 @@
 import { DashboardShell } from "@/components/dashboard/DashboardShell";
 import { AuthGuard } from "@/components/dashboard/AuthGuard";
+import { SubscriptionGuard } from "@/components/dashboard/SubscriptionGuard";
 import { MassiveDataInitializer } from "@/components/MassiveDataInitializer";
 
 export default function DashboardLayout({
@@ -9,7 +10,9 @@ export default function DashboardLayout({
 }) {
   return (
     <AuthGuard>
-      <DashboardShell>{children}</DashboardShell>
+      <SubscriptionGuard>
+        <DashboardShell>{children}</DashboardShell>
+      </SubscriptionGuard>
       <MassiveDataInitializer />
     </AuthGuard>
   );

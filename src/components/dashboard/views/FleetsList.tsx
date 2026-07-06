@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Car, Users, BarChart3, Pencil } from "lucide-react";
+import { Plus, Search, Car, Users, Pencil } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { createFleet, fetchDrivers, fetchFleets } from "@/lib/api/manager";
+import { createFleet, fetchDrivers, fetchFleets, updateFleet } from "@/lib/api/manager";
 import { useLang } from "@/lib/i18n";
 
 export function FleetsList() {
@@ -27,6 +27,9 @@ export function FleetsList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [creating, setCreating] = useState(false);
+  const [editFleet, setEditFleet] = useState<{ id: string; name: string } | null>(null);
+  const [editName, setEditName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const { data: fleets, loading, error, refetch } = useApiQuery(fetchFleets, []);
   const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
@@ -54,6 +57,18 @@ export function FleetsList() {
       refetch();
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleEditSave() {
+    if (!editFleet || !editName.trim()) return;
+    setSavingEdit(true);
+    try {
+      await updateFleet(editFleet.id, editName.trim());
+      setEditFleet(null);
+      refetch();
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -109,48 +124,58 @@ export function FleetsList() {
       <DataGate loading={loading} error={error} empty={filtered.length === 0}>
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {filtered.map((fleet) => (
-            <Link key={fleet.id} href={`/dashboard/manager/fleets/${fleet.id}`}>
-              <Card className="h-full transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-soft">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-display text-xl font-semibold">{fleet.name}</h3>
-                      <Badge variant="success" className="mt-2">
-                        {t("Actif")}
-                      </Badge>
-                    </div>
-                    <button
-                      type="button"
-                      className="rounded p-1 hover:bg-muted"
-                      onClick={(e) => e.preventDefault()}
-                      aria-label={t("Modifier")}
-                    >
-                      <Pencil className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                  </div>
+            <Card key={fleet.id} className="h-full transition-all hover:-translate-y-1 hover:border-primary/40 hover:shadow-soft">
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <Link href={`/dashboard/manager/fleets/${fleet.id}`} className="flex-1">
+                    <h3 className="font-display text-xl font-semibold hover:text-primary">{fleet.name}</h3>
+                    <Badge variant="success" className="mt-2">{t("Actif")}</Badge>
+                  </Link>
+                  <button
+                    type="button"
+                    className="rounded p-1 hover:bg-muted"
+                    onClick={() => {
+                      setEditFleet({ id: fleet.id, name: fleet.name });
+                      setEditName(fleet.name);
+                    }}
+                    aria-label={t("Modifier")}
+                  >
+                    <Pencil className="h-4 w-4 text-muted-foreground" />
+                  </button>
+                </div>
+                <Link href={`/dashboard/manager/fleets/${fleet.id}`}>
                   <p className="mt-3 text-sm text-muted-foreground">
                     {t("Créée le")}{" "}
-                    {fleet.creationDate
-                      ? new Date(fleet.creationDate).toLocaleDateString("fr-FR")
-                      : "—"}
+                    {fleet.creationDate ? new Date(fleet.creationDate).toLocaleDateString("fr-FR") : "—"}
                   </p>
                   <div className="mt-6 flex gap-4 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Car className="h-4 w-4" /> {fleet.vehicleCount ?? 0}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Users className="h-4 w-4" /> {driverCountByFleet.get(fleet.id) ?? 0}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <BarChart3 className="h-4 w-4" /> —
-                    </span>
+                    <span className="flex items-center gap-1"><Car className="h-4 w-4" /> {fleet.vehicleCount ?? 0}</span>
+                    <span className="flex items-center gap-1"><Users className="h-4 w-4" /> {driverCountByFleet.get(fleet.id) ?? 0}</span>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
+                </Link>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </DataGate>
+
+      <Dialog open={!!editFleet} onOpenChange={(o) => !o && setEditFleet(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{t("Modifier la flotte")}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t("Nom")}</Label>
+              <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setEditFleet(null)}>{t("Annuler")}</Button>
+              <Button onClick={() => void handleEditSave()} disabled={savingEdit}>
+                {savingEdit ? t("Sauvegarde…") : t("Enregistrer")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

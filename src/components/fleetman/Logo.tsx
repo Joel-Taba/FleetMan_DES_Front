@@ -8,6 +8,8 @@ type LogoProps = {
   variant?: "light" | "dark";
   /** Si défini, le logo devient un lien. Évite les <a> imbriqués si le parent est déjà un lien. */
   href?: string;
+  /** Désactiver le prefetch Next.js (utile sur login pour éviter de précharger la page d'accueil). */
+  prefetch?: boolean;
 };
 
 export function Logo({
@@ -15,6 +17,7 @@ export function Logo({
   showTagline = true,
   variant = "dark",
   href,
+  prefetch,
 }: LogoProps) {
   const isLight = variant === "light";
 
@@ -26,7 +29,6 @@ export function Logo({
         width={44}
         height={44}
         className="h-10 w-10 shrink-0 object-contain"
-        priority
       />
       <div>
         <span
@@ -53,7 +55,7 @@ export function Logo({
 
   if (href) {
     return (
-      <Link href={href} className="inline-flex">
+      <Link href={href} prefetch={prefetch} className="inline-flex">
         {content}
       </Link>
     );

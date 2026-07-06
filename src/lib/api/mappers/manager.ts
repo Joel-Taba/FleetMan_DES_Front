@@ -49,6 +49,19 @@ export function formatTripDateTime(date: string, time: string | null) {
   return `${new Date(date).toLocaleDateString("fr-FR")}${t ? ` ${t}` : ""}`;
 }
 
+/** Distance affichable (odomètre retour − départ, ou legacy GPS). */
+export function tripDisplayDistance(trip: ApiTrip): number | null {
+  const raw = trip.computedDistanceKm ?? trip.distanceKm;
+  if (raw == null || Number.isNaN(Number(raw))) return null;
+  const km = Number(raw);
+  return km >= 0 ? km : null;
+}
+
+export function formatTripDistance(trip: ApiTrip): string {
+  const km = tripDisplayDistance(trip);
+  return km != null ? `${km} km` : "—";
+}
+
 export function formatDateTime(iso: string | null) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("fr-FR", {
@@ -72,6 +85,8 @@ export function formatRelativeTime(iso: string) {
 export function tripStatusLabel(status: string) {
   const map: Record<string, string> = {
     SCHEDULED: "Planifié",
+    DEPARTED: "En cours",
+    RETURNING: "En retour",
     ONGOING: "En cours",
     COMPLETED: "Terminé",
     CANCELLED: "Annulé",
@@ -79,8 +94,31 @@ export function tripStatusLabel(status: string) {
   return map[status] ?? status;
 }
 
+export function tripStatusBadgeVariant(
+  status: string
+): "default" | "success" | "muted" | "warning" | "destructive" {
+  switch (status) {
+    case "DEPARTED":
+    case "RETURNING":
+    case "ONGOING":
+      return "warning";
+    case "COMPLETED":
+      return "success";
+    case "CANCELLED":
+      return "destructive";
+    case "SCHEDULED":
+      return "default";
+    default:
+      return "muted";
+  }
+}
+
 export function ongoingTrips(trips: ApiTrip[]) {
-  return trips.filter((t) => t.status === "ONGOING");
+  return trips.filter((t) => t.status === "DEPARTED" || t.status === "RETURNING" || t.status === "ONGOING");
+}
+
+export function openTrips(trips: ApiTrip[]) {
+  return trips.filter((t) => t.status === "DEPARTED" || t.status === "RETURNING");
 }
 
 export function completedTrips(trips: ApiTrip[]) {

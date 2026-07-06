@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/api/mock-wrapper";
+import { apiFetch, apiUploadFile } from "@/lib/api/mock-wrapper";
 import { getAccessToken } from "@/lib/auth/session";
 import type {
   AlertEventResponse,
@@ -6,6 +6,7 @@ import type {
   ApiTrip,
   ApiVehicle,
   AssignmentResponse,
+  TripDetailInput,
   ComplianceReportDto,
   DriverDocumentResponse,
   ExpiringDocumentDto,
@@ -24,6 +25,7 @@ import type {
   BudgetScope,
   ExpenseType,
   VehicleDocumentResponse,
+  ManagerSubscriptionResponse,
 } from "@/lib/api/types/manager";
 
 async function fetchList<T>(path: string): Promise<T[]> {
@@ -42,6 +44,10 @@ export function fetchManagerProfile() {
   return apiFetch<FleetManagerResponse>("/api/v1/fleet-managers/me", {
     headers: { Authorization: `Bearer ${token}` },
   });
+}
+
+export function fetchManagerSubscription() {
+  return apiFetch<ManagerSubscriptionResponse>("/api/v1/fleet-managers/me/subscription");
 }
 
 export function fetchManagerKpis() {
@@ -87,6 +93,44 @@ export function fetchVehicle(id: string) {
   return apiFetch<ApiVehicle>(`/api/v1/vehicles/${id}`);
 }
 
+export function createVehicle(body: {
+  fleetId: string;
+  licensePlate: string;
+  brand: string;
+  model: string;
+  manufacturingYear?: number;
+  fuelType?: string;
+  transmissionType?: string;
+  color?: string;
+  vehicleTypeId?: string;
+}) {
+  return apiFetch<ApiVehicle>("/api/v1/vehicles", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateVehicle(id: string, body: Partial<ApiVehicle>) {
+  return apiFetch<ApiVehicle>(`/api/v1/vehicles/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateVehicleGallery(
+  id: string,
+  body: { photoUrl?: string | null; galleryUrls?: string[] }
+) {
+  return apiFetch<ApiVehicle>(`/api/v1/vehicles/${id}/gallery`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteVehicle(id: string) {
+  return apiFetch<void>(`/api/v1/vehicles/${id}`, { method: "DELETE" });
+}
+
 // ── Conducteurs ─────────────────────────────────────────────────────────────
 
 export function fetchDrivers(params?: { fleetId?: string; isAssigned?: boolean }) {
@@ -101,6 +145,20 @@ export function fetchDriver(userId: string) {
   return apiFetch<ApiDriver>(`/api/v1/drivers/${userId}`);
 }
 
+export function createDriver(body: {
+  fleetId: string;
+  firstName: string;
+  lastName: string;
+  licenceNumber: string;
+  email?: string;
+  phone?: string;
+}) {
+  return apiFetch<ApiDriver>("/api/v1/drivers", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export function fetchDriverDocuments(driverId: string, page = 0, size = 50) {
   return fetchPage<DriverDocumentResponse>(
     `/api/v1/drivers/${driverId}/documents?page=${page}&size=${size}`
@@ -113,9 +171,119 @@ export function fetchVehicleDocuments(vehicleId: string, page = 0, size = 50) {
   );
 }
 
+export type UploadFileResponse = {
+  fileUrl: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+};
+
+export type VehicleDocumentInput = {
+  vehicleId: string;
+  docType: string;
+  docNumber?: string;
+  issuer?: string;
+  issueDate?: string;
+  expiryDate: string;
+  fileUrl: string;
+  fileOriginalName?: string;
+  fileMimeType?: string;
+  fileSizeBytes?: number;
+  notes?: string;
+};
+
+export type DriverDocumentInput = {
+  driverId: string;
+  docType: string;
+  docNumber?: string;
+  licenseCategories?: string;
+  issuer?: string;
+  issueDate?: string;
+  expiryDate?: string | null;
+  fileUrl: string;
+  fileOriginalName?: string;
+  fileMimeType?: string;
+  fileSizeBytes?: number;
+  notes?: string;
+};
+
+export async function uploadDocumentFile(file: File, category = "document") {
+  return apiUploadFile(file, category);
+}
+
+export function createVehicleDocument(vehicleId: string, body: VehicleDocumentInput) {
+  return apiFetch<VehicleDocumentResponse>(`/api/v1/vehicles/${vehicleId}/documents`, {
+    method: "POST",
+    body: JSON.stringify({ ...body, vehicleId }),
+  });
+}
+
+export function deleteVehicleDocument(vehicleId: string, docId: string) {
+  return apiFetch<void>(`/api/v1/vehicles/${vehicleId}/documents/${docId}`, {
+    method: "DELETE",
+  });
+}
+
+export function updateVehicleDocument(
+  vehicleId: string,
+  docId: string,
+  body: Partial<VehicleDocumentInput> & { docType: string; fileUrl: string; expiryDate?: string | null }
+) {
+  return apiFetch<VehicleDocumentResponse>(`/api/v1/vehicles/${vehicleId}/documents/${docId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function createDriverDocument(driverId: string, body: DriverDocumentInput) {
+  return apiFetch<DriverDocumentResponse>(`/api/v1/drivers/${driverId}/documents`, {
+    method: "POST",
+    body: JSON.stringify({ ...body, driverId }),
+  });
+}
+
+export function deleteDriverDocument(driverId: string, docId: string) {
+  return apiFetch<void>(`/api/v1/drivers/${driverId}/documents/${docId}`, {
+    method: "DELETE",
+  });
+}
+
+export function updateDriverDocument(
+  driverId: string,
+  docId: string,
+  body: Partial<DriverDocumentInput> & { docType: string; fileUrl: string }
+) {
+  return apiFetch<DriverDocumentResponse>(`/api/v1/drivers/${driverId}/documents/${docId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateDriver(
+  userId: string,
+  body: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    licenceNumber?: string;
+    status?: string;
+    photoUrl?: string | null;
+    fleetId?: string;
+  }
+) {
+  return apiFetch<ApiDriver>(`/api/v1/drivers/${userId}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
 // ── Trajets ─────────────────────────────────────────────────────────────────
 
-export function fetchTrips(params?: { status?: string; vehicleId?: string }) {
+export function fetchTrips(params?: { status?: string; vehicleId?: string; openOnly?: boolean }) {
+  if (params?.openOnly) {
+    return fetchList<ApiTrip>("/api/v1/trips/open");
+  }
   const search = new URLSearchParams();
   if (params?.status) search.set("status", params.status);
   if (params?.vehicleId) search.set("vehicleId", params.vehicleId);
@@ -123,8 +291,89 @@ export function fetchTrips(params?: { status?: string; vehicleId?: string }) {
   return fetchList<ApiTrip>(`/api/v1/trips${qs ? `?${qs}` : ""}`);
 }
 
+export function fetchOpenTrips() {
+  return fetchList<ApiTrip>("/api/v1/trips/open");
+}
+
 export function fetchTrip(id: string) {
   return apiFetch<ApiTrip>(`/api/v1/trips/${id}`);
+}
+
+export function deleteTrip(id: string) {
+  return apiFetch<void>(`/api/v1/trips/${id}`, { method: "DELETE" });
+}
+
+export type CreateTripBody = {
+  vehicleId: string;
+  driverId: string;
+  fleetId: string;
+  startDate: string;
+  startTime: string;
+  departureLocation?: string;
+  departureLat?: number;
+  departureLng?: number;
+  departureKmIndex?: number;
+  departureFuelIndex?: number;
+  missionObject?: string;
+  missionCost?: number;
+  missionCostCurrency?: string;
+  details?: TripDetailInput[];
+};
+
+export function createTrip(body: CreateTripBody) {
+  return apiFetch<ApiTrip>("/api/v1/trips", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateTrip(id: string, body: Partial<CreateTripBody>) {
+  return apiFetch<ApiTrip>(`/api/v1/trips/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateTripDriver(id: string, newDriverId: string) {
+  return apiFetch<ApiTrip>(`/api/v1/trips/${id}/driver`, {
+    method: "PATCH",
+    body: JSON.stringify({ newDriverId }),
+  });
+}
+
+export function updateTripVehicle(id: string, newVehicleId: string) {
+  return apiFetch<ApiTrip>(`/api/v1/trips/${id}/vehicle`, {
+    method: "PATCH",
+    body: JSON.stringify({ newVehicleId }),
+  });
+}
+
+export function cancelTrip(id: string, reason?: string) {
+  return apiFetch<ApiTrip>(`/api/v1/trips/${id}/cancel`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export function fetchTripByCode(code: string) {
+  return apiFetch<ApiTrip>(`/api/v1/trips/code/${encodeURIComponent(code)}`);
+}
+
+export function registerTripReturn(body: {
+  tripCode: string;
+  returnDate: string;
+  returnTime: string;
+  returnLocation?: string;
+  returnLat?: number;
+  returnLng?: number;
+  returnKmIndex?: number;
+  returnFuelIndex?: number;
+  detailUpdates?: Array<{ detailId: string; returnQuantity: number }>;
+}) {
+  return apiFetch<ApiTrip>("/api/v1/trips/return", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 // ── Plannings & affectations ─────────────────────────────────────────────────
@@ -135,6 +384,20 @@ export function fetchSchedules(page = 0, size = 50) {
 
 export function fetchSchedule(id: string) {
   return apiFetch<ScheduleResponse>(`/api/v1/schedules/${id}`);
+}
+
+export function createSchedule(body: {
+  fleetId: string;
+  title: string;
+  periodType: string;
+  startDate: string;
+  endDate: string;
+  notes?: string;
+}) {
+  return apiFetch<ScheduleResponse>("/api/v1/schedules", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 export function publishSchedule(id: string) {
@@ -151,6 +414,34 @@ export function fetchAssignments(page = 0, size = 100) {
 
 export function fetchAssignmentConflicts(page = 0, size = 50) {
   return fetchPage<AssignmentResponse>(`/api/v1/assignments/conflicts?page=${page}&size=${size}`);
+}
+
+export function createAssignment(body: {
+  scheduleId?: string;
+  fleetId: string;
+  vehicleId: string;
+  driverId: string;
+  startDatetime: string;
+  endDatetime: string;
+  startLocation?: string;
+  endLocation?: string;
+  estimatedKm?: number;
+  notes?: string;
+}) {
+  return apiFetch<AssignmentResponse>("/api/v1/assignments", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateAssignment(
+  id: string,
+  body: { vehicleId?: string; driverId?: string }
+) {
+  return apiFetch<AssignmentResponse>(`/api/v1/assignments/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
 }
 
 // ── Opérations ──────────────────────────────────────────────────────────────
@@ -283,6 +574,40 @@ export function fetchFleetKpiHistory(
   );
 }
 
+export function fetchVehicleKpi(vehicleId: string, period = "MONTHLY") {
+  return apiFetch<KpiSnapshot>(`/api/v1/kpis/vehicle/${vehicleId}?period=${period}`);
+}
+
+export function fetchVehicleKpiHistory(
+  vehicleId: string,
+  period = "MONTHLY",
+  from: string,
+  to: string
+) {
+  return apiFetch<KpiSnapshot[]>(
+    `/api/v1/kpis/vehicle/${vehicleId}/history?period=${period}&from=${from}&to=${to}`
+  );
+}
+
+export async function downloadKpiCsv(
+  path: string,
+  filename: string
+): Promise<void> {
+  const token = getAccessToken();
+  const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8080";
+  const res = await fetch(`${base}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error(`Export CSV échoué (${res.status})`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ── Géofencing ──────────────────────────────────────────────────────────────
 
 export function fetchGeofenceZones() {
@@ -300,6 +625,9 @@ export type GeofenceZone = {
   active: boolean;
   fleetId: string;
   createdAt: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
 };
 
 // ── Budgets & dépenses ───────────────────────────────────────────────────────
@@ -362,25 +690,5 @@ export function rejectExpense(id: string, rejectionReason: string) {
   return apiFetch<ExpenseResponse>(`/api/v1/budget/expenses/${id}/reject`, {
     method: "PATCH",
     body: JSON.stringify({ rejectionReason }),
-  });
-}
-
-// ── Trajets — retour par code ────────────────────────────────────────────────
-
-export function fetchTripByCode(code: string) {
-  return apiFetch<ApiTrip>(`/api/v1/trips/code/${encodeURIComponent(code)}`);
-}
-
-export function registerTripReturn(body: {
-  tripCode: string;
-  returnDate: string;
-  returnTime: string;
-  returnLocation?: string;
-  returnKmIndex?: number;
-  returnFuelIndex?: number;
-}) {
-  return apiFetch<ApiTrip>("/api/v1/trips/return", {
-    method: "POST",
-    body: JSON.stringify(body),
   });
 }

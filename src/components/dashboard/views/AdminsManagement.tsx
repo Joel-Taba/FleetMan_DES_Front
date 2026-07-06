@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
+import { PasswordInput } from "@/components/ui/password-input";
 import {
   Dialog,
   DialogContent,
@@ -17,8 +18,10 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { mockAdmins } from "@/lib/mock-data";
+import { useLang } from "@/lib/i18n";
 
 export function AdminsManagement() {
+  const { t } = useLang();
   const [admins, setAdmins] = useState(mockAdmins);
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -32,53 +35,53 @@ export function AdminsManagement() {
   return (
     <div>
       <PageHeader
-        title="Administrateurs Système"
-        description="Gérez les comptes FLEET_ADMIN de la plateforme."
+        title={t("Administrateurs Système")}
+        description={t("Gérez les comptes FLEET_ADMIN de la plateforme.")}
       >
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4" />
-              Ajouter un Admin
+              {t("Ajouter un Admin")}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Nouvel administrateur</DialogTitle>
+              <DialogTitle>{t("Nouvel administrateur")}</DialogTitle>
             </DialogHeader>
             <form className="grid gap-4 sm:grid-cols-2" onSubmit={(e) => { e.preventDefault(); setOpen(false); }}>
               <div className="col-span-2 flex justify-center">
                 <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                  Photo
+                  {t("Photo")}
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="prenom">Prénom</Label>
+                <Label htmlFor="prenom">{t("Prénom")}</Label>
                 <Input id="prenom" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="nom">Nom</Label>
+                <Label htmlFor="nom">{t("Nom")}</Label>
                 <Input id="nom" required />
               </div>
               <div className="col-span-2 space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("Email")}</Label>
                 <Input id="email" type="email" required />
               </div>
               <div className="col-span-2 space-y-2">
-                <Label htmlFor="tel">Téléphone</Label>
+                <Label htmlFor="tel">{t("Téléphone")}</Label>
                 <Input id="tel" type="tel" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pwd">Mot de passe</Label>
-                <Input id="pwd" type="password" required />
+                <Label htmlFor="pwd">{t("Mot de passe")}</Label>
+                <PasswordInput id="pwd" required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="pwd2">Confirmer</Label>
-                <Input id="pwd2" type="password" required />
+                <Label htmlFor="pwd2">{t("Confirmer")}</Label>
+                <PasswordInput id="pwd2" required />
               </div>
               <div className="col-span-2 flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Annuler</Button>
-                <Button type="submit">Créer</Button>
+                <Button type="button" variant="secondary" onClick={() => setOpen(false)}>{t("Annuler")}</Button>
+                <Button type="submit">{t("Créer")}</Button>
               </div>
             </form>
           </DialogContent>
@@ -89,7 +92,7 @@ export function AdminsManagement() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Rechercher par nom ou email..."
+            placeholder={t("Rechercher par nom ou email...")}
             className="pl-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -101,10 +104,10 @@ export function AdminsManagement() {
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border bg-muted/50">
             <tr>
-              <th className="px-4 py-3 font-medium">Utilisateur</th>
-              <th className="hidden px-4 py-3 font-medium md:table-cell">Date création</th>
-              <th className="px-4 py-3 font-medium">Statut</th>
-              <th className="px-4 py-3 font-medium text-right">Actions</th>
+              <th className="px-4 py-3 font-medium">{t("Utilisateur")}</th>
+              <th className="hidden px-4 py-3 font-medium md:table-cell">{t("Date création")}</th>
+              <th className="px-4 py-3 font-medium">{t("Statut")}</th>
+              <th className="px-4 py-3 font-medium text-right">{t("Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -129,12 +132,12 @@ export function AdminsManagement() {
                 </td>
                 <td className="px-4 py-4">
                   <Badge variant={admin.active ? "success" : "muted"}>
-                    {admin.active ? "Actif" : "Inactif"}
+                    {admin.active ? t("Actif") : t("Inactif")}
                   </Badge>
                 </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center justify-end">
-                    <Tooltip label={admin.active ? "Désactiver le compte" : "Activer le compte"}>
+                    <Tooltip label={admin.active ? t("Désactiver le compte") : t("Activer le compte")}>
                       <Switch
                         checked={admin.active}
                         onCheckedChange={(checked) =>
