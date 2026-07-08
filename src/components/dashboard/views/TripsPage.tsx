@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Download, Plus, Radio, Eye, Trash2, RotateCcw, FileText } from "lucide-react";
+import { Plus, Radio, Eye, Trash2, RotateCcw, Play } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { LicensePlate } from "../LicensePlate";
@@ -12,11 +13,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { deleteTrip, fetchDrivers, fetchTrips, fetchVehicles } from "@/lib/api/manager";
+import { deleteTrip, fetchDrivers, fetchTrips, fetchVehicles, startTrip } from "@/lib/api/manager";
 import type { ApiDriver, ApiTrip, ApiVehicle } from "@/lib/api/types/manager";
 import {
   completedTrips,
@@ -24,12 +23,12 @@ import {
   formatTripDateTime,
   formatTripDistance,
   ongoingTrips,
+  scheduledTrips,
   tripDisplayDistance,
   tripStatusBadgeVariant,
   tripStatusLabel,
   vehiclePlateById,
 } from "@/lib/api/mappers/manager";
-import { exportTripsHistoryPdf } from "@/lib/export/trips-history-pdf";
 import {
   filterTripsByPeriod,
   periodLabel,
@@ -39,7 +38,20 @@ import { useLang } from "@/lib/i18n";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 
-const VALID_TABS = new Set(["ongoing", "history", "live"]);
+const TripsHistoryToolbar = dynamic(
+  () =>
+    import("../TripsHistoryToolbar").then((mod) => ({
+      default: mod.TripsHistoryToolbar,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="mb-4 h-36 animate-pulse rounded-2xl border border-border/60 bg-muted/20" />
+    ),
+  }
+);
+
+const VALID_TABS = new Set(["created", "ongoing", "history", "live"]);
 
 function sortTripsByDeparture(trips: ApiTrip[]) {
   return [...trips].sort((a, b) => {
@@ -80,8 +92,11 @@ type TripTableProps = {
   emptyMessage: string;
   showEndColumn?: boolean;
   showReturnAction?: boolean;
+  showStartAction?: boolean;
   returnTab?: string;
   onDelete: (id: string, code?: string | null) => void;
+  onStart?: (id: string) => void;
+  startingId?: string | null;
   deletingId: string | null;
   t: (key: string) => string;
 };
@@ -93,8 +108,11 @@ function TripTable({
   emptyMessage,
   showEndColumn = false,
   showReturnAction = false,
+  showStartAction = false,
   returnTab,
   onDelete,
+  onStart,
+  startingId,
   deletingId,
   t,
 }: TripTableProps) {
@@ -145,6 +163,19 @@ function TripTable({
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
+                    {showStartAction && onStart && (
+                      <Tooltip label={t("Lancer le trajet")}>
+                        <button
+                          type="button"
+                          className="rounded-full p-2 text-muted-foreground hover:bg-success/10 hover:text-success disabled:opacity-50"
+                          aria-label={t("Lancer le trajet")}
+                          disabled={startingId === trip.id}
+                          onClick={() => onStart(trip.id)}
+                        >
+                          <Play className="h-4 w-4" />
+                        </button>
+                      </Tooltip>
+                    )}
                     {showReturnAction && (
                       <Tooltip label={t("Enregistrer le retour")}>
                         <Link
@@ -203,16 +234,14 @@ export function TripsPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [exportingPdf, setExportingPdf] = useState(false);
+  const [startingId, setStartingId] = useState<string | null>(null);
 
+  const created = useMemo(() => sortTripsByDeparture(scheduledTrips(trips ?? [])), [trips]);
   const ongoing = useMemo(() => sortTripsByDeparture(ongoingTrips(trips ?? [])), [trips]);
   const allHistory = useMemo(() => sortTripsByDeparture(completedTrips(trips ?? [])), [trips]);
   const filteredHistory = useMemo(
     () => filterTripsByPeriod(allHistory, periodPreset, customFrom, customTo),
     [allHistory, periodPreset, customFrom, customTo]
-  );
-  const currentPeriodLabel = useMemo(
-    () => periodLabel(periodPreset, customFrom, customTo),
-    [periodPreset, customFrom, customTo]
   );
 
   const [selectedOngoing, setSelectedOngoing] = useState<string | undefined>();
@@ -276,6 +305,17 @@ export function TripsPage() {
     router.replace(`/dashboard/manager/trips?tab=${tab}`, { scroll: false });
   }
 
+  async function handleStartTrip(id: string) {
+    setStartingId(id);
+    try {
+      await startTrip(id);
+      refetch();
+      router.replace("/dashboard/manager/trips?tab=ongoing", { scroll: false });
+    } finally {
+      setStartingId(null);
+    }
+  }
+
   async function handleDeleteConfirm() {
     if (!deleteTarget) return;
     const { id } = deleteTarget;
@@ -293,11 +333,12 @@ export function TripsPage() {
     if (filteredHistory.length === 0) return;
     setExportingPdf(true);
     try {
+      const { exportTripsHistoryPdf } = await import("@/lib/export/trips-history-pdf");
       await exportTripsHistoryPdf({
         trips: filteredHistory,
         vehicles: vehicles ?? [],
         drivers: drivers ?? [],
-        periodLabel: currentPeriodLabel,
+        periodLabel: periodLabel(periodPreset, customFrom, customTo),
       });
     } finally {
       setExportingPdf(false);
@@ -322,6 +363,9 @@ export function TripsPage() {
       <DataGate loading={loading} error={error}>
         <Tabs value={activeTab} onValueChange={changeTab}>
           <TabsList>
+            <TabsTrigger value="created">
+              {t("Créés")} ({created.length})
+            </TabsTrigger>
             <TabsTrigger value="ongoing">
               {t("En cours")} ({ongoing.length})
             </TabsTrigger>
@@ -330,6 +374,22 @@ export function TripsPage() {
             </TabsTrigger>
             <TabsTrigger value="live">{t("Temps réel")}</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="created">
+            <TripTable
+              trips={created}
+              vehicles={vehicles ?? []}
+              driverName={driverName}
+              emptyMessage={t("Aucun trajet créé en attente de lancement.")}
+              showStartAction
+              returnTab="created"
+              onStart={handleStartTrip}
+              startingId={startingId}
+              onDelete={(id, code) => setDeleteTarget({ id, code })}
+              deletingId={deletingId}
+              t={t}
+            />
+          </TabsContent>
 
           <TabsContent value="ongoing">
             <TripTable
@@ -346,60 +406,19 @@ export function TripsPage() {
           </TabsContent>
 
           <TabsContent value="history">
-            <div className="mb-4 space-y-4">
-              <div className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">{t("Période")}</Label>
-                  <select
-                    className="h-10 min-w-[180px] rounded-lg border bg-background px-3 text-sm"
-                    value={periodPreset}
-                    onChange={(e) => setPeriodPreset(e.target.value as TripPeriodPreset)}
-                  >
-                    <option value="all">{t("Toutes les périodes")}</option>
-                    <option value="day">{t("Aujourd'hui")}</option>
-                    <option value="week">{t("Cette semaine")}</option>
-                    <option value="month">{t("Ce mois")}</option>
-                    <option value="year">{t("Cette année")}</option>
-                    <option value="custom">{t("Période personnalisée")}</option>
-                  </select>
-                </div>
-                {periodPreset === "custom" && (
-                  <>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">{t("Du")}</Label>
-                      <Input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">{t("Au")}</Label>
-                      <Input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
-                    </div>
-                  </>
-                )}
-                <p className="text-xs text-muted-foreground sm:ml-auto">
-                  {filteredHistory.length} / {allHistory.length} trajet(s) · {currentPeriodLabel}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => exportTripsCsv(filteredHistory, vehicles ?? [], drivers ?? [])}
-                  disabled={filteredHistory.length === 0}
-                >
-                  <Download className="h-4 w-4" /> {t("Export CSV")}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleExportPdf}
-                  disabled={filteredHistory.length === 0 || exportingPdf}
-                >
-                  <FileText className="h-4 w-4" />
-                  {exportingPdf ? t("Export en cours…") : t("Export PDF")}
-                </Button>
-              </div>
-            </div>
+            <TripsHistoryToolbar
+              periodPreset={periodPreset}
+              onPeriodChange={setPeriodPreset}
+              customFrom={customFrom}
+              customTo={customTo}
+              onCustomFromChange={setCustomFrom}
+              onCustomToChange={setCustomTo}
+              filteredCount={filteredHistory.length}
+              totalCount={allHistory.length}
+              onExportCsv={() => exportTripsCsv(filteredHistory, vehicles ?? [], drivers ?? [])}
+              onExportPdf={handleExportPdf}
+              exportingPdf={exportingPdf}
+            />
             <TripTable
               trips={filteredHistory}
               vehicles={vehicles ?? []}

@@ -18,7 +18,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const role = getRoleFromPath(pathname, primaryRole);
   const isDriver = role === "FLEET_DRIVER";
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

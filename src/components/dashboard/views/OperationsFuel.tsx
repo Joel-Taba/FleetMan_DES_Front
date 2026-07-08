@@ -9,11 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { createFuelRecharge, fetchFuelRecharges, fetchVehicles } from "@/lib/api/manager";
 import { formatDateTime } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
+import { parseDecimalInput, validateDecimalInput } from "@/lib/numeric-input";
 
 const STATIONS = ["TOTAL", "SHELL", "OILIBYA", "CAMRAIL", "OTHER"];
 
@@ -36,14 +38,24 @@ export function OperationsFuel() {
 
   const avgCost = totalVolume > 0 ? (totalSpend / totalVolume).toFixed(0) : "—";
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.vehicleId || !form.quantity || !form.price) return;
+    if (!form.vehicleId) return;
+    const qtyErr = validateDecimalInput(form.quantity, { required: true, min: 0.1, label: "Quantité" });
+    const priceErr = validateDecimalInput(form.price, { required: true, min: 0, label: "Prix" });
+    const err = qtyErr ?? priceErr;
+    if (err) {
+      setFormError(err);
+      return;
+    }
+    setFormError(null);
     setSubmitting(true);
     try {
       await createFuelRecharge({
-        quantity: parseFloat(form.quantity),
-        price: parseFloat(form.price),
+        quantity: parseDecimalInput(form.quantity)!,
+        price: parseDecimalInput(form.price)!,
         vehicleId: form.vehicleId,
         stationName: form.stationName || undefined,
       });
@@ -82,13 +94,14 @@ export function OperationsFuel() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Quantité (L) *</Label>
-                  <Input required type="number" min="0.1" step="0.1" placeholder="50" value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
+                  <NumericInput required mode="decimal" placeholder="50" value={form.quantity} onValueChange={(v) => setForm((f) => ({ ...f, quantity: v }))} />
                 </div>
                 <div className="space-y-2">
                   <Label>Prix (FCFA) *</Label>
-                  <Input required type="number" min="0" placeholder="37500" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
+                  <NumericInput required mode="decimal" placeholder="37500" value={form.price} onValueChange={(v) => setForm((f) => ({ ...f, price: v }))} />
                 </div>
               </div>
+              {formError && <p className="text-sm text-destructive">{formError}</p>}
               <div className="space-y-2">
                 <Label>Station</Label>
                 <select

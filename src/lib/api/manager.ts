@@ -355,6 +355,10 @@ export function cancelTrip(id: string, reason?: string) {
   });
 }
 
+export function startTrip(id: string) {
+  return apiFetch<ApiTrip>(`/api/v1/trips/${id}/start`, { method: "POST" });
+}
+
 export function fetchTripByCode(code: string) {
   return apiFetch<ApiTrip>(`/api/v1/trips/code/${encodeURIComponent(code)}`);
 }

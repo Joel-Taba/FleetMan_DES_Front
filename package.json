@@ -8,7 +8,8 @@
     "dev:turbo": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:numeric": "npx --yes tsx --test src/lib/numeric-input.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.1.4",

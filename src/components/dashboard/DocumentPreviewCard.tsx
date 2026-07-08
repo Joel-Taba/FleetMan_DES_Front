@@ -34,6 +34,9 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   PROFESSIONAL_CARD: "Carte professionnelle",
   WORK_CONTRACT: "Contrat de travail",
   ID_CARD: "Pièce d'identité",
+  CRIMINAL_RECORD: "Extrait casier judiciaire",
+  DOMICILE_PROOF: "Justificatif de domicile",
+  COMPANY_REGISTRATION: "Immatriculation entreprise",
   OTHER: "Autre",
 };
 

@@ -26,6 +26,7 @@ const managerNav: NavItem[] = [
   { label: "Incidents", href: "/dashboard/manager/operations/incidents", icon: "AlertTriangle", featureKey: "OPERATIONS" },
   { label: "Maintenances", href: "/dashboard/manager/operations/maintenances", icon: "Wrench", featureKey: "OPERATIONS" },
   { label: "Carburant", href: "/dashboard/manager/operations/fuel", icon: "Droplets", featureKey: "OPERATIONS" },
+  { label: "Dépenses & Budget", href: "/dashboard/manager/budget", icon: "Wallet" },
   { label: "Géofencing", href: "/dashboard/manager/geofencing", icon: "MapPin", featureKey: "GEOFENCING" },
   { label: "Documents", href: "/dashboard/manager/documents", icon: "FileText", featureKey: "DOCUMENTS" },
   { label: "KPI & Rapports", href: "/dashboard/manager/kpis", icon: "BarChart3", featureKey: "KPI_REPORTS" },

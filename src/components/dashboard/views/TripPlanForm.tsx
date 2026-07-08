@@ -3,11 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Plus, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Save, Trash2 } from "lucide-react";
 import { PageHeader } from "../PageHeader";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { LocationPicker, type PlaceResult } from "../LocationPicker";
 import { DEFAULT_MAP_CENTER } from "@/lib/geocoding";
@@ -16,8 +17,20 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { createTrip, fetchDrivers, fetchFleets, fetchVehicles } from "@/lib/api/manager";
 import type { TripDetailInput } from "@/lib/api/types/manager";
 import { driverLabel } from "@/lib/api/mappers/manager";
+import { cn } from "@/lib/utils";
+import {
+  parseDecimalInput,
+  parseIntegerInput,
+  validateDecimalInput,
+} from "@/lib/numeric-input";
 
 const CURRENCIES = ["XAF", "EUR", "USD"];
+const STEPS = [
+  { id: 1, label: "Ressources" },
+  { id: 2, label: "Lieu & horaire" },
+  { id: 3, label: "Indices & mission" },
+  { id: 4, label: "Détails mission" },
+] as const;
 
 type CargoRow = { description: string; quantity: number };
 type PassengerRow = { quantity: number };
@@ -51,6 +64,38 @@ function MissionSection({
   );
 }
 
+function StepIndicator({ current }: { current: number }) {
+  return (
+    <ol className="flex flex-wrap gap-2">
+      {STEPS.map((step) => {
+        const done = step.id < current;
+        const active = step.id === current;
+        return (
+          <li
+            key={step.id}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium",
+              done && "border-success/40 bg-success/10 text-success",
+              active && "border-primary bg-primary text-primary-foreground",
+              !done && !active && "border-border text-muted-foreground"
+            )}
+          >
+            <span
+              className={cn(
+                "flex h-5 w-5 items-center justify-center rounded-full text-[10px]",
+                active ? "bg-primary-foreground/20" : "bg-muted"
+              )}
+            >
+              {done ? <Check className="h-3 w-3" /> : step.id}
+            </span>
+            {step.label}
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 export function TripPlanForm() {
   const { t } = useLang();
   const router = useRouter();
@@ -58,6 +103,7 @@ export function TripPlanForm() {
   const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
   const { data: fleets } = useApiQuery(fetchFleets, []);
 
+  const [step, setStep] = useState(1);
   const [vehicleId, setVehicleId] = useState("");
   const [driverId, setDriverId] = useState("");
   const [fleetId, setFleetId] = useState("");
@@ -82,8 +128,9 @@ export function TripPlanForm() {
   const effectiveFleetId = fleetId || selectedVehicle?.fleetId || fleets?.[0]?.id || "";
 
   const odometerHint = useMemo(() => {
-    const odo = selectedVehicle?.operationalParameters?.odometerReading
-      ?? selectedVehicle?.operationalParameters?.mileage;
+    const odo =
+      selectedVehicle?.operationalParameters?.odometerReading ??
+      selectedVehicle?.operationalParameters?.mileage;
     return odo != null ? String(odo) : "";
   }, [selectedVehicle]);
 
@@ -123,16 +170,52 @@ export function TripPlanForm() {
     return details;
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!vehicleId || !driverId || !effectiveFleetId || !departurePlace) {
-      setError("Véhicule, conducteur, flotte et lieu de départ sont obligatoires.");
+  function validateStep(targetStep: number): string | null {
+    if (targetStep >= 2) {
+      if (!vehicleId || !driverId || !effectiveFleetId) {
+        return "Véhicule, conducteur et flotte sont obligatoires.";
+      }
+    }
+    if (targetStep >= 3) {
+      if (!departurePlace) return "Le lieu de départ est obligatoire.";
+      if (!date || !time) return "La date et l'heure de départ sont obligatoires.";
+    }
+    if (targetStep >= 4) {
+      const kmErr = validateDecimalInput(kmIndex, { required: true, min: 0, label: "Index kilométrage" });
+      if (kmErr) return kmErr;
+      const fuelErr = validateDecimalInput(fuelIndex, { required: true, min: 0, label: "Index carburant" });
+      if (fuelErr) return fuelErr;
+      if (missionCost.trim()) {
+        const costErr = validateDecimalInput(missionCost, { min: 0, label: "Coût mission" });
+        if (costErr) return costErr;
+      }
+    }
+    return null;
+  }
+
+  function goNext() {
+    const message = validateStep(step + 1);
+    if (message) {
+      setError(message);
       return;
     }
-    if (!kmIndex || !fuelIndex) {
-      setError("Les index kilométrique et carburant sont obligatoires.");
+    setError(null);
+    setStep((s) => Math.min(s + 1, STEPS.length));
+  }
+
+  function goBack() {
+    setError(null);
+    setStep((s) => Math.max(s - 1, 1));
+  }
+
+  async function submit() {
+    const message = validateStep(4);
+    if (message) {
+      setError(message);
       return;
     }
+    if (!departurePlace) return;
+
     setSubmitting(true);
     setError(null);
     try {
@@ -145,10 +228,10 @@ export function TripPlanForm() {
         departureLocation: departurePlace.label,
         departureLat: departurePlace.lat,
         departureLng: departurePlace.lng,
-        departureKmIndex: parseFloat(kmIndex),
-        departureFuelIndex: parseFloat(fuelIndex),
+        departureKmIndex: parseDecimalInput(kmIndex) ?? undefined,
+        departureFuelIndex: parseDecimalInput(fuelIndex) ?? undefined,
         missionObject: missionObject || undefined,
-        missionCost: missionCost ? parseFloat(missionCost) : undefined,
+        missionCost: missionCost.trim() ? parseDecimalInput(missionCost) ?? undefined : undefined,
         missionCostCurrency,
         details: buildDetails(),
       });
@@ -161,7 +244,7 @@ export function TripPlanForm() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-3xl">
       <Link
         href="/dashboard/manager/trips"
         className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
@@ -171,7 +254,7 @@ export function TripPlanForm() {
 
       <PageHeader
         title="Enregistrer un départ"
-        description="Créez le trajet, affectez véhicule et conducteur, saisissez les indices et détails de mission."
+        description="Complétez les étapes pour créer le trajet sans long défilement."
       />
 
       {createdCode && (
@@ -180,23 +263,25 @@ export function TripPlanForm() {
         </div>
       )}
 
-      <form onSubmit={submit} className="grid gap-6 lg:grid-cols-2">
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ressources & départ</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      <Card className="overflow-hidden">
+        <div className="border-b bg-muted/30 px-4 py-4 sm:px-6">
+          <StepIndicator current={step} />
+        </div>
+
+        <CardContent className="space-y-4 p-4 sm:p-6">
+          {step === 1 && (
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label>{t("Flotte")} *</Label>
                 <select
                   className="h-11 w-full rounded-lg border px-3 text-sm"
                   value={effectiveFleetId}
                   onChange={(e) => setFleetId(e.target.value)}
-                  required
                 >
                   {(fleets ?? []).map((f) => (
-                    <option key={f.id} value={f.id}>{f.name}</option>
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -206,7 +291,6 @@ export function TripPlanForm() {
                   className="h-11 w-full rounded-lg border px-3 text-sm"
                   value={vehicleId}
                   onChange={(e) => setVehicleId(e.target.value)}
-                  required
                 >
                   <option value="">—</option>
                   {(vehicles ?? []).map((v) => (
@@ -222,54 +306,70 @@ export function TripPlanForm() {
                   className="h-11 w-full rounded-lg border px-3 text-sm"
                   value={driverId}
                   onChange={(e) => setDriverId(e.target.value)}
-                  required
                 >
                   <option value="">—</option>
                   {(drivers ?? []).map((d) => (
-                    <option key={d.userId} value={d.userId}>{driverLabel(d)}</option>
+                    <option key={d.userId} value={d.userId}>
+                      {driverLabel(d)}
+                    </option>
                   ))}
                 </select>
               </div>
+            </div>
+          )}
 
-              {departurePlace && (
-                <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Lieu : </span>
-                  {departurePlace.label}
-                </p>
-              )}
-
+          {step === 2 && (
+            <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Date départ *</Label>
-                  <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                  <Input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Heure départ *</Label>
-                  <Input type="time" value={time} onChange={(e) => setTime(e.target.value)} required />
+                  <Input
+                    type="time"
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                  />
                 </div>
               </div>
+              <div className="space-y-2">
+                <Label>Lieu de départ *</Label>
+                <LocationPicker
+                  value={departurePlace}
+                  onChange={setDeparturePlace}
+                  placeholder="Gare routière, dépôt, adresse…"
+                  mapHeightClassName="h-[240px]"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Index kilométrage *</Label>
-                  <Input
-                    type="number"
-                    min={0}
+                  <NumericInput
+                    mode="decimal"
                     placeholder={odometerHint || "Ex: 87200"}
                     value={kmIndex}
-                    onChange={(e) => setKmIndex(e.target.value)}
-                    required
+                    onValueChange={setKmIndex}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label>Index carburant *</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.1"
+                  <NumericInput
+                    mode="decimal"
                     placeholder="Ex: 68"
                     value={fuelIndex}
-                    onChange={(e) => setFuelIndex(e.target.value)}
-                    required
+                    onValueChange={setFuelIndex}
                   />
                 </div>
               </div>
@@ -284,12 +384,15 @@ export function TripPlanForm() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Coût mission (optionnel)</Label>
-                  <Input
-                    type="number"
-                    min={0}
+                  <NumericInput
+                    mode="decimal"
+                    placeholder="Ex: 85000 ou 1250,50"
                     value={missionCost}
-                    onChange={(e) => setMissionCost(e.target.value)}
+                    onValueChange={setMissionCost}
                   />
+                  <p className="text-xs text-muted-foreground">
+                    Chiffres uniquement — une virgule pour les décimales.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>Devise</Label>
@@ -298,18 +401,17 @@ export function TripPlanForm() {
                     value={missionCostCurrency}
                     onChange={(e) => setMissionCostCurrency(e.target.value)}
                   >
-                    {CURRENCIES.map((c) => <option key={c}>{c}</option>)}
+                    {CURRENCIES.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Détails mission</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+          {step === 4 && (
+            <div className="space-y-4">
               <MissionSection
                 title="Bagages / marchandises"
                 onAdd={() => setCargoRows((rows) => [...rows, { description: "", quantity: 0 }])}
@@ -322,18 +424,19 @@ export function TripPlanForm() {
                       value={row.description}
                       onChange={(e) =>
                         setCargoRows((rows) =>
-                          rows.map((r, j) => (j === i ? { ...r, description: e.target.value } : r))
+                          rows.map((r, j) =>
+                            j === i ? { ...r, description: e.target.value } : r
+                          )
                         )
                       }
                     />
-                    <Input
+                    <NumericInput
                       className="sm:col-span-3"
-                      type="number"
-                      min={0}
+                      mode="integer"
                       placeholder="0"
-                      value={row.quantity || ""}
-                      onChange={(e) => {
-                        const q = parseInt(e.target.value, 10) || 0;
+                      value={row.quantity ? String(row.quantity) : ""}
+                      onValueChange={(v) => {
+                        const q = parseIntegerInput(v) ?? 0;
                         setCargoRows((rows) =>
                           rows.map((r, j) => (j === i ? { ...r, quantity: q } : r))
                         );
@@ -362,14 +465,13 @@ export function TripPlanForm() {
                     <Label className="flex items-center text-sm text-muted-foreground sm:col-span-7">
                       Nombre de passagers
                     </Label>
-                    <Input
+                    <NumericInput
                       className="sm:col-span-3"
-                      type="number"
-                      min={0}
+                      mode="integer"
                       placeholder="0"
-                      value={row.quantity || ""}
-                      onChange={(e) => {
-                        const q = parseInt(e.target.value, 10) || 0;
+                      value={row.quantity ? String(row.quantity) : ""}
+                      onValueChange={(v) => {
+                        const q = parseIntegerInput(v) ?? 0;
                         setPassengerRows((rows) =>
                           rows.map((r, j) => (j === i ? { ...r, quantity: q } : r))
                         );
@@ -401,18 +503,19 @@ export function TripPlanForm() {
                       value={row.description}
                       onChange={(e) =>
                         setOtherRows((rows) =>
-                          rows.map((r, j) => (j === i ? { ...r, description: e.target.value } : r))
+                          rows.map((r, j) =>
+                            j === i ? { ...r, description: e.target.value } : r
+                          )
                         )
                       }
                     />
-                    <Input
+                    <NumericInput
                       className="sm:col-span-3"
-                      type="number"
-                      min={0}
+                      mode="integer"
                       placeholder="0"
-                      value={row.quantity || ""}
-                      onChange={(e) => {
-                        const q = parseInt(e.target.value, 10) || 0;
+                      value={row.quantity ? String(row.quantity) : ""}
+                      onValueChange={(v) => {
+                        const q = parseIntegerInput(v) ?? 0;
                         setOtherRows((rows) =>
                           rows.map((r, j) => (j === i ? { ...r, quantity: q } : r))
                         );
@@ -431,37 +534,37 @@ export function TripPlanForm() {
                   </div>
                 ))}
               </MissionSection>
-            </CardContent>
-          </Card>
+            </div>
+          )}
 
           {error && <p className="text-sm text-destructive">{error}</p>}
+        </CardContent>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" asChild>
-              <Link href="/dashboard/manager/trips">{t("Annuler")}</Link>
-            </Button>
-            <Button type="submit" disabled={submitting}>
-              <Save className="h-4 w-4" />
-              {submitting ? "Enregistrement…" : "Enregistrer le départ"}
-            </Button>
+        <div className="sticky bottom-0 flex items-center justify-between gap-2 border-t bg-card px-4 py-3 sm:px-6">
+          <Button type="button" variant="secondary" asChild>
+            <Link href="/dashboard/manager/trips">{t("Annuler")}</Link>
+          </Button>
+          <div className="flex gap-2">
+            {step > 1 && (
+              <Button type="button" variant="secondary" onClick={goBack}>
+                <ArrowLeft className="h-4 w-4" />
+                {t("Précédent")}
+              </Button>
+            )}
+            {step < STEPS.length ? (
+              <Button type="button" onClick={goNext}>
+                {t("Suivant")}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button type="button" onClick={submit} disabled={submitting}>
+                <Save className="h-4 w-4" />
+                {submitting ? "Enregistrement…" : "Enregistrer le départ"}
+              </Button>
+            )}
           </div>
         </div>
-
-        <Card className="h-fit overflow-hidden lg:sticky lg:top-20">
-          <CardHeader>
-            <CardTitle>Lieu de départ *</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <LocationPicker
-              value={departurePlace}
-              onChange={setDeparturePlace}
-              placeholder="Gare routière, dépôt, adresse…"
-              mapHeightClassName="h-[420px]"
-              required
-            />
-          </CardContent>
-        </Card>
-      </form>
+      </Card>
     </div>
   );
 }

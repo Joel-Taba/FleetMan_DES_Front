@@ -69,6 +69,23 @@ export type PendingSubscriptionRecord = {
   lastName: string;
   companyName: string | null;
   createdAt: string;
+  phone?: string | null;
+  requestedPlanId?: string | null;
+};
+
+export type SubscriptionDocumentRecord = {
+  id: string;
+  userId: string;
+  docType: string;
+  docNumber: string;
+  fileUrl: string;
+  fileMimeType?: string | null;
+  fileOriginalName?: string | null;
+  expiryDate?: string | null;
+  issuer?: string | null;
+  issueDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
 };
 
 export type SubscriptionHistoryRecord = {
@@ -117,10 +134,17 @@ export function enabledFeaturesForPlan(planId: string): PlanFeatureRecord[] {
     "ASSIGNMENTS",
     "OPERATIONS",
   ]);
+  const free = new Set<PlanFeatureKey>([
+    "TRIPS",
+    "DOCUMENTS",
+    "SCHEDULES",
+    "ASSIGNMENTS",
+  ]);
   const proDisabled = new Set<PlanFeatureKey>(["API_ACCESS"]);
   return PLAN_FEATURE_KEYS.map((key) => {
     let enabled = true;
-    if (planId === "plan-starter" || planId === "plan-legacy") enabled = starter.has(key);
+    if (planId === "plan-free") enabled = free.has(key);
+    else if (planId === "plan-starter" || planId === "plan-legacy") enabled = starter.has(key);
     else if (planId === "plan-pro") enabled = !proDisabled.has(key);
     return { key, label: FEATURE_LABELS[key], enabled };
   });
@@ -156,6 +180,8 @@ export type MockDatabase = {
   managerSubscriptions: Record<string, ManagerSubscriptionRecord>;
   pendingSubscriptions: PendingSubscriptionRecord[];
   subscriptionHistory: SubscriptionHistoryRecord[];
+  subscriptionDocuments: Record<string, SubscriptionDocumentRecord[]>;
+  subscriptionGraceDays: number;
   budgets: BudgetResponse[];
   expenses: ExpenseResponse[];
   vehicleDocuments: VehicleDocumentResponse[];
@@ -460,16 +486,49 @@ export function createDefaultMockDatabase(): MockDatabase {
   };
 
   const subscriptionPlans: SubscriptionPlanRecord[] = [
-    { id: "plan-starter", name: "Starter", description: "Pour les petites flottes", maxFleets: 3, maxVehicles: 50, maxDrivers: 30, monthlyPrice: 25000, annualPrice: 250000, currency: "XAF", features: "Trajets,Documents,Plannings", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
+    {
+      id: "plan-free",
+      name: "Gratuit",
+      description: "Découvrez FleetMan sans engagement — idéal pour attirer et convertir vos premiers clients",
+      maxFleets: 1,
+      maxVehicles: 5,
+      maxDrivers: 5,
+      monthlyPrice: 0,
+      annualPrice: null,
+      currency: "XAF",
+      features: "Jusqu'à 5 véhicules,Trajets & conducteurs,Documents & plannings,Support par email",
+      isActive: true,
+      createdAt: isoDaysAgo(90),
+      updatedAt: isoDaysAgo(10),
+    },
+    { id: "plan-starter", name: "Starter", description: "Pour les petites flottes", maxFleets: 3, maxVehicles: 50, maxDrivers: 30, monthlyPrice: 25000, annualPrice: 250000, currency: "XAF", features: "Trajets,Documents,Plannings,Affectations,Opérations terrain", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
     { id: "plan-pro", name: "Pro", description: "Flottes en croissance", maxFleets: 5, maxVehicles: 50, maxDrivers: 80, monthlyPrice: 75000, annualPrice: 750000, currency: "XAF", features: "Géofencing,Alertes avancées,Rapports PDF,Support prioritaire", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
     { id: "plan-enterprise", name: "Enterprise", description: "Grandes organisations", maxFleets: 999, maxVehicles: 999, maxDrivers: 999, monthlyPrice: 200000, annualPrice: 2000000, currency: "XAF", features: "API illimitée,SLA 99.9%,Account manager dédié", isActive: true, createdAt: isoDaysAgo(90), updatedAt: isoDaysAgo(10) },
     { id: "plan-legacy", name: "Legacy", description: "Ancien plan — désactivé", maxFleets: 2, maxVehicles: 20, maxDrivers: 30, monthlyPrice: 40000, annualPrice: null, currency: "XAF", features: "Fonctionnalités limitées", isActive: false, createdAt: isoDaysAgo(200), updatedAt: isoDaysAgo(30) },
   ];
 
   const pendingSubscriptions: PendingSubscriptionRecord[] = [
-    { id: "sub-pending-1", username: "jean.kouam", email: "jean.kouam@express.cm", firstName: "Jean", lastName: "Kouam", companyName: "Express Logistics", createdAt: isoDaysAgo(2) },
-    { id: "sub-pending-2", username: "sophie.mballa", email: "sophie.m@logistics.cm", firstName: "Sophie", lastName: "Mballa", companyName: "Mballa Transport", createdAt: isoDaysAgo(1) },
+    { id: "sub-pending-joel", username: "joel.taba", email: "joeltaba4@gmail.com", firstName: "Joël", lastName: "Taba", companyName: "Taba Logistics", createdAt: isoDaysAgo(0), phone: "+237690112233", requestedPlanId: "plan-pro" },
+    { id: "sub-pending-1", username: "jean.kouam", email: "jean.kouam@express.cm", firstName: "Jean", lastName: "Kouam", companyName: "Express Logistics", createdAt: isoDaysAgo(2), phone: "+237699887766", requestedPlanId: "plan-starter" },
+    { id: "sub-pending-2", username: "sophie.mballa", email: "sophie.m@logistics.cm", firstName: "Sophie", lastName: "Mballa", companyName: "Mballa Transport", createdAt: isoDaysAgo(1), phone: "+237677445522", requestedPlanId: "plan-pro" },
   ];
+
+  const subscriptionDocuments: Record<string, SubscriptionDocumentRecord[]> = {
+    "sub-pending-joel": [
+      { id: "sd-joel-1", userId: "sub-pending-joel", docType: "ID_CARD", docNumber: "CNI-100200300", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "cni-joel-taba.pdf", issuer: "État civil", issueDate: "2021-02-10", expiryDate: null, notes: null, createdAt: isoDaysAgo(0) },
+      { id: "sd-joel-2", userId: "sub-pending-joel", docType: "CRIMINAL_RECORD", docNumber: "CJ-2026-100", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "casier-joel-taba.pdf", issuer: "Tribunal", issueDate: isoDaysAgo(4).slice(0, 10), expiryDate: null, notes: null, createdAt: isoDaysAgo(0) },
+      { id: "sd-joel-3", userId: "sub-pending-joel", docType: "DOMICILE_PROOF", docNumber: "BAIL-2026", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "justificatif-domicile-joel.pdf", issuer: "Propriétaire", issueDate: "2026-01-05", expiryDate: null, notes: "Contrat de bail", createdAt: isoDaysAgo(0) },
+    ],
+    "sub-pending-1": [
+      { id: "sd-1", userId: "sub-pending-1", docType: "ID_CARD", docNumber: "CNI-123456789", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "cni-jean-kouam.pdf", issuer: "État civil", issueDate: "2020-01-15", expiryDate: null, notes: null, createdAt: isoDaysAgo(2) },
+      { id: "sd-2", userId: "sub-pending-1", docType: "CRIMINAL_RECORD", docNumber: "CJ-2026-001", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "casier-jean-kouam.pdf", issuer: "Tribunal", issueDate: isoDaysAgo(5).slice(0, 10), expiryDate: null, notes: null, createdAt: isoDaysAgo(2) },
+      { id: "sd-3", userId: "sub-pending-1", docType: "DOMICILE_PROOF", docNumber: "BAIL-2024", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "bail-domicile.pdf", issuer: "Propriétaire", issueDate: "2024-06-01", expiryDate: null, notes: "Contrat de bail", createdAt: isoDaysAgo(2) },
+    ],
+    "sub-pending-2": [
+      { id: "sd-4", userId: "sub-pending-2", docType: "ID_CARD", docNumber: "CNI-987654321", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "cni-sophie-mballa.pdf", issuer: "État civil", issueDate: "2019-03-20", expiryDate: null, notes: null, createdAt: isoDaysAgo(1) },
+      { id: "sd-5", userId: "sub-pending-2", docType: "CRIMINAL_RECORD", docNumber: "CJ-2026-002", fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "casier-sophie-mballa.pdf", issuer: "Tribunal", issueDate: isoDaysAgo(3).slice(0, 10), expiryDate: null, notes: null, createdAt: isoDaysAgo(1) },
+    ],
+  };
 
   const subscriptionHistory: SubscriptionHistoryRecord[] = [
     {
@@ -581,6 +640,8 @@ export function createDefaultMockDatabase(): MockDatabase {
     managerSubscriptions,
     pendingSubscriptions,
     subscriptionHistory,
+    subscriptionDocuments,
+    subscriptionGraceDays: 7,
     budgets,
     expenses,
     vehicleDocuments,
@@ -647,10 +708,37 @@ function migrateMockDatabase(db: MockDatabase): MockDatabase {
   if (!db.planFeatures || Object.keys(db.planFeatures).length === 0) {
     db.planFeatures = defaults.planFeatures;
     changed = true;
+  } else {
+    for (const plan of db.subscriptionPlans) {
+      const expected = defaults.planFeatures[plan.id];
+      const current = db.planFeatures[plan.id];
+      if (!expected) continue;
+      const missingKeys = expected.filter(
+        (f) => !current?.some((c) => c.key === f.key)
+      );
+      const allDisabled = current?.length > 0 && current.every((f) => !f.enabled);
+      if (!current?.length || missingKeys.length > 0 || allDisabled) {
+        db.planFeatures[plan.id] = expected;
+        changed = true;
+      }
+    }
   }
   if (!db.managerSubscriptions || Object.keys(db.managerSubscriptions).length === 0) {
     db.managerSubscriptions = defaults.managerSubscriptions;
     changed = true;
+  } else {
+    const demoSub = db.managerSubscriptions[DEMO_MANAGER_ID];
+    const defaultDemoSub = defaults.managerSubscriptions[DEMO_MANAGER_ID];
+    if (demoSub && defaultDemoSub) {
+      if (demoSub.subscriptionStatus !== "ACTIVE") {
+        demoSub.subscriptionStatus = "ACTIVE";
+        changed = true;
+      }
+      if (!demoSub.subscriptionEnd || new Date(demoSub.subscriptionEnd) < new Date()) {
+        Object.assign(demoSub, subscriptionYearDates());
+        changed = true;
+      }
+    }
   }
   if (!Array.isArray(db.subscriptionHistory) || db.subscriptionHistory.length === 0) {
     db.subscriptionHistory = defaults.subscriptionHistory;
@@ -662,6 +750,38 @@ function migrateMockDatabase(db: MockDatabase): MockDatabase {
     starter.maxDrivers = 30;
     starter.maxFleets = 3;
     changed = true;
+  }
+  if (!db.subscriptionPlans.some((p) => p.id === "plan-free")) {
+    const freePlan = defaults.subscriptionPlans.find((p) => p.id === "plan-free");
+    if (freePlan) {
+      db.subscriptionPlans.unshift(freePlan);
+      db.planFeatures["plan-free"] = enabledFeaturesForPlan("plan-free");
+      changed = true;
+    }
+  }
+  if (!db.subscriptionDocuments || Object.keys(db.subscriptionDocuments).length === 0) {
+    db.subscriptionDocuments = defaults.subscriptionDocuments;
+    changed = true;
+  }
+  if (typeof db.subscriptionGraceDays !== "number") {
+    db.subscriptionGraceDays = defaults.subscriptionGraceDays;
+    changed = true;
+  }
+  // Demandeur de test pour l'envoi de mails (joeltaba4@gmail.com)
+  if (
+    Array.isArray(db.pendingSubscriptions) &&
+    !db.pendingSubscriptions.some((s) => s.id === "sub-pending-joel") &&
+    !db.subscriptionHistory?.some((h) => h.email === "joeltaba4@gmail.com")
+  ) {
+    const joel = defaults.pendingSubscriptions.find((s) => s.id === "sub-pending-joel");
+    if (joel) {
+      db.pendingSubscriptions.unshift(joel);
+      if (defaults.subscriptionDocuments["sub-pending-joel"]) {
+        db.subscriptionDocuments["sub-pending-joel"] =
+          defaults.subscriptionDocuments["sub-pending-joel"];
+      }
+      changed = true;
+    }
   }
 
   const openStatuses = new Set(["DEPARTED", "RETURNING"]);
@@ -931,7 +1051,7 @@ export function buildManagerSubscription(
   const sub = db.managerSubscriptions[managerId];
   const plan = sub ? db.subscriptionPlans.find((p) => p.id === sub.planId) : null;
   const features = sub ? (db.planFeatures[sub.planId] ?? []) : [];
-  const graceDays = 7;
+  const graceDays = db.subscriptionGraceDays ?? 7;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);

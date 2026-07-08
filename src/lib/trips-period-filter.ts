@@ -105,3 +105,14 @@ export function periodLabel(
       return "Toutes les périodes";
   }
 }
+
+export function translatedPeriodLabel(
+  preset: TripPeriodPreset,
+  customFrom: string | undefined,
+  customTo: string | undefined,
+  t: (key: string) => string
+): string {
+  const raw = periodLabel(preset, customFrom, customTo);
+  if (preset === "custom" && customFrom && customTo) return raw;
+  return t(raw);
+}

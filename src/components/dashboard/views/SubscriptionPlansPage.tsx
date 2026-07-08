@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
@@ -25,9 +26,16 @@ import {
 } from "@/lib/api/admin";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
+import { FEATURE_LABELS, PLAN_FEATURE_KEYS } from "@/lib/plan-features";
+import { parseDecimalInput } from "@/lib/numeric-input";
 
-const PLAN_COLORS = ["bg-muted/60", "bg-primary/8 border-primary/30", "bg-foreground/5"];
-const POPULAR_INDEX = 1; // Le plan Pro est "le plus choisi"
+function defaultTechnicalFeatures() {
+  return PLAN_FEATURE_KEYS.map((key) => ({
+    key,
+    label: FEATURE_LABELS[key],
+    enabled: ["TRIPS", "DOCUMENTS", "SCHEDULES", "ASSIGNMENTS"].includes(key),
+  }));
+}
 
 const EMPTY_FORM: CreatePlanBody = {
   name: "",
@@ -41,6 +49,8 @@ const EMPTY_FORM: CreatePlanBody = {
   features: "",
 };
 
+const PLAN_COLORS = ["bg-muted/60", "bg-primary/8 border-primary/30", "bg-foreground/5", "bg-success/5 border-success/30"];
+
 export function SubscriptionPlansPage() {
   const { t } = useLang();
   const { data: plans, loading, error, refetch } = useApiQuery(fetchSubscriptionPlans, []);
@@ -51,22 +61,35 @@ export function SubscriptionPlansPage() {
   const [planFeatures, setPlanFeatures] = useState<PlanFeatureItem[]>([]);
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [monthlyPriceInput, setMonthlyPriceInput] = useState("0");
+  const [annualPriceInput, setAnnualPriceInput] = useState("");
 
   useEffect(() => {
-    if (!dialogOpen || !editing) {
+    if (!dialogOpen) {
       setPlanFeatures([]);
+      return;
+    }
+    if (!editing) {
+      setPlanFeatures(defaultTechnicalFeatures());
       return;
     }
     setFeaturesLoading(true);
     fetchPlanFeatures(editing.id)
       .then(setPlanFeatures)
-      .catch(() => setPlanFeatures([]))
+      .catch(() => setPlanFeatures(defaultTechnicalFeatures()))
       .finally(() => setFeaturesLoading(false));
   }, [dialogOpen, editing]);
+
+  const isFreePlan =
+    (monthlyPriceInput === "" || monthlyPriceInput === "0") &&
+    (annualPriceInput === "" || annualPriceInput === "0");
 
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setMonthlyPriceInput("0");
+    setAnnualPriceInput("");
+    setPlanFeatures(defaultTechnicalFeatures());
     setDialogOpen(true);
   }
 
@@ -83,6 +106,8 @@ export function SubscriptionPlansPage() {
       currency: plan.currency,
       features: plan.features ?? "",
     });
+    setMonthlyPriceInput(plan.monthlyPrice > 0 ? String(plan.monthlyPrice) : "0");
+    setAnnualPriceInput(plan.annualPrice != null ? String(plan.annualPrice) : "");
     setDialogOpen(true);
   }
 
@@ -90,13 +115,23 @@ export function SubscriptionPlansPage() {
     e.preventDefault();
     setSubmitting(true);
     try {
+      const monthlyPrice = isFreePlan ? 0 : parseDecimalInput(monthlyPriceInput) ?? 0;
+      const annualPrice = isFreePlan || !annualPriceInput.trim()
+        ? undefined
+        : parseDecimalInput(annualPriceInput) ?? undefined;
+      const payload: CreatePlanBody = {
+        ...form,
+        monthlyPrice,
+        annualPrice,
+        technicalFeatures: planFeatures,
+      };
       if (editing) {
-        await updateSubscriptionPlan(editing.id, form);
+        await updateSubscriptionPlan(editing.id, payload);
         if (planFeatures.length > 0) {
           await updatePlanFeatures(editing.id, planFeatures);
         }
       } else {
-        await createSubscriptionPlan(form);
+        await createSubscriptionPlan(payload);
       }
       setDialogOpen(false);
       refetch();
@@ -118,8 +153,12 @@ export function SubscriptionPlansPage() {
   const driverLimitLabel = (n: number) =>
     n === 999 ? t("Conducteurs illimités") : `${n} ${n > 1 ? t("conducteurs") : t("conducteur")}`;
 
-  const activePlans = (plans ?? []).filter(p => p.isActive);
-  const inactivePlans = (plans ?? []).filter(p => !p.isActive);
+  const activePlans = (plans ?? []).filter((p) => p.isActive);
+  const inactivePlans = (plans ?? []).filter((p) => !p.isActive);
+  const popularPlanId =
+    activePlans.find((p) => p.id === "plan-pro")?.id ??
+    activePlans.find((p) => p.monthlyPrice > 0)?.id ??
+    null;
 
   const featureList = (features: string | null) =>
     features ? features.split(",").map(f => f.trim()).filter(Boolean) : [];
@@ -145,10 +184,16 @@ export function SubscriptionPlansPage() {
               className={cn(
                 "relative overflow-hidden border-2 transition-all hover:-translate-y-1 hover:shadow-soft",
                 PLAN_COLORS[idx % PLAN_COLORS.length],
-                idx === POPULAR_INDEX && "border-primary"
+                plan.id === popularPlanId && "border-primary",
+                plan.monthlyPrice === 0 && "border-success/40"
               )}
             >
-              {idx === POPULAR_INDEX && (
+              {plan.monthlyPrice === 0 && (
+                <div className="absolute right-4 top-4">
+                  <Badge className="bg-success text-white">{t("Gratuit")}</Badge>
+                </div>
+              )}
+              {plan.id === popularPlanId && plan.monthlyPrice > 0 && (
                 <div className="absolute right-4 top-4">
                   <Badge className="bg-primary text-white">{t("Le + choisi")}</Badge>
                 </div>
@@ -232,7 +277,7 @@ export function SubscriptionPlansPage() {
               {inactivePlans.map((plan) => (
                 <div key={plan.id} className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
                   <span className="font-medium line-through">{plan.name}</span>
-                  <span>{plan.monthlyPrice.toLocaleString()} XAF/mois</span>
+                  <span>{plan.monthlyPrice > 0 ? `${plan.monthlyPrice.toLocaleString()} XAF/mois` : t("Gratuit")}</span>
                 </div>
               ))}
             </div>
@@ -256,27 +301,58 @@ export function SubscriptionPlansPage() {
                 <Label>{t("Description")}</Label>
                 <Input placeholder={t("Courte description du plan")} value={form.description} onChange={(e) => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
+              <div className="col-span-2 flex items-center gap-2 rounded-lg border bg-muted/20 p-3">
+                <Checkbox
+                  id="plan-free-toggle"
+                  checked={isFreePlan}
+                  onCheckedChange={(checked) => {
+                    if (checked === true) {
+                      setMonthlyPriceInput("0");
+                      setAnnualPriceInput("");
+                      setForm((f) => ({ ...f, monthlyPrice: 0, annualPrice: undefined }));
+                    } else {
+                      setMonthlyPriceInput("25000");
+                      setForm((f) => ({ ...f, monthlyPrice: 25000 }));
+                    }
+                  }}
+                />
+                <Label htmlFor="plan-free-toggle" className="cursor-pointer text-sm font-normal">
+                  {t("Plan gratuit (sans abonnement mensuel)")}
+                </Label>
+              </div>
               <div className="space-y-1.5">
-                <Label>{t("Prix mensuel (XAF) *")}</Label>
-                <Input required type="number" min="0" value={form.monthlyPrice} onChange={(e) => setForm(f => ({ ...f, monthlyPrice: parseFloat(e.target.value) || 0 }))} />
+                <Label>{t("Prix mensuel (XAF)")}</Label>
+                <NumericInput
+                  mode="decimal"
+                  disabled={isFreePlan}
+                  placeholder={t("Optionnel — laissez vide pour un plan gratuit")}
+                  value={isFreePlan ? "" : monthlyPriceInput}
+                  onValueChange={setMonthlyPriceInput}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("Prix annuel (XAF)")}</Label>
-                <Input type="number" min="0" placeholder={t("Optionnel")} value={form.annualPrice ?? ""} onChange={(e) => setForm(f => ({ ...f, annualPrice: e.target.value ? parseFloat(e.target.value) : undefined }))} />
+                <NumericInput
+                  mode="decimal"
+                  disabled={isFreePlan}
+                  placeholder={t("Optionnel")}
+                  value={isFreePlan ? "" : annualPriceInput}
+                  onValueChange={setAnnualPriceInput}
+                />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("Max flottes")}</Label>
-                <Input type="number" min="1" value={form.maxFleets} onChange={(e) => setForm(f => ({ ...f, maxFleets: parseInt(e.target.value) || 1 }))} />
+                <NumericInput mode="integer" value={String(form.maxFleets)} onValueChange={(v) => setForm(f => ({ ...f, maxFleets: parseInt(v || "1", 10) || 1 }))} />
                 <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="space-y-1.5">
                 <Label>{t("Max véhicules")}</Label>
-                <Input type="number" min="1" value={form.maxVehicles} onChange={(e) => setForm(f => ({ ...f, maxVehicles: parseInt(e.target.value) || 1 }))} />
+                <NumericInput mode="integer" value={String(form.maxVehicles)} onValueChange={(v) => setForm(f => ({ ...f, maxVehicles: parseInt(v || "1", 10) || 1 }))} />
                 <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="space-y-1.5">
                 <Label>{t("Max conducteurs")}</Label>
-                <Input type="number" min="1" value={form.maxDrivers} onChange={(e) => setForm(f => ({ ...f, maxDrivers: parseInt(e.target.value) || 1 }))} />
+                <NumericInput mode="integer" value={String(form.maxDrivers)} onValueChange={(v) => setForm(f => ({ ...f, maxDrivers: parseInt(v || "1", 10) || 1 }))} />
                 <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="col-span-2 space-y-1.5">
@@ -288,35 +364,33 @@ export function SubscriptionPlansPage() {
                 />
                 <p className="text-xs text-muted-foreground">{t("Affichage marketing sur la carte du plan")}</p>
               </div>
-              {editing && (
-                <div className="col-span-2 space-y-2 rounded-lg border bg-muted/30 p-3">
-                  <Label>{t("Fonctionnalités techniques (enforcement)")}</Label>
-                  {featuresLoading ? (
-                    <p className="text-sm text-muted-foreground">{t("Chargement…")}</p>
-                  ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {planFeatures.map((feat, idx) => (
-                        <label
-                          key={feat.key}
-                          className="flex cursor-pointer items-center gap-2 text-sm"
-                        >
-                          <Checkbox
-                            checked={feat.enabled}
-                            onCheckedChange={(checked) => {
-                              setPlanFeatures((prev) =>
-                                prev.map((f, i) =>
-                                  i === idx ? { ...f, enabled: checked === true } : f
-                                )
-                              );
-                            }}
-                          />
-                          <span>{feat.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="col-span-2 space-y-2 rounded-lg border bg-muted/30 p-3">
+                <Label>{t("Fonctionnalités techniques (enforcement)")}</Label>
+                {featuresLoading ? (
+                  <p className="text-sm text-muted-foreground">{t("Chargement…")}</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {planFeatures.map((feat, idx) => (
+                      <label
+                        key={feat.key}
+                        className="flex cursor-pointer items-center gap-2 text-sm"
+                      >
+                        <Checkbox
+                          checked={feat.enabled}
+                          onCheckedChange={(checked) => {
+                            setPlanFeatures((prev) =>
+                              prev.map((f, i) =>
+                                i === idx ? { ...f, enabled: checked === true } : f
+                              )
+                            );
+                          }}
+                        />
+                        <span>{feat.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>

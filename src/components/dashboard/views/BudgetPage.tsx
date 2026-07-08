@@ -10,6 +10,7 @@ import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,6 +27,7 @@ import {
 import type {
   BudgetResponse, ExpenseResponse, ExpenseType, BudgetScope,
 } from "@/lib/api/types/manager";
+import { parseDecimalInput, validateDecimalInput } from "@/lib/numeric-input";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -171,10 +173,12 @@ function CreateBudgetDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!entityId || !amount) { setError("Remplissez tous les champs obligatoires."); return; }
+    if (!entityId) { setError("Sélectionnez une flotte ou un véhicule."); return; }
+    const amountErr = validateDecimalInput(amount, { required: true, min: 0, label: "Montant" });
+    if (amountErr) { setError(amountErr); return; }
     setLoading(true);
     try {
-      await createBudget({ scope, entityId, amount: Number(amount), budgetMonth, notes: notes || undefined });
+      await createBudget({ scope, entityId, amount: parseDecimalInput(amount)!, budgetMonth, notes: notes || undefined });
       setOpen(false);
       setEntityId(""); setAmount(""); setNotes("");
       onCreated();
@@ -223,8 +227,8 @@ function CreateBudgetDialog({
             </div>
             <div className="space-y-2">
               <Label>Montant (FCFA) *</Label>
-              <Input type="number" min="0" placeholder="500000" value={amount}
-                onChange={e => setAmount(e.target.value)} />
+              <NumericInput mode="decimal" placeholder="500000" value={amount}
+                onValueChange={setAmount} />
             </div>
           </div>
 
@@ -266,13 +270,15 @@ function CreateExpenseDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!vehicleId || !amount) { setError("Véhicule et montant sont obligatoires."); return; }
+    if (!vehicleId) { setError("Véhicule obligatoire."); return; }
+    const amountErr = validateDecimalInput(amount, { required: true, min: 0, label: "Montant" });
+    if (amountErr) { setError(amountErr); return; }
     setLoading(true);
     try {
       await createExpense({
         vehicleId,
         expenseType,
-        amount: Number(amount),
+        amount: parseDecimalInput(amount)!,
         description: description || undefined,
         expenseDate: expenseDate || undefined,
       });
@@ -313,8 +319,8 @@ function CreateExpenseDialog({
             </div>
             <div className="space-y-2">
               <Label>Montant (FCFA) *</Label>
-              <Input type="number" min="0" placeholder="15000" value={amount}
-                onChange={e => setAmount(e.target.value)} />
+              <NumericInput mode="decimal" placeholder="15000" value={amount}
+                onValueChange={setAmount} />
             </div>
           </div>
 

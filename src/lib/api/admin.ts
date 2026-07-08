@@ -128,10 +128,11 @@ export type CreatePlanBody = {
   maxFleets: number;
   maxVehicles: number;
   maxDrivers: number;
-  monthlyPrice: number;
+  monthlyPrice?: number;
   annualPrice?: number;
   currency: string;
   features: string;
+  technicalFeatures?: PlanFeatureItem[];
 };
 
 export type PendingSubscription = {
@@ -142,6 +143,8 @@ export type PendingSubscription = {
   lastName: string;
   companyName: string | null;
   createdAt: string;
+  phone?: string | null;
+  requestedPlanId?: string | null;
 };
 
 export function fetchSubscriptionPlans() {
@@ -177,10 +180,40 @@ export function approveSubscription(id: string, planId?: string) {
   });
 }
 
-export function rejectSubscription(id: string, reason: string) {
+export function rejectSubscription(id: string, payload: { reason: string; subject?: string; message?: string }) {
   return apiFetch<void>(`/api/v1/admin/super/subscriptions/${id}/reject`, {
     method: "PATCH",
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify(payload),
+  });
+}
+
+export type SubscriptionDocument = {
+  id: string;
+  userId: string;
+  docType: string;
+  docNumber: string;
+  fileUrl: string;
+  fileMimeType?: string | null;
+  fileOriginalName?: string | null;
+  expiryDate?: string | null;
+  issuer?: string | null;
+  issueDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+};
+
+export function fetchSubscriptionDocuments(userId: string) {
+  return fetchList<SubscriptionDocument>(`/api/v1/admin/super/subscriptions/${userId}/documents`);
+}
+
+export function fetchSubscriptionGraceDays() {
+  return apiFetch<{ graceDays: number }>("/api/v1/admin/super/settings/subscription-grace-days");
+}
+
+export function updateSubscriptionGraceDays(graceDays: number) {
+  return apiFetch<{ graceDays: number }>("/api/v1/admin/super/settings/subscription-grace-days", {
+    method: "PUT",
+    body: JSON.stringify({ graceDays }),
   });
 }
 

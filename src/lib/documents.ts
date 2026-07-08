@@ -30,6 +30,19 @@ export const DRIVER_DOC_TYPES = [
   "OTHER",
 ] as const;
 
+/** Documents requis lors de l'inscription gestionnaire */
+export const SUBSCRIPTION_DOC_TYPES = [
+  "ID_CARD",
+  "CRIMINAL_RECORD",
+  "DOMICILE_PROOF",
+  "COMPANY_REGISTRATION",
+  "OTHER",
+] as const;
+
+export const SUBSCRIPTION_REQUIRED_DOC_TYPES = ["ID_CARD", "CRIMINAL_RECORD"] as const;
+
+export const MAX_SUBSCRIPTION_DOCUMENTS = 10;
+
 export type DocFieldConfig = {
   showDocNumber: boolean;
   docNumberPlaceholder?: string;

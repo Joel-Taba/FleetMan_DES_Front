@@ -28,6 +28,7 @@ import {
   Settings2,
   CreditCard,
   History,
+  Wallet,
   ChevronRight,
   ChevronLeft,
   type LucideIcon,
@@ -65,6 +66,7 @@ const iconMap: Record<string, LucideIcon> = {
   Settings: Settings2,
   CreditCard,
   History,
+  Wallet,
 };
 
 const SIDEBAR_GRADIENT =

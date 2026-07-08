@@ -8,6 +8,7 @@ import { PageHeader } from "../PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { fetchTripByCode, fetchOpenTrips, registerTripReturn } from "@/lib/api/manager";
@@ -16,6 +17,7 @@ import type { ApiTrip } from "@/lib/api/types/manager";
 import { tripStatusBadgeVariant, tripStatusLabel } from "@/lib/api/mappers/manager";
 import { LocationPicker, type PlaceResult } from "../LocationPicker";
 import { useLang } from "@/lib/i18n";
+import { parseDecimalInput, validateDecimalInput } from "@/lib/numeric-input";
 
 const TRIP_CODE_PREFIX = "TRJ-2026-";
 
@@ -118,18 +120,43 @@ export function TripReturnForm() {
 
   const previewDistance = () => {
     if (trip?.departureKmIndex == null || !returnKm) return null;
-    const d = parseFloat(returnKm) - trip.departureKmIndex;
-    return d > 0 ? d.toFixed(1) : null;
+    const parsed = parseDecimalInput(returnKm);
+    if (parsed == null) return null;
+    const d = parsed - trip.departureKmIndex;
+    return d > 0 ? d.toFixed(1).replace(".", ",") : null;
   };
 
   const previewFuel = () => {
     if (trip?.departureFuelIndex == null || !returnFuel) return null;
-    const f = trip.departureFuelIndex - parseFloat(returnFuel);
-    return f > 0 ? f.toFixed(1) : null;
+    const parsed = parseDecimalInput(returnFuel);
+    if (parsed == null) return null;
+    const f = trip.departureFuelIndex - parsed;
+    return f > 0 ? f.toFixed(1).replace(".", ",") : null;
   };
 
   const submit = async () => {
     if (!trip) return;
+    if (returnKm.trim()) {
+      const kmErr = validateDecimalInput(returnKm, { min: 0, label: "Index kilométrique retour" });
+      if (kmErr) {
+        setSaveError(kmErr);
+        return;
+      }
+      if (trip.departureKmIndex != null) {
+        const parsed = parseDecimalInput(returnKm);
+        if (parsed != null && parsed < trip.departureKmIndex) {
+          setSaveError("L'index kilométrique de retour doit être supérieur ou égal au départ.");
+          return;
+        }
+      }
+    }
+    if (returnFuel.trim()) {
+      const fuelErr = validateDecimalInput(returnFuel, { min: 0, label: "Index carburant retour" });
+      if (fuelErr) {
+        setSaveError(fuelErr);
+        return;
+      }
+    }
     setSaving(true);
     setSaveError(null);
     try {
@@ -140,8 +167,8 @@ export function TripReturnForm() {
         returnLocation: returnPlace?.label,
         returnLat: returnPlace?.lat,
         returnLng: returnPlace?.lng,
-        returnKmIndex: returnKm ? parseFloat(returnKm) : undefined,
-        returnFuelIndex: returnFuel ? parseFloat(returnFuel) : undefined,
+        returnKmIndex: returnKm.trim() ? parseDecimalInput(returnKm) ?? undefined : undefined,
+        returnFuelIndex: returnFuel.trim() ? parseDecimalInput(returnFuel) ?? undefined : undefined,
       });
       router.push("/dashboard/manager/trips");
     } catch (e: unknown) {
@@ -315,12 +342,11 @@ export function TripReturnForm() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label>Index kilométrique retour (km)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
+                  <NumericInput
+                    mode="decimal"
                     placeholder={trip.departureKmIndex != null ? `Départ: ${trip.departureKmIndex}` : "Ex: 87680"}
                     value={returnKm}
-                    onChange={(e) => setReturnKm(e.target.value)}
+                    onValueChange={setReturnKm}
                   />
                   {previewDistance() && (
                     <p className="text-xs text-success">→ Distance calculée : <strong>{previewDistance()} km</strong></p>
@@ -328,12 +354,11 @@ export function TripReturnForm() {
                 </div>
                 <div className="space-y-2">
                   <Label>Index carburant retour (L)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
+                  <NumericInput
+                    mode="decimal"
                     placeholder={trip.departureFuelIndex != null ? `Départ: ${trip.departureFuelIndex} L` : "Ex: 38"}
                     value={returnFuel}
-                    onChange={(e) => setReturnFuel(e.target.value)}
+                    onValueChange={setReturnFuel}
                   />
                   {previewFuel() && (
                     <p className="text-xs text-success">→ Consommation calculée : <strong>{previewFuel()} L</strong></p>

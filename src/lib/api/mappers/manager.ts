@@ -84,7 +84,7 @@ export function formatRelativeTime(iso: string) {
 
 export function tripStatusLabel(status: string) {
   const map: Record<string, string> = {
-    SCHEDULED: "Planifié",
+    SCHEDULED: "Créé",
     DEPARTED: "En cours",
     RETURNING: "En retour",
     ONGOING: "En cours",
@@ -115,6 +115,10 @@ export function tripStatusBadgeVariant(
 
 export function ongoingTrips(trips: ApiTrip[]) {
   return trips.filter((t) => t.status === "DEPARTED" || t.status === "RETURNING" || t.status === "ONGOING");
+}
+
+export function scheduledTrips(trips: ApiTrip[]) {
+  return trips.filter((t) => t.status === "SCHEDULED");
 }
 
 export function openTrips(trips: ApiTrip[]) {

@@ -5,6 +5,8 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchManagerSubscription } from "@/lib/api/manager";
 import { getCurrentUser } from "@/lib/auth/session";
 
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
+
 export function usePlanFeatures() {
   const user = getCurrentUser();
   const isManager = user?.roles?.includes("FLEET_MANAGER") ?? false;
@@ -26,7 +28,9 @@ export function usePlanFeatures() {
   }
 
   function filterNavItems<T extends { featureKey?: string }>(items: T[]): T[] {
-    if (!isManager || !data || data.features.length === 0) return items;
+    // En mode mock (tests locaux), afficher toute la navigation manager.
+    if (USE_MOCK) return items;
+    if (!isManager || loading || !data || data.features.length === 0) return items;
     return items.filter((item) => !item.featureKey || hasFeature(item.featureKey));
   }
 

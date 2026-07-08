@@ -8,10 +8,12 @@ import { LicensePlate } from "../LicensePlate";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { createMaintenance, fetchMaintenances, fetchVehicles } from "@/lib/api/manager";
 import { useLang } from "@/lib/i18n";
+import { parseDecimalInput, validateDecimalInput } from "@/lib/numeric-input";
 
 export function OperationsMaintenances() {
   const { t } = useLang();
@@ -22,14 +24,24 @@ export function OperationsMaintenances() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ subject: "", cost: "", vehicleId: "", locationName: "" });
 
+  const [formError, setFormError] = useState<string | null>(null);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.vehicleId || !form.subject) return;
+    if (form.cost.trim()) {
+      const costErr = validateDecimalInput(form.cost, { min: 0, label: "Coût" });
+      if (costErr) {
+        setFormError(costErr);
+        return;
+      }
+    }
+    setFormError(null);
     setSubmitting(true);
     try {
       await createMaintenance({
         subject: form.subject,
-        cost: form.cost ? parseFloat(form.cost) : undefined,
+        cost: form.cost.trim() ? parseDecimalInput(form.cost) ?? undefined : undefined,
         vehicleId: form.vehicleId,
         locationName: form.locationName || undefined,
       });
@@ -76,14 +88,14 @@ export function OperationsMaintenances() {
               </div>
               <div className="space-y-2">
                 <Label>Coût (FCFA)</Label>
-                <Input
-                  type="number"
-                  min="0"
+                <NumericInput
+                  mode="decimal"
                   placeholder="Ex: 45000"
                   value={form.cost}
-                  onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))}
+                  onValueChange={(v) => setForm((f) => ({ ...f, cost: v }))}
                 />
               </div>
+              {formError && <p className="text-sm text-destructive">{formError}</p>}
               <div className="space-y-2">
                 <Label>Lieu</Label>
                 <Input
