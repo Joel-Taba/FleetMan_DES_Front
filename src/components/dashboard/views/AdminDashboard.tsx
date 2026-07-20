@@ -2,12 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Users, Truck, MapPin, FileWarning, Database } from "lucide-react";
+import { Users, Truck, MapPin, FileWarning, Database, UserCheck, UserX } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { PeriodSelector } from "../PeriodSelector";
 import { StatCard } from "../StatCard";
-import { VehicleBarChart } from "@/lib/lazy-charts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
@@ -15,8 +14,24 @@ import {
   fetchPublicStats,
   fetchReferenceItems,
 } from "@/lib/api/admin";
-import { formatLastLogin, managerFullName } from "@/lib/api/mappers/admin";
+import { formatLastLogin, managerFullName, managerIsActive } from "@/lib/api/mappers/admin";
 import { useLang } from "@/lib/i18n";
+
+function periodStartDate(period: string): Date {
+  const now = new Date();
+  if (period === "Aujourd'hui") {
+    const start = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }
+  if (period === "Ce mois") {
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  }
+  // "7 derniers jours"
+  const start = new Date(now);
+  start.setDate(start.getDate() - 7);
+  return start;
+}
 
 export function AdminDashboard() {
   const { t } = useLang();
@@ -29,18 +44,16 @@ export function AdminDashboard() {
   const { data: stats } = useApiQuery(fetchPublicStats, []);
   const { data: vehicleTypes } = useApiQuery(() => fetchReferenceItems("vehicle-types"), []);
 
-  const chartData = useMemo(
-    () =>
-      (vehicleTypes ?? []).map((vt) => ({
-        type: vt.code,
-        count: 1,
-      })),
-    [vehicleTypes]
-  );
+  const managerStats = useMemo(() => {
+    const list = managers ?? [];
+    const active = list.filter((m) => managerIsActive(m)).length;
+    return { total: list.length, active, inactive: list.length - active };
+  }, [managers]);
 
   const activities = useMemo(() => {
+    const since = periodStartDate(period);
     return (managers ?? [])
-      .filter((m) => m.lastLoginAt)
+      .filter((m) => m.lastLoginAt && new Date(m.lastLoginAt) >= since)
       .sort((a, b) => Date.parse(b.lastLoginAt!) - Date.parse(a.lastLoginAt!))
       .slice(0, 5)
       .map((m) => ({
@@ -48,7 +61,7 @@ export function AdminDashboard() {
         text: `${managerFullName(m)}${t(" — dernière connexion")}`,
         time: formatLastLogin(m.lastLoginAt),
       }));
-  }, [managers, t]);
+  }, [managers, period, t]);
 
   const managerCount = managers?.length ?? stats?.activeManagers ?? 0;
   const fleetCount = stats?.totalFleets ?? 0;
@@ -83,22 +96,49 @@ export function AdminDashboard() {
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          {chartData.length > 0 ? (
-            <VehicleBarChart data={chartData} />
-          ) : (
-            <Card>
-              <CardContent className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-                {t("Aucun type de véhicule configuré.")}
-              </CardContent>
-            </Card>
-          )}
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("Gestionnaires de flottes")}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border bg-muted/30 p-3 text-center">
+                  <p className="text-2xl font-bold">{managerStats.total}</p>
+                  <p className="text-xs text-muted-foreground">{t("Total")}</p>
+                </div>
+                <div className="rounded-lg border border-success/30 bg-success/5 p-3 text-center">
+                  <UserCheck className="mx-auto mb-1 h-5 w-5 text-success" />
+                  <p className="text-2xl font-bold text-success">{managerStats.active}</p>
+                  <p className="text-xs text-muted-foreground">{t("Actifs")}</p>
+                </div>
+                <div className="rounded-lg border border-muted p-3 text-center">
+                  <UserX className="mx-auto mb-1 h-5 w-5 text-muted-foreground" />
+                  <p className="text-2xl font-bold">{managerStats.inactive}</p>
+                  <p className="text-xs text-muted-foreground">{t("Inactifs")}</p>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {managerStats.total === 0
+                  ? t("Aucun gestionnaire enregistré pour le moment.")
+                  : t("Répartition des comptes gestionnaires rattachés à votre organisation.")}
+              </p>
+              <Link
+                href="/dashboard/admin/managers"
+                className="inline-flex text-sm font-medium text-primary hover:underline"
+              >
+                {t("Voir la liste complète")} →
+              </Link>
+            </CardContent>
+          </Card>
           <Card>
             <CardHeader>
               <CardTitle>{t("5 dernières activités")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {activities.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("Aucune activité récente.")}</p>
+                <p className="text-sm text-muted-foreground">
+                  {t("Aucune activité sur la période sélectionnée.")}
+                </p>
               ) : (
                 activities.map((a) => (
                   <div key={a.id} className="flex gap-3 border-b border-border pb-3 last:border-0">

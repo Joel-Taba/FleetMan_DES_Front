@@ -5,7 +5,9 @@ export function managerIsActive(m: AdminUserDetail) {
 }
 
 export function managerFullName(m: AdminUserDetail) {
-  return `${m.firstName} ${m.lastName}`.trim();
+  const name = `${m.firstName ?? ""} ${m.lastName ?? ""}`.trim();
+  if (name && name !== "null null") return name;
+  return m.username || m.email || "—";
 }
 
 export function managerInitials(m: AdminUserDetail) {

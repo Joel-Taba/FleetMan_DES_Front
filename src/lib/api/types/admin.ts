@@ -26,6 +26,17 @@ export type PublicStatsResponse = {
   serviceStatus: string;
 };
 
+export type SuperAdminDashboardStats = {
+  activeAdmins: number;
+  activeManagers: number;
+  totalFleets: number;
+  managedVehicles: number;
+  totalDrivers: number;
+  period: string;
+  signupTrend: Array<{ label: string; count: number }>;
+  userDistribution: Array<{ name: string; value: number; color: string }>;
+};
+
 export type ResourceItem = {
   id: string;
   code: string;

@@ -10,16 +10,19 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  createIncidentOfflineAware,
+  updateIncidentStatusOfflineAware,
+} from "@/lib/offline/mutations/operations-mutations";
+import {
+  useManagerDrivers,
+  useManagerIncidents,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
+import { IncidentSyncBadge } from "@/components/offline/EntitySyncBadges";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useAuth } from "@/context/AuthProvider";
-import {
-  createIncident,
-  fetchDrivers,
-  fetchIncidents,
-  fetchManagerProfile,
-  fetchVehicles,
-  updateIncidentStatus,
-} from "@/lib/api/manager";
+import { fetchManagerProfile } from "@/lib/api/manager";
 import { driverLabel, formatDateTime } from "@/lib/api/mappers/manager";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
@@ -34,9 +37,9 @@ const severityVariant: Record<string, "muted" | "warning" | "destructive"> = {
 export function OperationsIncidents() {
   const { t } = useLang();
   const { user } = useAuth();
-  const { data: incidents, loading, error, refetch } = useApiQuery(fetchIncidents, []);
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
-  const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
+  const { data: incidents, loading, error, refetch } = useManagerIncidents();
+  const { data: vehicles } = useManagerVehicles();
+  const { data: drivers } = useManagerDrivers();
   const { data: manager } = useApiQuery(fetchManagerProfile, []);
 
   const reporters = useMemo(() => {
@@ -62,7 +65,7 @@ export function OperationsIncidents() {
     if (!form.vehicleId) return;
     setSubmitting(true);
     try {
-      await createIncident({
+      await createIncidentOfflineAware({
         type: form.type,
         description: form.description,
         severity: form.severity,
@@ -78,7 +81,7 @@ export function OperationsIncidents() {
   }
 
   async function handleResolve(id: string) {
-    await updateIncidentStatus(id, "RESOLVED");
+    await updateIncidentStatusOfflineAware(id, "RESOLVED");
     refetch();
   }
 
@@ -168,7 +171,7 @@ export function OperationsIncidents() {
                   <td className="px-4 py-3 align-middle"><Badge variant="outline">{inc.type}</Badge></td>
                   <td className="px-4 py-3 align-middle"><Badge variant={severityVariant[inc.severity] ?? "muted"}>{inc.severity}</Badge></td>
                   <td className="max-w-xs truncate px-4 py-3 align-middle">{inc.description ?? "—"}</td>
-                  <td className="px-4 py-3 align-middle"><Badge>{inc.status}</Badge></td>
+                  <td className="px-4 py-3 align-middle"><Badge>{inc.status}</Badge><IncidentSyncBadge entityId={inc.id} /></td>
                   <td className="px-4 py-3 align-middle text-right">
                     {inc.isOpen && (
                       <Button size="sm" variant="default" onClick={() => void handleResolve(inc.id)}>

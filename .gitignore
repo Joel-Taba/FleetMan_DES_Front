@@ -29,3 +29,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Serwist (généré au build)
+public/sw.js
+public/swe-worker*
+
+# documents de test uploadés localement (pièces d'identité, photos réelles —
+# ne jamais committer : sample-vehicle-doc.pdf reste suivi, lui, volontairement)
+public/documents/CNI.pdf
+public/documents/Samuel.png
+public/documents/taba.png
+
+# logs et sorties de tests locaux
+frontend_output.log
+/test-results
+/playwright-report

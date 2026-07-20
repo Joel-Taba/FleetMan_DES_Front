@@ -74,8 +74,8 @@ export function SubscriptionHistoryPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                        {item.firstName[0]}
-                        {item.lastName[0]}
+                        {(item.firstName?.[0] ?? "?").toUpperCase()}
+                        {(item.lastName?.[0] ?? "").toUpperCase()}
                       </div>
                       <div>
                         <p className="font-semibold">

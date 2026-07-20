@@ -11,16 +11,22 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useApiQuery } from "@/hooks/use-api-query";
 import {
-  createAssignment,
-  fetchAssignmentConflicts,
-  fetchAssignments,
-  fetchDrivers,
-  fetchFleets,
-  fetchVehicles,
-  updateAssignment,
-} from "@/lib/api/manager";
+  createAssignmentOfflineAware,
+  updateAssignmentOfflineAware,
+} from "@/lib/offline/mutations/assignment-mutations";
+import { isOfflineModeEnabled } from "@/lib/offline/api-client";
+import { checkAssignmentOverlap } from "@/lib/offline/validators/heuristics";
+import {
+  useManagerAssignments,
+  useManagerDrivers,
+  useManagerFleets,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
+import { AssignmentSyncBadge } from "@/components/offline/EntitySyncBadges";
+import { readBrowserOnline } from "@/lib/offline/network/online";
+import { fetchAssignmentConflicts } from "@/lib/api/manager";
+import { useApiQuery } from "@/hooks/use-api-query";
 import { formatDateTime, vehiclePlateById, driverLabel } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
 
@@ -38,40 +44,70 @@ export function AssignmentsList() {
     endDatetime: "",
   });
 
-  const { data: assignmentsPage, loading, error, refetch } = useApiQuery(() => fetchAssignments(0, 200), []);
-  const { data: conflictsPage } = useApiQuery(() => fetchAssignmentConflicts(0, 100), []);
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
-  const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
-  const { data: fleets } = useApiQuery(fetchFleets, []);
+  const { data: assignments, loading, error, refetch } = useManagerAssignments();
+  const offlineConflictsDisabled = isOfflineModeEnabled() && !readBrowserOnline();
+  const { data: conflictsPage } = useApiQuery(
+    () =>
+      offlineConflictsDisabled
+        ? Promise.resolve({
+            content: [],
+            page: 0,
+            size: 0,
+            totalElements: 0,
+            totalPages: 0,
+            first: true,
+            last: true,
+            empty: true,
+          })
+        : fetchAssignmentConflicts(0, 100),
+    [offlineConflictsDisabled]
+  );
+  const { data: vehicles } = useManagerVehicles();
+  const { data: drivers } = useManagerDrivers();
+  const { data: fleets } = useManagerFleets();
 
   const conflictIds = useMemo(
     () => new Set((conflictsPage?.content ?? []).map((a) => a.id)),
     [conflictsPage]
   );
 
-  const assignments = assignmentsPage?.content ?? [];
-  const conflicts = assignments.filter((a) => conflictIds.has(a.id));
-  const rows = conflictsOnly ? conflicts : assignments;
+  const assignmentsList = assignments ?? [];
+  const conflicts = assignmentsList.filter((a) => conflictIds.has(a.id));
+  const rows = conflictsOnly ? conflicts : assignmentsList;
 
   const driverName = (driverId: string) => {
     const d = (drivers ?? []).find((x) => x.userId === driverId);
     return d ? driverLabel(d) : driverId.slice(0, 8);
   };
 
-  const editing = editId ? assignments.find((a) => a.id === editId) : null;
+  const editing = editId ? assignmentsList.find((a) => a.id === editId) : null;
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.fleetId || !form.vehicleId || !form.driverId) return;
     setSubmitting(true);
     try {
-      await createAssignment({
+      const payload = {
         fleetId: form.fleetId,
         vehicleId: form.vehicleId,
         driverId: form.driverId,
         startDatetime: form.startDatetime || new Date().toISOString(),
         endDatetime: form.endDatetime || new Date(Date.now() + 8 * 3600000).toISOString(),
-      });
+      };
+
+      if (isOfflineModeEnabled()) {
+        const warning = await checkAssignmentOverlap(payload);
+        if (
+          warning &&
+          typeof window !== "undefined" &&
+          !window.confirm(`${warning}\n\nContinuer quand même ?`)
+        ) {
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      await createAssignmentOfflineAware(payload);
       setCreateOpen(false);
       refetch();
     } finally {
@@ -83,7 +119,7 @@ export function AssignmentsList() {
     if (!editId || !form.vehicleId || !form.driverId) return;
     setSubmitting(true);
     try {
-      await updateAssignment(editId, { vehicleId: form.vehicleId, driverId: form.driverId });
+      await updateAssignmentOfflineAware(editId, { vehicleId: form.vehicleId, driverId: form.driverId });
       setEditId(null);
       refetch();
     } finally {
@@ -144,7 +180,10 @@ export function AssignmentsList() {
                   <td className="px-4 py-3 align-middle">
                     <LicensePlate plate={vehiclePlateById(vehicles ?? [], a.vehicleId) ?? "—"} />
                   </td>
-                  <td className="px-4 py-3 align-middle font-medium">{driverName(a.driverId)}</td>
+                  <td className="px-4 py-3 align-middle font-medium">
+                    {driverName(a.driverId)}
+                    <AssignmentSyncBadge entityId={a.id} />
+                  </td>
                   <td className="px-4 py-3 align-middle"><Badge variant="outline">{a.status}</Badge></td>
                   <td className="px-4 py-3 align-middle text-center">
                     {conflictIds.has(a.id) ? <Badge variant="destructive">{t("Oui")}</Badge> : <span className="text-muted-foreground">—</span>}

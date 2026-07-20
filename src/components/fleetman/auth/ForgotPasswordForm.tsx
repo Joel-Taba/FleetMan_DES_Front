@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ApiError, forgotPasswordRequest } from "@/lib/api/mock-wrapper";
 
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState("");
@@ -20,20 +21,28 @@ export function ForgotPasswordForm() {
     return () => clearInterval(t);
   }, [cooldown]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    setTimeout(() => {
-      setLoading(false);
+    try {
       if (!email.includes("@")) {
         setError("Veuillez entrer une adresse email valide.");
         return;
       }
+      await forgotPasswordRequest(email.trim());
       setSent(true);
       setCooldown(60);
-    }, 600);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : "Impossible d'envoyer le lien. Vérifiez que le backend est démarré.";
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -58,7 +67,8 @@ export function ForgotPasswordForm() {
           <CheckCircle2 className="mb-3 h-10 w-10 text-success" />
           <p className="font-medium text-foreground">Email envoyé !</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Vérifiez votre boîte de réception à <strong>{email}</strong>.
+            Si un compte existe pour <strong>{email}</strong>, vous recevrez un
+            lien de réinitialisation. Vérifiez aussi vos spams.
           </p>
           {cooldown > 0 && (
             <p className="mt-4 text-sm text-muted-foreground">

@@ -14,20 +14,25 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
-  createSubscriptionPlan,
-  deactivateSubscriptionPlan,
   fetchPlanFeatures,
   fetchSubscriptionPlans,
   updatePlanFeatures,
-  updateSubscriptionPlan,
   type CreatePlanBody,
   type PlanFeatureItem,
   type SubscriptionPlan,
 } from "@/lib/api/admin";
+import { useAdminEntityList } from "@/lib/offline/hooks/useAdminEntityList";
+import {
+  createSubscriptionPlanOfflineAware,
+  deactivateSubscriptionPlanOfflineAware,
+  updateSubscriptionPlanOfflineAware,
+} from "@/lib/offline/mutations/admin-mutations";
+import { readBrowserOnline } from "@/lib/offline/network/online";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 import { FEATURE_LABELS, PLAN_FEATURE_KEYS } from "@/lib/plan-features";
 import { parseDecimalInput } from "@/lib/numeric-input";
+import { ApiError } from "@/lib/api/mock-wrapper";
 
 function defaultTechnicalFeatures() {
   return PLAN_FEATURE_KEYS.map((key) => ({
@@ -53,7 +58,10 @@ const PLAN_COLORS = ["bg-muted/60", "bg-primary/8 border-primary/30", "bg-foregr
 
 export function SubscriptionPlansPage() {
   const { t } = useLang();
-  const { data: plans, loading, error, refetch } = useApiQuery(fetchSubscriptionPlans, []);
+  const { data: plans, loading, error, refetch } = useAdminEntityList({
+    entityType: "subscriptionPlan",
+    fetcher: fetchSubscriptionPlans,
+  });
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<SubscriptionPlan | null>(null);
@@ -61,6 +69,7 @@ export function SubscriptionPlansPage() {
   const [planFeatures, setPlanFeatures] = useState<PlanFeatureItem[]>([]);
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [monthlyPriceInput, setMonthlyPriceInput] = useState("0");
   const [annualPriceInput, setAnnualPriceInput] = useState("");
 
@@ -87,6 +96,7 @@ export function SubscriptionPlansPage() {
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
+    setFormError(null);
     setMonthlyPriceInput("0");
     setAnnualPriceInput("");
     setPlanFeatures(defaultTechnicalFeatures());
@@ -95,6 +105,7 @@ export function SubscriptionPlansPage() {
 
   function openEdit(plan: SubscriptionPlan) {
     setEditing(plan);
+    setFormError(null);
     setForm({
       name: plan.name,
       description: plan.description ?? "",
@@ -114,6 +125,7 @@ export function SubscriptionPlansPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
+    setFormError(null);
     try {
       const monthlyPrice = isFreePlan ? 0 : parseDecimalInput(monthlyPriceInput) ?? 0;
       const annualPrice = isFreePlan || !annualPriceInput.trim()
@@ -126,15 +138,26 @@ export function SubscriptionPlansPage() {
         technicalFeatures: planFeatures,
       };
       if (editing) {
-        await updateSubscriptionPlan(editing.id, payload);
-        if (planFeatures.length > 0) {
+        await updateSubscriptionPlanOfflineAware(editing.id, payload);
+        if (planFeatures.length > 0 && readBrowserOnline()) {
           await updatePlanFeatures(editing.id, planFeatures);
         }
       } else {
-        await createSubscriptionPlan(payload);
+        await createSubscriptionPlanOfflineAware(payload);
       }
       setDialogOpen(false);
-      refetch();
+    } catch (err) {
+      // L'écriture optimiste dans le cache local a déjà eu lieu avant l'appel
+      // réseau (architecture offline-first) : en cas d'échec serveur, on doit
+      // resynchroniser depuis la source de vérité pour ne pas laisser la carte
+      // du plan afficher des valeurs jamais persistées. Sur succès en revanche,
+      // la mutation a déjà écrit la réponse serveur (faisant foi) dans le cache
+      // — un refetch() complet de la liste serait redondant (un aller-retour
+      // réseau visible pour rien, alors que l'édition est déjà appliquée).
+      setFormError(
+        err instanceof ApiError ? err.message : t("Échec de l'enregistrement du plan.")
+      );
+      await refetch();
     } finally {
       setSubmitting(false);
     }
@@ -142,8 +165,11 @@ export function SubscriptionPlansPage() {
 
   async function handleDeactivate(id: string) {
     if (!confirm(t("Désactiver ce plan ? Les gestionnaires abonnés conservent leur accès jusqu'à renouvellement."))) return;
-    await deactivateSubscriptionPlan(id);
-    refetch();
+    try {
+      await deactivateSubscriptionPlanOfflineAware(id);
+    } finally {
+      await refetch();
+    }
   }
 
   const fleetLimitLabel = (n: number) =>
@@ -392,6 +418,9 @@ export function SubscriptionPlansPage() {
                 )}
               </div>
             </div>
+            {formError && (
+              <p className="text-sm text-destructive">{formError}</p>
+            )}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>
               <Button type="submit" disabled={submitting}>

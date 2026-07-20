@@ -1,12 +1,14 @@
-import { apiFetch } from "@/lib/api/mock-wrapper";
+import { apiFetch, apiFetchFormData } from "@/lib/api/mock-wrapper";
 import type {
   AdminUserDetail,
   PublicStatsResponse,
+  SuperAdminDashboardStats,
   ResourceItem,
   ResourceRequest,
   VehicleTypeItem,
   VehicleTypeRequest,
 } from "@/lib/api/types/admin";
+import type { FleetResponse } from "@/lib/api/types/manager";
 
 async function fetchList<T>(path: string): Promise<T[]> {
   const data = await apiFetch<T[]>(path);
@@ -19,20 +21,138 @@ export function fetchPublicStats() {
   return apiFetch<PublicStatsResponse>("/api/v1/health/public-stats", {}, false);
 }
 
+const PERIOD_TO_API: Record<string, string> = {
+  "Aujourd'hui": "today",
+  "7 derniers jours": "7d",
+  "Ce mois": "month",
+};
+
+export function periodToApiParam(period: string): string {
+  return PERIOD_TO_API[period] ?? "7d";
+}
+
+export function fetchSuperAdminDashboardStats(period: string) {
+  const apiPeriod = periodToApiParam(period);
+  return apiFetch<SuperAdminDashboardStats>(
+    `/api/v1/admin/super/dashboard-stats?period=${encodeURIComponent(apiPeriod)}`
+  );
+}
+
 // ── Gestionnaires ────────────────────────────────────────────────────────────
 
+function normalizeAdminUser(u: AdminUserDetail): AdminUserDetail {
+  const clean = (v?: string | null) => {
+    if (!v || v === "null") return "";
+    return v;
+  };
+  return {
+    ...u,
+    firstName: clean(u.firstName),
+    lastName: clean(u.lastName),
+    email: clean(u.email),
+    username: clean(u.username),
+    roles: u.roles ?? [],
+    permissions: u.permissions ?? [],
+    isActive: u.isActive ?? (u as AdminUserDetail & { active?: boolean }).active ?? true,
+  };
+}
+
 export function fetchFleetManagers() {
-  return fetchList<AdminUserDetail>("/api/v1/admin/management/managers");
+  return fetchList<AdminUserDetail>("/api/v1/admin/management/managers").then((list) =>
+    list.map(normalizeAdminUser)
+  );
 }
 
 export function fetchFleetManager(id: string) {
-  return apiFetch<AdminUserDetail>(`/api/v1/admin/management/managers/${id}`);
+  return apiFetch<AdminUserDetail>(`/api/v1/admin/management/managers/${id}`).then(
+    normalizeAdminUser
+  );
 }
 
 export function toggleFleetManager(id: string) {
   return apiFetch<void>(`/api/v1/admin/management/managers/${id}/toggle`, {
     method: "PATCH",
   });
+}
+
+export type CreateFleetManagerBody = {
+  username: string;
+  password: string;
+  email: string;
+  phone: string;
+  firstName: string;
+  lastName: string;
+  companyName: string;
+};
+
+/** Créé un gestionnaire de flotte, compte actif immédiatement (pas de flux d'approbation). */
+export function createFleetManager(body: CreateFleetManagerBody) {
+  return apiFetch<AdminUserDetail>("/api/v1/admin/management/managers", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }).then(normalizeAdminUser);
+}
+
+/** Flottes assignées à un gestionnaire donné — non mise en cache (sous-ressource ponctuelle). */
+export function fetchManagerFleets(managerId: string) {
+  return apiFetch<FleetResponse[]>(
+    `/api/v1/admin/management/managers/${managerId}/fleets`,
+    { skipCache: true }
+  ).then((data) => (Array.isArray(data) ? data : []));
+}
+
+/** Assigne (ou réassigne) une ou plusieurs flottes existantes à un gestionnaire. */
+export function assignFleetsToManager(managerId: string, fleetIds: string[]) {
+  return apiFetch<void>(`/api/v1/admin/management/managers/${managerId}/fleets`, {
+    method: "POST",
+    body: JSON.stringify({ fleetIds }),
+  });
+}
+
+// ── Flottes (vue Administrateur) ─────────────────────────────────────────────
+
+export type AdminFleetBody = {
+  name: string;
+  phoneNumber?: string | null;
+};
+
+export function fetchAdminFleets() {
+  return fetchList<FleetResponse>("/api/v1/admin/management/fleets");
+}
+
+export function fetchAdminFleet(id: string) {
+  return apiFetch<FleetResponse>(`/api/v1/admin/management/fleets/${id}`);
+}
+
+export function createAdminFleet(body: AdminFleetBody) {
+  return apiFetch<FleetResponse>("/api/v1/admin/management/fleets", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateAdminFleet(id: string, body: AdminFleetBody) {
+  return apiFetch<FleetResponse>(`/api/v1/admin/management/fleets/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteAdminFleet(id: string) {
+  return apiFetch<void>(`/api/v1/admin/management/fleets/${id}`, {
+    method: "DELETE",
+  });
+}
+
+export type AdminFleetStats = {
+  fleetId: string;
+  totalDrivers: number;
+  totalKmTraveled: number | null;
+  vehicleStatusDistribution: Record<string, number>;
+};
+
+export function fetchAdminFleetStats(id: string) {
+  return apiFetch<AdminFleetStats>(`/api/v1/admin/management/fleets/${id}/stats`);
 }
 
 // ── Référentiels ─────────────────────────────────────────────────────────────
@@ -148,7 +268,17 @@ export type PendingSubscription = {
 };
 
 export function fetchSubscriptionPlans() {
-  return fetchList<SubscriptionPlan>("/api/v1/admin/super/plans");
+  return fetchList<SubscriptionPlan>("/api/v1/admin/super/plans").then((plans) =>
+    plans.map((p) => ({
+      ...p,
+      monthlyPrice: Number(p.monthlyPrice ?? 0),
+      annualPrice: p.annualPrice == null ? null : Number(p.annualPrice),
+      isActive:
+        (p as SubscriptionPlan & { active?: boolean }).isActive ??
+        (p as SubscriptionPlan & { active?: boolean }).active ??
+        true,
+    }))
+  );
 }
 
 export function createSubscriptionPlan(body: CreatePlanBody) {
@@ -201,6 +331,38 @@ export type SubscriptionDocument = {
   notes?: string | null;
   createdAt: string;
 };
+
+export type KycVerificationResult = {
+  documentId: string;
+  docType: string;
+  fileOriginalName?: string | null;
+  documentType: string;
+  documentNumber?: string | null;
+  issuingCountry?: string | null;
+  holderName?: string | null;
+  dateOfBirth?: string | null;
+  issueDate?: string | null;
+  expirationDate?: string | null;
+  isValid: boolean;
+  validationMessage?: string | null;
+  confidenceScore?: number | null;
+  hasUncertainty?: boolean | null;
+  additionalFields?: Record<string, string>;
+  rawExtractedText?: string | null;
+  suggestedDecision: "ACCEPT" | "REJECT" | "REVIEW";
+  suggestedDecisionReason: string;
+  storedDocNumber?: string | null;
+  docNumberMatches?: boolean | null;
+};
+
+export type KycDocumentVerificationResult = KycVerificationResult;
+
+export function verifySubscriptionDocument(subscriptionId: string, documentId: string) {
+  return apiFetch<KycVerificationResult>(
+    `/api/v1/admin/super/subscriptions/${subscriptionId}/documents/${documentId}/verify`,
+    { method: "POST", skipIdempotency: true }
+  );
+}
 
 export function fetchSubscriptionDocuments(userId: string) {
   return fetchList<SubscriptionDocument>(`/api/v1/admin/super/subscriptions/${userId}/documents`);
@@ -266,4 +428,40 @@ export type SubscriptionHistoryItem = {
 
 export function fetchSubscriptionHistory() {
   return fetchList<SubscriptionHistoryItem>("/api/v1/admin/super/subscriptions/history");
+}
+
+// ── Super Admin — administrateurs ────────────────────────────────────────────
+
+export function fetchPlatformAdmins() {
+  return fetchList<AdminUserDetail>("/api/v1/admin/super/admins");
+}
+
+export function togglePlatformAdmin(id: string) {
+  return apiFetch<AdminUserDetail>(`/api/v1/admin/super/admins/${id}/toggle`, {
+    method: "PATCH",
+  });
+}
+
+export type CreatePlatformAdminBody = {
+  username: string;
+  password: string;
+  email: string;
+  phone: string;
+  firstName: string;
+  lastName: string;
+};
+
+/** Création admin en JSON (sans photo) — compatible fake-auth. */
+export function createPlatformAdmin(body: CreatePlatformAdminBody) {
+  const form = new FormData();
+  form.append(
+    "user",
+    new Blob([JSON.stringify(body)], { type: "application/json" })
+  );
+  return apiFetchFormData<AdminUserDetail>(
+    "/api/v1/admin/super/admins",
+    form,
+    true,
+    { redirectOnAuthFailure: false }
+  );
 }

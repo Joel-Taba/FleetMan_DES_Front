@@ -19,11 +19,22 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { fetchExpenseSummary } from "@/lib/api/manager";
 import {
-  fetchBudgets, fetchExpenses, fetchExpenseSummary, fetchFleets, fetchVehicles,
-  createBudget, createExpense, approveExpense, rejectExpense,
-  deleteBudget, recalculateBudget,
-} from "@/lib/api/manager";
+  approveExpenseOfflineAware,
+  createBudgetOfflineAware,
+  createExpenseOfflineAware,
+  deleteBudgetOfflineAware,
+  recalculateBudgetOfflineAware,
+  rejectExpenseOfflineAware,
+} from "@/lib/offline/mutations/budget-mutations";
+import {
+  useManagerBudgets,
+  useManagerExpenses,
+  useManagerFleets,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
+import { BudgetSyncBadge, ExpenseSyncBadge } from "@/components/offline/EntitySyncBadges";
 import type {
   BudgetResponse, ExpenseResponse, ExpenseType, BudgetScope,
 } from "@/lib/api/types/manager";
@@ -75,8 +86,9 @@ function statusLabel(status: string) {
   return "En attente";
 }
 
-function fmt(n: number) {
-  return new Intl.NumberFormat("fr-FR").format(Math.round(n)) + " FCFA";
+function fmt(n: number | null | undefined) {
+  const safe = typeof n === "number" && Number.isFinite(n) ? n : 0;
+  return new Intl.NumberFormat("fr-FR").format(Math.round(safe)) + " FCFA";
 }
 
 // ── Composant BudgetCard ──────────────────────────────────────────────────────
@@ -106,6 +118,7 @@ function BudgetCard({
           <div className="flex-1 min-w-0">
             <p className="font-semibold truncate">
               {budget.scope === "FLEET" ? "🚐 Flotte" : "🚗 Véhicule"} — {entityName}
+              <BudgetSyncBadge entityId={budget.id} />
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
               {new Date(budget.budgetMonth).toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
@@ -178,7 +191,7 @@ function CreateBudgetDialog({
     if (amountErr) { setError(amountErr); return; }
     setLoading(true);
     try {
-      await createBudget({ scope, entityId, amount: parseDecimalInput(amount)!, budgetMonth, notes: notes || undefined });
+      await createBudgetOfflineAware({ scope, entityId, amount: parseDecimalInput(amount)!, budgetMonth, notes: notes || undefined });
       setOpen(false);
       setEntityId(""); setAmount(""); setNotes("");
       onCreated();
@@ -275,7 +288,7 @@ function CreateExpenseDialog({
     if (amountErr) { setError(amountErr); return; }
     setLoading(true);
     try {
-      await createExpense({
+      await createExpenseOfflineAware({
         vehicleId,
         expenseType,
         amount: parseDecimalInput(amount)!,
@@ -364,7 +377,7 @@ function RejectExpenseDialog({
     if (!reason.trim()) return;
     setLoading(true);
     try {
-      await rejectExpense(expenseId, reason.trim());
+      await rejectExpenseOfflineAware(expenseId, reason.trim());
       setOpen(false);
       setReason("");
       onRejected();
@@ -417,7 +430,7 @@ function ExpensesTab({
 
   async function handleApprove(id: string) {
     setApprovingId(id);
-    try { await approveExpense(id); onRefetch(); }
+    try { await approveExpenseOfflineAware(id); onRefetch(); }
     finally { setApprovingId(null); }
   }
 
@@ -508,6 +521,7 @@ function ExpensesTab({
                     <div className="flex items-center gap-1.5">
                       {statusIcon(exp.status)}
                       <span className="text-xs">{statusLabel(exp.status)}</span>
+                      <ExpenseSyncBadge entityId={exp.id} />
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -542,12 +556,12 @@ function ExpensesTab({
 
 export function BudgetPage() {
   const { data: budgets, loading: bLoading, error: bError, refetch: reBudgets } =
-    useApiQuery(fetchBudgets, []);
+    useManagerBudgets();
   const { data: expenses, loading: eLoading, error: eError, refetch: reExpenses } =
-    useApiQuery(fetchExpenses, []);
+    useManagerExpenses();
   const { data: summary } = useApiQuery(fetchExpenseSummary, []);
-  const { data: fleets } = useApiQuery(fetchFleets, []);
-  const { data: vehicles } = useApiQuery(fetchVehicles, []);
+  const { data: fleets } = useManagerFleets();
+  const { data: vehicles } = useManagerVehicles();
 
   // Map id → name pour affichage dans les cartes budget
   const fleetMap = useMemo(() => {
@@ -568,13 +582,13 @@ export function BudgetPage() {
   );
 
   async function handleRecalc(id: string) {
-    await recalculateBudget(id);
+    await recalculateBudgetOfflineAware(id);
     reBudgets();
   }
 
   async function handleDeleteBudget(id: string) {
     if (!confirm("Supprimer ce budget ?")) return;
-    await deleteBudget(id);
+    await deleteBudgetOfflineAware(id);
     reBudgets();
   }
 

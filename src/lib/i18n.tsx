@@ -41,6 +41,8 @@ const EN: Record<string, string> = {
   "KPI & Rapports": "KPIs & Reports",
   Notifications: "Notifications",
   "Mon compte": "My account",
+  Session: "Session",
+  Déconnexion: "Log out",
   Accueil: "Home",
   "Mon véhicule": "My vehicle",
   Déclarations: "Declarations",
@@ -102,6 +104,13 @@ const EN: Record<string, string> = {
   Type: "Type",
   Flotte: "Fleet",
   "Toutes flottes": "All fleets",
+  "Évolution — consommation de la flotte": "Trend — fleet consumption",
+  "Évolution — véhicule": "Trend — vehicle",
+  "Sélectionner un véhicule": "Select a vehicle",
+  Volume: "Volume",
+  "Aucune donnée pour cette période.": "No data for this period.",
+  "Aucune donnée pour ce véhicule.": "No data for this vehicle.",
+  "Choisissez un véhicule pour voir son évolution.": "Choose a vehicle to see its trend.",
   "Tous types": "All types",
 
   // --- Véhicules ---

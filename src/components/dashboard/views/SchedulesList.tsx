@@ -11,8 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useApiQuery } from "@/hooks/use-api-query";
-import { archiveSchedule, createSchedule, fetchFleets, fetchSchedules, publishSchedule } from "@/lib/api/manager";
+import {
+  archiveScheduleOfflineAware,
+  createScheduleOfflineAware,
+  publishScheduleOfflineAware,
+} from "@/lib/offline/mutations/schedule-mutations";
+import { useManagerFleets, useManagerSchedules } from "@/lib/offline/hooks/useManagerResources";
+import { ScheduleSyncBadge } from "@/components/offline/EntitySyncBadges";
 import { useLang } from "@/lib/i18n";
 
 const statusVariant: Record<string, "muted" | "success" | "default" | "outline"> = {
@@ -24,9 +29,8 @@ const statusVariant: Record<string, "muted" | "success" | "default" | "outline">
 
 export function SchedulesList() {
   const { t } = useLang();
-  const { data, loading, error, refetch } = useApiQuery(() => fetchSchedules(0, 100), []);
-  const { data: fleets } = useApiQuery(fetchFleets, []);
-  const schedules = data?.content ?? [];
+  const { data: schedules, loading, error, refetch } = useManagerSchedules();
+  const { data: fleets } = useManagerFleets();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
@@ -42,7 +46,7 @@ export function SchedulesList() {
     if (!form.title.trim() || !form.fleetId) return;
     setSubmitting(true);
     try {
-      await createSchedule({
+      await createScheduleOfflineAware({
         fleetId: form.fleetId,
         title: form.title.trim(),
         periodType: "WEEKLY",
@@ -65,7 +69,7 @@ export function SchedulesList() {
   async function handlePublish(id: string) {
     setActionId(id);
     try {
-      await publishSchedule(id);
+      await publishScheduleOfflineAware(id);
       refetch();
     } finally {
       setActionId(null);
@@ -75,7 +79,7 @@ export function SchedulesList() {
   async function handleArchive(id: string) {
     setActionId(id);
     try {
-      await archiveSchedule(id);
+      await archiveScheduleOfflineAware(id);
       refetch();
     } finally {
       setActionId(null);
@@ -143,7 +147,10 @@ export function SchedulesList() {
               {schedules.map((s) => (
                 <tr key={s.id} className="border-t">
                   <td className="px-4 py-3 font-medium">
-                    <Link href={`/dashboard/manager/schedules/${s.id}`} className="hover:text-primary">{s.title}</Link>
+                    <Link href={`/dashboard/manager/schedules/${s.id}`} className="hover:text-primary">
+                      {s.title}
+                      <ScheduleSyncBadge entityId={s.id} />
+                    </Link>
                   </td>
                   <td className="px-4 py-3">
                     {new Date(s.startDate).toLocaleDateString("fr-FR")} — {new Date(s.endDate).toLocaleDateString("fr-FR")}

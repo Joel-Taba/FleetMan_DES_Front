@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Shield, Users, Truck, Car } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { PeriodSelector } from "../PeriodSelector";
@@ -8,14 +8,27 @@ import { StatCard } from "../StatCard";
 import { DataGate } from "../DataGate";
 import { UserSignupChart, UserDonutChart } from "@/lib/lazy-charts";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { fetchPublicStats } from "@/lib/api/admin";
-import { userSignupTrend, userTypeDistribution } from "@/lib/mock-data";
+import { fetchSuperAdminDashboardStats } from "@/lib/api/admin";
 import { useLang } from "@/lib/i18n";
 
 export function SuperAdminDashboard() {
   const { t } = useLang();
   const [period, setPeriod] = useState("7 derniers jours");
-  const { data: stats, loading, error } = useApiQuery(fetchPublicStats, []);
+  const { data: stats, loading, error } = useApiQuery(
+    () => fetchSuperAdminDashboardStats(period),
+    [period]
+  );
+
+  const signupTrend = useMemo(
+    () =>
+      stats?.signupTrend?.map((p) => ({ month: p.label, count: p.count })) ?? [],
+    [stats?.signupTrend]
+  );
+
+  const userDistribution = useMemo(
+    () => stats?.userDistribution ?? [],
+    [stats?.userDistribution]
+  );
 
   return (
     <div>
@@ -60,8 +73,8 @@ export function SuperAdminDashboard() {
       </DataGate>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        <UserSignupChart data={userSignupTrend} />
-        <UserDonutChart data={userTypeDistribution} />
+        <UserSignupChart data={signupTrend} />
+        <UserDonutChart data={userDistribution} />
       </div>
     </div>
   );

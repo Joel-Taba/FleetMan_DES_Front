@@ -1,2 +1,11 @@
 import { AccountSettings } from "@/components/dashboard/views/AccountSettings";
-export default function Page() { return <AccountSettings />; }
+import { DriverOfflineSection } from "@/components/offline/DriverOfflineSection";
+
+export default function Page() {
+  return (
+    <>
+      <DriverOfflineSection />
+      <AccountSettings />
+    </>
+  );
+}

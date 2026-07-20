@@ -12,8 +12,14 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { useApiQuery } from "@/hooks/use-api-query";
-import { createDriver, fetchDrivers, fetchFleets, fetchVehicles } from "@/lib/api/manager";
+import { createDriverOfflineAware } from "@/lib/offline/mutations/driver-mutations";
+import {
+  useManagerDrivers,
+  useManagerFleets,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
+import { DriverSyncBadge } from "@/components/offline/EntitySyncBadges";
+import { validateDriverCreate } from "@/lib/offline/validators/driver";
 import { driverFullName, driverInitials, driverLabel, fleetNameById, vehiclePlateById } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -24,11 +30,12 @@ export function DriversList() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
 
-  const { data: drivers, loading, error, refetch } = useApiQuery(() => fetchDrivers(), []);
-  const { data: fleets } = useApiQuery(fetchFleets, []);
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
+  const { data: drivers, loading, error, refetch } = useManagerDrivers();
+  const { data: fleets } = useManagerFleets();
+  const { data: vehicles } = useManagerVehicles();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -40,20 +47,28 @@ export function DriversList() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.firstName.trim() || !form.lastName.trim() || !form.licenceNumber.trim() || !form.fleetId) return;
+    const payload = {
+      fleetId: form.fleetId,
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      licenceNumber: form.licenceNumber.trim().toUpperCase(),
+      email: form.email.trim() || undefined,
+      phone: form.phone.trim() || undefined,
+    };
+    const validation = validateDriverCreate(payload);
+    if (!validation.ok) {
+      setFormError(validation.message);
+      return;
+    }
     setSubmitting(true);
+    setFormError(null);
     try {
-      await createDriver({
-        fleetId: form.fleetId,
-        firstName: form.firstName.trim(),
-        lastName: form.lastName.trim(),
-        licenceNumber: form.licenceNumber.trim().toUpperCase(),
-        email: form.email.trim() || undefined,
-        phone: form.phone.trim() || undefined,
-      });
+      await createDriverOfflineAware(payload);
       setDialogOpen(false);
       setForm({ firstName: "", lastName: "", licenceNumber: "", fleetId: fleets?.[0]?.id ?? "", email: "", phone: "" });
       refetch();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Erreur lors de la création");
     } finally {
       setSubmitting(false);
     }
@@ -85,6 +100,11 @@ export function DriversList() {
             <DialogContent>
               <DialogHeader><DialogTitle>Nouveau conducteur</DialogTitle></DialogHeader>
               <form className="space-y-4" onSubmit={handleCreate}>
+                {formError && (
+                  <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                    {formError}
+                  </p>
+                )}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Prénom</Label>
@@ -142,10 +162,15 @@ export function DriversList() {
                 <div key={d.userId} className="rounded-xl border bg-card p-5 shadow-card transition hover:border-primary/30">
                   <div className="flex items-center gap-3">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 font-bold text-primary">{driverInitials(d)}</div>
-                    <div><p className="font-semibold">{driverFullName(d) ?? driverLabel(d)}</p><p className="text-xs text-muted-foreground">{d.email ?? ""}</p></div>
+                    <div><p className="font-semibold">{driverFullName(d) ?? driverLabel(d)}<DriverSyncBadge entityId={d.userId} /></p><p className="text-xs text-muted-foreground">{d.email ?? ""}</p></div>
                   </div>
                   {plate && <div className="mt-3"><LicensePlate plate={plate} /></div>}
-                  <Badge className="mt-3" variant={d.status === "ACTIVE" ? "success" : "warning"}>{d.status}</Badge>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Badge variant={d.status === "ACTIVE" ? "success" : "warning"}>{d.status}</Badge>
+                    <Badge variant={d.onActiveTrip ? "default" : "outline"}>
+                      {d.onActiveTrip ? t("En trajet") : t("Disponible")}
+                    </Badge>
+                  </div>
                 </div>
               );
             })}
@@ -158,6 +183,7 @@ export function DriversList() {
                   <th>{t("Profil")}</th>
                   <th>{t("Contact")}</th>
                   <th>{t("Statut")}</th>
+                  <th>{t("Disponibilité")}</th>
                   <th>{t("Véhicule")}</th>
                   <th>{t("Flotte")}</th>
                   <th className="text-right">{t("Actions")}</th>
@@ -171,11 +197,16 @@ export function DriversList() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
                           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">{driverInitials(d)}</div>
-                          <div><p className="font-semibold">{driverFullName(d) ?? driverLabel(d)}</p><p className="text-xs text-muted-foreground">{d.email ?? ""}</p></div>
+                          <div><p className="font-semibold">{driverFullName(d) ?? driverLabel(d)}<DriverSyncBadge entityId={d.userId} /></p><p className="text-xs text-muted-foreground">{d.email ?? ""}</p></div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-muted-foreground">{d.phone ?? d.email ?? "—"}</td>
                       <td className="px-4 py-3"><Badge variant={d.status === "ACTIVE" ? "success" : "warning"}>{d.status}</Badge></td>
+                      <td className="px-4 py-3">
+                        <Badge variant={d.onActiveTrip ? "default" : "outline"}>
+                          {d.onActiveTrip ? t("En trajet") : t("Disponible")}
+                        </Badge>
+                      </td>
                       <td className="px-4 py-3">{plate ? <LicensePlate plate={plate} /> : "—"}</td>
                       <td className="px-4 py-3">{fleetNameById(fleets ?? [], d.fleetId)}</td>
                       <td className="px-4 py-3">

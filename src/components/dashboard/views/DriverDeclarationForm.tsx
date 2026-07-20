@@ -7,6 +7,11 @@ import { ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  declareFuelOfflineAware,
+  declareIncidentOfflineAware,
+  declareMaintenanceOfflineAware,
+} from "@/lib/offline/mutations/driver-declarations";
 
 type FormKind = "incident" | "fuel" | "maintenance";
 
@@ -47,7 +52,44 @@ const config: Record<
 export function DriverDeclarationForm({ kind }: { kind: FormKind }) {
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const c = config[kind];
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (kind === "incident") {
+        await declareIncidentOfflineAware({
+          type: "BREAKDOWN",
+          severity: String(form.get("severity") ?? "MEDIUM"),
+          description: String(form.get("description") ?? ""),
+          location: String(form.get("location") ?? ""),
+        });
+      } else if (kind === "fuel") {
+        await declareFuelOfflineAware({
+          liters: Number(form.get("liters") ?? 0),
+          amount: Number(form.get("amount") ?? 0),
+          station: String(form.get("station") ?? ""),
+          odometer: form.get("odometer") ? Number(form.get("odometer")) : undefined,
+        });
+      } else {
+        await declareMaintenanceOfflineAware({
+          type: String(form.get("type") ?? "CORRECTIVE"),
+          description: String(form.get("description") ?? ""),
+          urgent: String(form.get("urgent") ?? "Non") === "Oui",
+        });
+      }
+      setSubmitted(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Échec de l'envoi.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (submitted) {
     return (
@@ -76,13 +118,7 @@ export function DriverDeclarationForm({ kind }: { kind: FormKind }) {
         Retour
       </Link>
       <h1 className="font-display text-xl font-bold">{c.title}</h1>
-      <form
-        className="space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          setSubmitted(true);
-        }}
-      >
+      <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
         {c.fields.map((f) => (
           <div key={f.name}>
             <Label htmlFor={f.name}>{f.label}</Label>
@@ -118,8 +154,9 @@ export function DriverDeclarationForm({ kind }: { kind: FormKind }) {
             )}
           </div>
         ))}
-        <Button type="submit" variant="success" className="w-full">
-          {c.submit}
+        {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        <Button type="submit" variant="success" className="w-full" disabled={submitting}>
+          {submitting ? "Envoi…" : c.submit}
         </Button>
       </form>
     </div>

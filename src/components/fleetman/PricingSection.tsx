@@ -13,10 +13,12 @@ function limitLabel(value: number, singular: string, plural: string) {
 }
 
 function formatPlanPrice(monthlyPrice: number, currency: string, annualPrice: number | null) {
-  if (monthlyPrice <= 0) return "Gratuit";
-  const monthly = `${monthlyPrice.toLocaleString("fr-FR")} ${currency}/mois`;
-  if (annualPrice && annualPrice > 0) {
-    return `${monthly} · ou ${annualPrice.toLocaleString("fr-FR")} ${currency}/an`;
+  const price = Number(monthlyPrice ?? 0);
+  const curr = currency || "XAF";
+  if (price <= 0) return "Gratuit";
+  const monthly = `${price.toLocaleString("fr-FR")} ${curr}/mois`;
+  if (annualPrice && Number(annualPrice) > 0) {
+    return `${monthly} · ou ${Number(annualPrice).toLocaleString("fr-FR")} ${curr}/an`;
   }
   return monthly;
 }

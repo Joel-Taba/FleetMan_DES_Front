@@ -15,20 +15,23 @@ import { DocumentsGrid, VEHICLE_DOC_TAB, type DocumentPreview } from "../Documen
 import { DocumentUploadDialog } from "../DocumentUploadDialog";
 import { DocumentEditDialog } from "../DocumentEditDialog";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { fetchVehicleDocuments } from "@/lib/api/manager";
+import { createClientId } from "@/lib/offline/db";
+import { uploadGalleryFilesOfflineAware } from "@/lib/offline/mutations/document-mutations";
 import {
-  fetchVehicle,
-  fetchVehicleDocuments,
-  updateVehicle,
-  updateVehicleGallery,
-  uploadDocumentFile,
-} from "@/lib/api/manager";
+  updateVehicleGalleryOfflineAware,
+  updateVehicleOfflineAware,
+} from "@/lib/offline/mutations/vehicle-mutations";
+import { useOfflineEntity } from "@/lib/offline/hooks/useOfflineEntity";
+import { fetchVehicle } from "@/lib/api/manager";
+import { VehicleSyncBadge } from "@/components/offline/VehicleSyncBadge";
 import { mapVehicleStatus } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
 
 export function VehicleEdit({ id }: { id: string }) {
   const { t } = useLang();
   const fileRef = useRef<HTMLInputElement>(null);
-  const { data: vehicle, loading, error, refetch } = useApiQuery(() => fetchVehicle(id), [id]);
+  const { data: vehicle, loading, error, refetch } = useOfflineEntity("vehicle", id, () => fetchVehicle(id));
   const { data: docsPage, refetch: refetchDocs } = useApiQuery(() => fetchVehicleDocuments(id), [id]);
 
   const [saving, setSaving] = useState(false);
@@ -101,7 +104,7 @@ export function VehicleEdit({ id }: { id: string }) {
     if (!vehicle) return;
     setSaving(true);
     try {
-      await updateVehicle(id, {
+      await updateVehicleOfflineAware(id, {
         licensePlate: form.licensePlate,
         brand: form.brand,
         model: form.model,
@@ -111,7 +114,7 @@ export function VehicleEdit({ id }: { id: string }) {
         color: form.color,
         status: form.status,
       });
-      await updateVehicleGallery(id, { photoUrl: mainPhoto, galleryUrls: gallery });
+      await updateVehicleGalleryOfflineAware(id, { photoUrl: mainPhoto, galleryUrls: gallery });
       refetch();
     } finally {
       setSaving(false);
@@ -120,14 +123,21 @@ export function VehicleEdit({ id }: { id: string }) {
 
   async function handleGalleryUpload(files: FileList | null) {
     if (!files?.length) return;
-    const urls: string[] = [];
-    for (const file of Array.from(files)) {
-      const uploaded = await uploadDocumentFile(file, "vehicle-photo");
-      urls.push(uploaded.fileUrl);
-    }
+    const clientMutationId = createClientId();
+    const uploaded = await uploadGalleryFilesOfflineAware(
+      Array.from(files),
+      "vehicle-photo",
+      clientMutationId
+    );
+    const urls = uploaded.map((entry) => entry.fileUrl);
     const next = [...gallery, ...urls];
     setGallery(next);
     if (!mainPhoto && next.length > 0) setMainPhoto(next[0]);
+    await updateVehicleGalleryOfflineAware(
+      id,
+      { photoUrl: mainPhoto ?? urls[0] ?? null, galleryUrls: next },
+      clientMutationId
+    );
   }
 
   const uiStatus = vehicle ? mapVehicleStatus(vehicle.status) : "OUT_OF_SERVICE";
@@ -195,7 +205,12 @@ export function VehicleEdit({ id }: { id: string }) {
 
             <div className="space-y-6 lg:col-span-2">
               <Card>
-                <CardHeader><CardTitle className="text-base">{t("Informations véhicule")}</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-base">
+                    {t("Informations véhicule")}
+                    <VehicleSyncBadge vehicleId={id} />
+                  </CardTitle>
+                </CardHeader>
                 <CardContent className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <Label>{t("Immatriculation")}</Label>

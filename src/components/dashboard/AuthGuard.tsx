@@ -19,6 +19,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
 
+  const canAccess =
+    isAuthenticated &&
+    !!user &&
+    (pathname === "/dashboard" ||
+      isSharedDashboardPath(pathname) ||
+      userCanAccess(pathname, user.roles));
+
   useEffect(() => {
     if (isLoading) return;
     if (!isAuthenticated || !user) {
@@ -33,15 +40,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     }
   }, [isLoading, isAuthenticated, user, pathname, router]);
 
-  if (isLoading) {
+  if (isLoading || !canAccess) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
         Chargement…
       </div>
     );
   }
-
-  if (!isAuthenticated) return null;
 
   return <>{children}</>;
 }

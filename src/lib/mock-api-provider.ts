@@ -112,6 +112,32 @@ export class MockApiProvider {
 
     // Auth / health
     if (pathname === "/api/v1/health/public-stats") return buildPublicStats(db);
+    if (pathname.startsWith("/api/v1/admin/super/dashboard-stats")) {
+      const stats = buildPublicStats(db);
+      return {
+        activeAdmins: stats.activeAdmins,
+        activeManagers: stats.activeManagers,
+        totalFleets: stats.totalFleets,
+        managedVehicles: stats.managedVehicles,
+        totalDrivers: stats.totalDrivers,
+        period: "7d",
+        signupTrend: [
+          { label: "Lun", count: 3 },
+          { label: "Mar", count: 5 },
+          { label: "Mer", count: 2 },
+          { label: "Jeu", count: 8 },
+          { label: "Ven", count: 4 },
+        ],
+        userDistribution: [
+          { name: "Admin", value: stats.activeAdmins, color: "#2696e4" },
+          { name: "Manager", value: stats.activeManagers, color: "#10B981" },
+          { name: "Driver", value: stats.totalDrivers, color: "#F59E0B" },
+        ],
+      };
+    }
+    if (pathname === "/api/v1/admin/super/admins") {
+      return db.users.filter((u) => u.roles.includes("FLEET_ADMIN"));
+    }
     if (pathname === "/api/v1/public/subscription-plans") {
       return db.subscriptionPlans
         .filter((p) => p.isActive)
@@ -183,6 +209,24 @@ export class MockApiProvider {
     }
 
     // Trips
+    if (pathname === "/api/v1/trips/my-active") {
+      const userId = params.get("driverId");
+      const active = db.trips.find(
+        (trip) =>
+          (trip.status === "DEPARTED" || trip.status === "RETURNING") &&
+          (!userId || trip.driverId === userId)
+      );
+      if (!active) throw new Error("Aucun trajet actif");
+      return active;
+    }
+    if (pathname === "/api/v1/trips/my-history") {
+      const history = db.trips
+        .filter((trip) => trip.status === "COMPLETED" || trip.status === "CANCELLED")
+        .sort((a, b) =>
+          `${b.startDate}${b.startTime}`.localeCompare(`${a.startDate}${a.startTime}`)
+        );
+      return history;
+    }
     if (pathname === "/api/v1/trips/open") {
       return db.trips.filter((t) => t.status === "DEPARTED" || t.status === "RETURNING");
     }
@@ -251,6 +295,30 @@ export class MockApiProvider {
       const page = Number(params.get("page") ?? 0);
       const size = Number(params.get("size") ?? 100);
       return pageOf(db.assignments, page, size);
+    }
+    const driverAssignmentsToday = pathname.match(
+      /^\/api\/v1\/assignments\/driver\/([^/]+)\/today$/
+    );
+    if (driverAssignmentsToday) {
+      const driverId = driverAssignmentsToday[1];
+      const page = Number(params.get("page") ?? 0);
+      const size = Number(params.get("size") ?? 50);
+      const today = new Date().toISOString().slice(0, 10);
+      const list = db.assignments.filter(
+        (assignment) =>
+          assignment.driverId === driverId && assignment.startDatetime.startsWith(today)
+      );
+      return pageOf(list, page, size);
+    }
+    const driverAssignments = pathname.match(/^\/api\/v1\/assignments\/driver\/([^/]+)$/);
+    if (driverAssignments) {
+      const driverId = driverAssignments[1];
+      const page = Number(params.get("page") ?? 0);
+      const size = Number(params.get("size") ?? 50);
+      const list = db.assignments
+        .filter((assignment) => assignment.driverId === driverId)
+        .sort((a, b) => a.startDatetime.localeCompare(b.startDatetime));
+      return pageOf(list, page, size);
     }
 
     // Operations
@@ -1199,6 +1267,42 @@ export class MockApiProvider {
       });
       this.persist(db);
       return { markedCount: db.alerts.length };
+    }
+
+    const verifySubDoc = pathname.match(
+      /^\/api\/v1\/admin\/super\/subscriptions\/([^/]+)\/documents\/([^/]+)\/verify$/
+    );
+    if (verifySubDoc) {
+      const userId = verifySubDoc[1];
+      const documentId = verifySubDoc[2];
+      const docs = db.subscriptionDocuments[userId] ?? [];
+      const doc = docs.find((d) => d.id === documentId);
+      if (!doc) throw new Error("Document introuvable pour cette demande.");
+      const isIdCard = doc.docType === "ID_CARD";
+      return {
+        documentId: doc.id,
+        docType: doc.docType,
+        fileOriginalName: doc.fileOriginalName,
+        documentType: isIdCard ? "ID_CARD" : "UNKNOWN",
+        documentNumber: doc.docNumber,
+        issuingCountry: "CM",
+        holderName: "Jean Dupont",
+        dateOfBirth: "1990-01-15",
+        issueDate: "2020-05-10",
+        expirationDate: "2030-05-09",
+        isValid: isIdCard,
+        validationMessage: isIdCard ? "Document valide." : "Type de document non reconnu.",
+        confidenceScore: isIdCard ? 0.82 : 0.1,
+        hasUncertainty: !isIdCard,
+        additionalFields: {},
+        rawExtractedText: "Texte OCR simulé pour les tests.",
+        suggestedDecision: isIdCard ? "ACCEPT" : "REJECT",
+        suggestedDecisionReason: isIdCard
+          ? "Document valide et conforme selon l'analyse KYC."
+          : "Document non reconnu ou confiance insuffisante.",
+        storedDocNumber: doc.docNumber,
+        docNumberMatches: true,
+      };
     }
 
     const approveSub = pathname.match(/^\/api\/v1\/admin\/super\/subscriptions\/([^/]+)\/approve$/);

@@ -109,7 +109,12 @@ export function DashboardSidebar({
   const initials = user
     ? `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase() || "U"
     : "U";
-  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : "Utilisateur";
+  const fullName = user
+    ? [user.firstName, user.lastName].filter((p) => p && p !== "null").join(" ").trim()
+        || user.username
+        || user.email
+        || "Utilisateur"
+    : "Utilisateur";
 
   if (collapsed) {
     return (

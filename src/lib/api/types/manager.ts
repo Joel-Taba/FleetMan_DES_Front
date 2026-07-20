@@ -31,6 +31,7 @@ export type FleetManagerResponse = {
   status: string;
   fleetCount: number;
   photoUrl: string | null;
+  galleryUrls: string[];
 };
 
 export type PlanFeatureDto = {
@@ -135,6 +136,7 @@ export type ApiDriver = {
   status: string;
   assignedVehicleId: string | null;
   photoUrl: string | null;
+  onActiveTrip?: boolean;
 };
 
 export type VehicleDocumentResponse = {

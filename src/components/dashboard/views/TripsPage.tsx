@@ -14,8 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip } from "@/components/ui/tooltip";
-import { useApiQuery } from "@/hooks/use-api-query";
-import { deleteTrip, fetchDrivers, fetchTrips, fetchVehicles, startTrip } from "@/lib/api/manager";
+import {
+  deleteTripOfflineAware,
+  startTripOfflineAware,
+} from "@/lib/offline/mutations/trip-mutations";
+import {
+  useManagerDrivers,
+  useManagerTrips,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
+import { TripSyncBadge } from "@/components/offline/EntitySyncBadges";
 import type { ApiDriver, ApiTrip, ApiVehicle } from "@/lib/api/types/manager";
 import {
   completedTrips,
@@ -146,7 +154,10 @@ function TripTable({
           ) : (
             trips.map((trip, i) => (
               <tr key={trip.id} className={cn(i % 2 && "bg-muted/20")}>
-                <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">{trip.tripCode ?? "—"}</td>
+                <td className="px-4 py-3 font-mono text-xs font-semibold text-primary">
+                  {trip.tripCode ?? "—"}
+                  <TripSyncBadge entityId={trip.id} />
+                </td>
                 <td className="px-4 py-3">{formatTripDateTime(trip.startDate, trip.startTime)}</td>
                 {showEndColumn && (
                   <td className="px-4 py-3">
@@ -225,9 +236,9 @@ export function TripsPage() {
   const tabParam = searchParams.get("tab");
   const activeTab = tabParam && VALID_TABS.has(tabParam) ? tabParam : "ongoing";
 
-  const { data: trips, loading, error, refetch } = useApiQuery(() => fetchTrips(), []);
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
-  const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
+  const { data: trips, loading, error, refetch } = useManagerTrips();
+  const { data: vehicles } = useManagerVehicles();
+  const { data: drivers } = useManagerDrivers();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; code?: string | null } | null>(null);
   const [periodPreset, setPeriodPreset] = useState<TripPeriodPreset>("all");
@@ -308,7 +319,7 @@ export function TripsPage() {
   async function handleStartTrip(id: string) {
     setStartingId(id);
     try {
-      await startTrip(id);
+      await startTripOfflineAware(id);
       refetch();
       router.replace("/dashboard/manager/trips?tab=ongoing", { scroll: false });
     } finally {
@@ -321,7 +332,7 @@ export function TripsPage() {
     const { id } = deleteTarget;
     setDeletingId(id);
     try {
-      await deleteTrip(id);
+      await deleteTripOfflineAware(id);
       refetch();
       setDeleteTarget(null);
     } finally {

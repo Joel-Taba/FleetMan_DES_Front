@@ -11,7 +11,11 @@ import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { fetchTripByCode, fetchOpenTrips, registerTripReturn } from "@/lib/api/manager";
+import {
+  fetchOpenTripsOfflineAware,
+  fetchTripByCodeOfflineAware,
+  registerTripReturnOfflineAware,
+} from "@/lib/offline/mutations/trip-mutations";
 import { useApiQuery } from "@/hooks/use-api-query";
 import type { ApiTrip } from "@/lib/api/types/manager";
 import { tripStatusBadgeVariant, tripStatusLabel } from "@/lib/api/mappers/manager";
@@ -28,7 +32,7 @@ export function TripReturnForm() {
   const presetCode = searchParams.get("code")?.trim().toUpperCase() ?? "";
   const autoSearchDone = useRef(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const { data: openTrips } = useApiQuery(fetchOpenTrips, []);
+  const { data: openTrips } = useApiQuery(fetchOpenTripsOfflineAware, []);
 
   const [code, setCode] = useState(TRIP_CODE_PREFIX);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -78,7 +82,7 @@ export function TripReturnForm() {
     setTrip(null);
     setShowSuggestions(false);
     try {
-      const found = await fetchTripByCode(query.toUpperCase());
+      const found = await fetchTripByCodeOfflineAware(query.toUpperCase());
       if (found.status === "COMPLETED" || found.status === "CANCELLED") {
         setSearchError(`Ce trajet est déjà ${tripStatusLabel(found.status).toLowerCase()}.`);
       } else {
@@ -160,7 +164,7 @@ export function TripReturnForm() {
     setSaving(true);
     setSaveError(null);
     try {
-      await registerTripReturn({
+      await registerTripReturnOfflineAware({
         tripCode: trip.tripCode!,
         returnDate,
         returnTime,

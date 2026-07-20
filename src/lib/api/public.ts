@@ -39,7 +39,26 @@ export type RegisterManagerBody = {
 };
 
 export function fetchPublicSubscriptionPlans() {
-  return apiFetch<PublicSubscriptionPlan[]>("/api/v1/public/subscription-plans", {}, false);
+  return apiFetch<PublicSubscriptionPlan[] | { data?: PublicSubscriptionPlan[] }>(
+    "/api/v1/public/subscription-plans",
+    {},
+    false
+  ).then((raw) => {
+    const list = Array.isArray(raw)
+      ? raw
+      : Array.isArray((raw as { data?: PublicSubscriptionPlan[] })?.data)
+        ? (raw as { data: PublicSubscriptionPlan[] }).data
+        : [];
+    return list.map((p) => ({
+      ...p,
+      monthlyPrice: Number(p.monthlyPrice ?? 0),
+      annualPrice: p.annualPrice == null ? null : Number(p.annualPrice),
+      // Jackson peut sérialiser isActive → active
+      isActive: (p as PublicSubscriptionPlan & { active?: boolean }).isActive
+        ?? (p as PublicSubscriptionPlan & { active?: boolean }).active
+        ?? true,
+    }));
+  });
 }
 
 export function registerManager(body: RegisterManagerBody) {

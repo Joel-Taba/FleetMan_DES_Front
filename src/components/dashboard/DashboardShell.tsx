@@ -6,6 +6,10 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { DashboardSidebar } from "./DashboardSidebar";
 import { DashboardHeader } from "./DashboardHeader";
+import { OfflineBanner } from "@/components/offline/OfflineBanner";
+import { BootstrapProgress } from "@/components/offline/BootstrapProgress";
+import { SyncStatusBadge } from "@/components/offline/SyncStatusBadge";
+import { StaleDataIndicator } from "@/components/offline/StaleDataIndicator";
 import { getRoleFromPath } from "@/lib/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { getPrimaryRole } from "@/lib/auth/session";
@@ -39,6 +43,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   if (isDriver) {
     return (
       <div className="min-h-screen bg-fleet-cream pb-20">
+        <BootstrapProgress />
+        <OfflineBanner />
         <header className="sticky top-0 z-30 flex items-center justify-between border-b border-border/60 bg-card px-4 py-3 shadow-sm">
           <button
             type="button"
@@ -58,14 +64,17 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             />
             <span className="font-display font-semibold text-primary">FleetMan</span>
           </Link>
-          <Link
-            href="/dashboard/driver/notifications"
-            className="relative rounded-xl p-2 hover:bg-muted"
-            aria-label="Notifications"
-          >
-            <span className="text-lg">🔔</span>
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
-          </Link>
+          <div className="flex items-center gap-1">
+            <StaleDataIndicator className="hidden min-[380px]:inline-flex" />
+            <SyncStatusBadge />
+            <Link
+              href="/dashboard/driver/notifications"
+              className="relative rounded-xl p-2 hover:bg-muted"
+              aria-label="Notifications"
+            >
+              <span className="text-lg">🔔</span>
+            </Link>
+          </div>
         </header>
         <main className="px-4 py-4">{children}</main>
         <DriverBottomNav />
@@ -113,6 +122,8 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
         </>
       )}
       <div className="flex min-w-0 flex-1 flex-col bg-fleet-cream">
+        <BootstrapProgress />
+        <OfflineBanner />
         <DashboardHeader onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">{children}</main>
       </div>

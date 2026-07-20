@@ -14,14 +14,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useApiQuery } from "@/hooks/use-api-query";
 import {
-  createReferenceItem,
-  deleteReferenceItem,
   fetchReferenceItems,
   type ReferenceKind,
-  updateReferenceItem,
 } from "@/lib/api/admin";
+import {
+  createReferenceItemOfflineAware,
+  deleteReferenceItemOfflineAware,
+  updateReferenceItemOfflineAware,
+} from "@/lib/offline/mutations/admin-mutations";
+import { useAdminReferences } from "@/lib/offline/hooks/useAdminReferences";
 import { ADMIN_REFERENCE_TABS } from "@/lib/admin-references";
 import { useLang } from "@/lib/i18n";
 
@@ -36,9 +38,9 @@ function ReferenceTabPanel({ kind, labelKey }: { kind: ReferenceKind; labelKey: 
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const { data: items, loading, error, refetch } = useApiQuery(
-    () => fetchReferenceItems(kind),
-    [kind]
+  const { data: items, loading, error, refetch } = useAdminReferences(
+    kind,
+    () => fetchReferenceItems(kind)
   );
 
   function openCreate() {
@@ -68,9 +70,9 @@ function ReferenceTabPanel({ kind, labelKey }: { kind: ReferenceKind; labelKey: 
         description: description.trim() || undefined,
       };
       if (editingId) {
-        await updateReferenceItem(kind, editingId, body);
+        await updateReferenceItemOfflineAware(kind, editingId, body);
       } else {
-        await createReferenceItem(kind, body);
+        await createReferenceItemOfflineAware(kind, body);
       }
       setDialogOpen(false);
       refetch();
@@ -83,7 +85,7 @@ function ReferenceTabPanel({ kind, labelKey }: { kind: ReferenceKind; labelKey: 
     if (!confirm(t("Supprimer cette entrée ?"))) return;
     setDeletingId(id);
     try {
-      await deleteReferenceItem(kind, id);
+      await deleteReferenceItemOfflineAware(kind, id);
       refetch();
     } finally {
       setDeletingId(null);

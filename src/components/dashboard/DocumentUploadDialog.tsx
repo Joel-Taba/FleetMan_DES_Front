@@ -22,10 +22,9 @@ import {
   validateDocumentFile,
 } from "@/lib/documents";
 import {
-  createDriverDocument,
-  createVehicleDocument,
-  uploadDocumentFile,
-} from "@/lib/api/manager";
+  createDriverDocumentOfflineAware,
+  createVehicleDocumentOfflineAware,
+} from "@/lib/offline/mutations/document-mutations";
 import { docTypeLabel } from "./DocumentPreviewCard";
 
 type EntityKind = "vehicle" | "driver";
@@ -99,24 +98,22 @@ export function DocumentUploadDialog({
     setSubmitting(true);
     setError(null);
     try {
-      const uploaded = await uploadDocumentFile(file);
-
       if (entityKind === "vehicle") {
-        await createVehicleDocument(entityId, {
+        await createVehicleDocumentOfflineAware(entityId, {
           vehicleId: entityId,
           docType,
           docNumber: docNumber || `DOC-${Date.now()}`,
           issuer: issuer || undefined,
           issueDate: issueDate || undefined,
           expiryDate,
-          fileUrl: uploaded.fileUrl,
-          fileOriginalName: uploaded.originalName,
-          fileMimeType: uploaded.mimeType,
-          fileSizeBytes: uploaded.sizeBytes,
+          fileUrl: "",
+          fileOriginalName: file.name,
+          fileMimeType: file.type,
+          fileSizeBytes: file.size,
           notes: notes || undefined,
-        });
+        }, file);
       } else {
-        await createDriverDocument(entityId, {
+        await createDriverDocumentOfflineAware(entityId, {
           driverId: entityId,
           docType,
           docNumber: docNumber || `DOC-${Date.now()}`,
@@ -127,12 +124,12 @@ export function DocumentUploadDialog({
           issuer: issuer || undefined,
           issueDate: issueDate || undefined,
           expiryDate: expiryDate || null,
-          fileUrl: uploaded.fileUrl,
-          fileOriginalName: uploaded.originalName,
-          fileMimeType: uploaded.mimeType,
-          fileSizeBytes: uploaded.sizeBytes,
+          fileUrl: "",
+          fileOriginalName: file.name,
+          fileMimeType: file.type,
+          fileSizeBytes: file.size,
           notes: notes || undefined,
-        });
+        }, file);
       }
 
       setOpen(false);

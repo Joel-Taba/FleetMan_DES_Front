@@ -2,27 +2,97 @@
 
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { LicensePlate } from "../LicensePlate";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
-import { useApiQuery } from "@/hooks/use-api-query";
-import { createFuelRecharge, fetchFuelRecharges, fetchVehicles } from "@/lib/api/manager";
+import { createFuelRechargeOfflineAware } from "@/lib/offline/mutations/operations-mutations";
+import {
+  useManagerFleets,
+  useManagerFuelRecharges,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
 import { formatDateTime } from "@/lib/api/mappers/manager";
+import type { FuelRechargeResponse } from "@/lib/api/types/manager";
 import { useLang } from "@/lib/i18n";
 import { parseDecimalInput, validateDecimalInput } from "@/lib/numeric-input";
 
 const STATIONS = ["TOTAL", "SHELL", "OILIBYA", "CAMRAIL", "OTHER"];
 
+type MonthlyPoint = { key: string; label: string; quantity: number; cost: number };
+
+function groupByMonth(records: FuelRechargeResponse[]): MonthlyPoint[] {
+  const map = new Map<string, { quantity: number; cost: number }>();
+  records.forEach((r) => {
+    if (!r.rechargeDateTime) return;
+    const key = r.rechargeDateTime.slice(0, 7); // YYYY-MM
+    const existing = map.get(key) ?? { quantity: 0, cost: 0 };
+    existing.quantity += Number(r.quantity) || 0;
+    existing.cost += Number(r.price) || 0;
+    map.set(key, existing);
+  });
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, v]) => ({
+      key,
+      label: new Date(`${key}-01`).toLocaleDateString("fr-FR", { month: "short", year: "2-digit" }),
+      quantity: Number(v.quantity.toFixed(1)),
+      cost: Math.round(v.cost),
+    }));
+}
+
 export function OperationsFuel() {
   const { t } = useLang();
-  const { data: records, loading, error, refetch } = useApiQuery(fetchFuelRecharges, []);
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
+  const { data: records, loading, error, refetch } = useManagerFuelRecharges();
+  const { data: vehicles } = useManagerVehicles();
+  const { data: fleets } = useManagerFleets();
+
+  const [chartFleetId, setChartFleetId] = useState("all");
+  const [chartVehicleId, setChartVehicleId] = useState("all");
+
+  const vehicleFleetById = useMemo(() => {
+    const map = new Map<string, string>();
+    (vehicles ?? []).forEach((v) => map.set(v.id, v.fleetId));
+    return map;
+  }, [vehicles]);
+
+  const fleetSeries = useMemo(() => {
+    const list = records ?? [];
+    const scoped =
+      chartFleetId === "all"
+        ? list
+        : list.filter((r) => vehicleFleetById.get(r.vehicleId) === chartFleetId);
+    return groupByMonth(scoped);
+  }, [records, chartFleetId, vehicleFleetById]);
+
+  const vehicleOptions = useMemo(
+    () =>
+      chartFleetId === "all"
+        ? vehicles ?? []
+        : (vehicles ?? []).filter((v) => v.fleetId === chartFleetId),
+    [vehicles, chartFleetId]
+  );
+
+  const vehicleSeries = useMemo(() => {
+    if (chartVehicleId === "all") return [];
+    return groupByMonth((records ?? []).filter((r) => r.vehicleId === chartVehicleId));
+  }, [records, chartVehicleId]);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -53,7 +123,7 @@ export function OperationsFuel() {
     setFormError(null);
     setSubmitting(true);
     try {
-      await createFuelRecharge({
+      await createFuelRechargeOfflineAware({
         quantity: parseDecimalInput(form.quantity)!,
         price: parseDecimalInput(form.price)!,
         vehicleId: form.vehicleId,
@@ -126,6 +196,95 @@ export function OperationsFuel() {
         <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalVolume.toFixed(1)} L</p><p className="text-xs text-muted-foreground">Volume total</p></CardContent></Card>
         <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalSpend.toLocaleString()} XAF</p><p className="text-xs text-muted-foreground">Dépense totale</p></CardContent></Card>
         <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{avgCost} XAF/L</p><p className="text-xs text-muted-foreground">Prix moyen</p></CardContent></Card>
+      </div>
+
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base">{t("Évolution — consommation de la flotte")}</CardTitle>
+            <select
+              className="h-9 rounded-lg border px-2 text-xs"
+              value={chartFleetId}
+              onChange={(e) => {
+                setChartFleetId(e.target.value);
+                setChartVehicleId("all");
+              }}
+            >
+              <option value="all">{t("Toutes flottes")}</option>
+              {(fleets ?? []).map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </CardHeader>
+          <CardContent className="h-[280px]">
+            {fleetSeries.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={fleetSeries}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" fontSize={12} />
+                  <YAxis fontSize={12} unit=" L" />
+                  <RechartsTooltip formatter={(value: number) => [`${value} L`, t("Volume")]} />
+                  <Area
+                    type="monotone"
+                    dataKey="quantity"
+                    stroke="#2696e4"
+                    fill="#2696e4"
+                    fillOpacity={0.15}
+                    name={t("Volume")}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {t("Aucune donnée pour cette période.")}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <CardTitle className="text-base">{t("Évolution — véhicule")}</CardTitle>
+            <select
+              className="h-9 rounded-lg border px-2 text-xs"
+              value={chartVehicleId}
+              onChange={(e) => setChartVehicleId(e.target.value)}
+            >
+              <option value="all">{t("Sélectionner un véhicule")}</option>
+              {vehicleOptions.map((v) => (
+                <option key={v.id} value={v.id}>{v.licensePlate} — {v.brand} {v.model}</option>
+              ))}
+            </select>
+          </CardHeader>
+          <CardContent className="h-[280px]">
+            {chartVehicleId === "all" ? (
+              <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {t("Choisissez un véhicule pour voir son évolution.")}
+              </p>
+            ) : vehicleSeries.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={vehicleSeries}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="label" fontSize={12} />
+                  <YAxis fontSize={12} unit=" L" />
+                  <RechartsTooltip formatter={(value: number) => [`${value} L`, t("Volume")]} />
+                  <Line
+                    type="monotone"
+                    dataKey="quantity"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    name={t("Volume")}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                {t("Aucune donnée pour ce véhicule.")}
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       <DataGate loading={loading} error={error} empty={(records ?? []).length === 0} emptyMessage="Aucune recharge carburant enregistrée.">

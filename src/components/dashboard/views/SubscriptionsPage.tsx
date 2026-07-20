@@ -16,26 +16,35 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
-  approveSubscription,
   fetchActiveSubscriptions,
   fetchPendingSubscriptions,
   fetchSubscriptionGraceDays,
   fetchSubscriptionPlans,
-  rejectSubscription,
-  updateSubscriptionGraceDays,
   type PendingSubscription,
 } from "@/lib/api/admin";
+import {
+  approveSubscriptionOfflineAware,
+  rejectSubscriptionOfflineAware,
+  updateSubscriptionGraceDaysOfflineAware,
+} from "@/lib/offline/mutations/admin-mutations";
+import { useAdminEntityList } from "@/lib/offline/hooks/useAdminEntityList";
 import { useLang } from "@/lib/i18n";
 import { parseIntegerInput } from "@/lib/numeric-input";
 
 export function SubscriptionsPage() {
   const { t } = useLang();
-  const { data: pending, loading, error, refetch } = useApiQuery(fetchPendingSubscriptions, []);
-  const { data: active, loading: activeLoading, error: activeError } = useApiQuery(
-    fetchActiveSubscriptions,
-    []
-  );
-  const { data: plans } = useApiQuery(fetchSubscriptionPlans, []);
+  const { data: pending, loading, error, refetch } = useAdminEntityList({
+    entityType: "subscriptionPending",
+    fetcher: fetchPendingSubscriptions,
+  });
+  const { data: active, loading: activeLoading, error: activeError } = useAdminEntityList({
+    entityType: "subscriptionActive",
+    fetcher: fetchActiveSubscriptions,
+  });
+  const { data: plans } = useAdminEntityList({
+    entityType: "subscriptionPlan",
+    fetcher: fetchSubscriptionPlans,
+  });
   const { data: graceSettings, refetch: refetchGrace } = useApiQuery(fetchSubscriptionGraceDays, []);
 
   const [rejectTarget, setRejectTarget] = useState<PendingSubscription | null>(null);
@@ -64,7 +73,7 @@ export function SubscriptionsPage() {
     if (!approveTarget) return;
     setSubmitting(true);
     try {
-      await approveSubscription(approveTarget, selectedPlan || undefined);
+      await approveSubscriptionOfflineAware(approveTarget, selectedPlan || undefined);
       setApproveTarget(null);
       setSelectedPlan("");
       refetch();
@@ -77,7 +86,7 @@ export function SubscriptionsPage() {
     if (!rejectTarget || !rejectMessage.trim()) return;
     setSubmitting(true);
     try {
-      await rejectSubscription(rejectTarget.id, {
+      await rejectSubscriptionOfflineAware(rejectTarget.id, {
         reason: rejectMessage.trim(),
         subject: rejectSubject.trim(),
         message: rejectMessage.trim(),
@@ -96,7 +105,7 @@ export function SubscriptionsPage() {
     if (days == null || days > 365) return;
     setSavingGrace(true);
     try {
-      await updateSubscriptionGraceDays(days);
+      await updateSubscriptionGraceDaysOfflineAware(days);
       refetchGrace();
     } finally {
       setSavingGrace(false);
@@ -172,7 +181,8 @@ export function SubscriptionsPage() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                          {sub.firstName[0]}{sub.lastName[0]}
+                          {(sub.firstName?.[0] ?? "?").toUpperCase()}
+                          {(sub.lastName?.[0] ?? "").toUpperCase()}
                         </div>
                         <div>
                           <p className="font-semibold">{sub.firstName} {sub.lastName}</p>
@@ -183,7 +193,7 @@ export function SubscriptionsPage() {
                     <td className="px-4 py-3 text-muted-foreground">{sub.email}</td>
                     <td className="px-4 py-3">{sub.companyName ?? "—"}</td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(sub.createdAt).toLocaleDateString("fr-FR")}
+                      {sub.createdAt ? new Date(sub.createdAt).toLocaleDateString("fr-FR") : "—"}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <Badge variant="warning" className="gap-1">
@@ -298,7 +308,7 @@ export function SubscriptionsPage() {
               <option value="">{t("Aucun plan (accès libre)")}</option>
               {(plans ?? []).filter((p) => p.isActive).map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.name} — {p.monthlyPrice.toLocaleString()} XAF/mois
+                  {p.name} — {Number(p.monthlyPrice ?? 0).toLocaleString()} XAF/mois
                 </option>
               ))}
             </select>

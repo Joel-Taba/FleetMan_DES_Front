@@ -22,8 +22,8 @@ export type LoginPayload = {
   password: string;
 };
 
-/** Réponse brute du backend `POST /api/v1/auth/login`. */
-export type AuthApiResponse = {
+/** Payload auth (contenu de `data` si enveloppe ApiResponse). */
+export type AuthPayload = {
   accessToken: string;
   refreshToken: string;
   user: {
@@ -36,4 +36,15 @@ export type AuthApiResponse = {
     roles: string[];
     photoUrl?: string;
   };
+};
+
+/**
+ * Réponse brute du backend `POST /api/v1/auth/login`.
+ * Peut être le payload direct ou enveloppée dans `{ success, data, message, timestamp }`.
+ */
+export type AuthApiResponse = AuthPayload | {
+  success: boolean;
+  message?: string | null;
+  data: AuthPayload;
+  timestamp?: string;
 };

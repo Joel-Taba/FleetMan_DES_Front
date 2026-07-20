@@ -13,7 +13,14 @@ import { Label } from "@/components/ui/label";
 import { Tooltip } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { createVehicle, deleteVehicle, fetchDrivers, fetchFleets, fetchVehicles } from "@/lib/api/manager";
+import { fetchDrivers, fetchFleets } from "@/lib/api/manager";
+import {
+  createVehicleOfflineAware,
+  deleteVehicleOfflineAware,
+} from "@/lib/offline/mutations/vehicle-mutations";
+import { useManagerVehicles } from "@/lib/offline/hooks/useManagerVehicles";
+import { VehicleSyncBadge } from "@/components/offline/VehicleSyncBadge";
+import { validateVehicleCreate } from "@/lib/offline/validators/vehicle";
 import {
   driverLabel,
   fleetNameById,
@@ -57,7 +64,7 @@ export function VehiclesList() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; plate: string } | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const { data: vehicles, loading, error, refetch } = useApiQuery(() => fetchVehicles(), []);
+  const { data: vehicles, loading, error, refetch } = useManagerVehicles();
   const { data: fleets } = useApiQuery(fetchFleets, []);
   const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
 
@@ -72,8 +79,10 @@ export function VehiclesList() {
   const filtered = (vehicles ?? []).filter((v) => {
     const q = search.toLowerCase();
     const uiStatus = mapVehicleStatus(v.status);
+    const plate = v.licensePlate ?? "";
+    const model = v.model ?? "";
     return (
-      (v.licensePlate.toLowerCase().includes(q) || v.model.toLowerCase().includes(q)) &&
+      (plate.toLowerCase().includes(q) || model.toLowerCase().includes(q)) &&
       (fleet === "all" || v.fleetId === fleet) &&
       (status === "all" || uiStatus === status)
     );
@@ -92,23 +101,25 @@ export function VehiclesList() {
   }
 
   async function handleCreate() {
-    if (!form.fleetId || !form.licensePlate.trim()) {
-      setFormError("Flotte et immatriculation sont obligatoires.");
+    const payload = {
+      fleetId: form.fleetId,
+      licensePlate: form.licensePlate.trim().toUpperCase(),
+      brand: form.brand.trim(),
+      model: form.model.trim(),
+      manufacturingYear: Number(form.manufacturingYear) || 2022,
+      fuelType: form.fuelType,
+      transmissionType: form.transmissionType,
+      color: form.color.trim(),
+    };
+    const validation = validateVehicleCreate(payload);
+    if (!validation.ok) {
+      setFormError(validation.message);
       return;
     }
     setCreating(true);
     setFormError(null);
     try {
-      await createVehicle({
-        fleetId: form.fleetId,
-        licensePlate: form.licensePlate.trim().toUpperCase(),
-        brand: form.brand.trim(),
-        model: form.model.trim(),
-        manufacturingYear: Number(form.manufacturingYear) || 2022,
-        fuelType: form.fuelType,
-        transmissionType: form.transmissionType,
-        color: form.color.trim(),
-      });
+      await createVehicleOfflineAware(payload);
       setWizardOpen(false);
       resetWizard();
       refetch();
@@ -123,7 +134,7 @@ export function VehiclesList() {
     if (!deleteTarget) return;
     setDeletingId(deleteTarget.id);
     try {
-      await deleteVehicle(deleteTarget.id);
+      await deleteVehicleOfflineAware(deleteTarget.id);
       setDeleteTarget(null);
       refetch();
     } finally {
@@ -290,7 +301,10 @@ export function VehiclesList() {
                   <tr key={v.id} className={cn(i % 2 && "bg-muted/20")}>
                     <td className="px-4 py-3">
                       <LicensePlate plate={v.licensePlate} />
-                      <p className="mt-1 text-xs text-muted-foreground">{v.brand} {v.model}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {v.brand} {v.model}
+                        <VehicleSyncBadge vehicleId={v.id} />
+                      </p>
                     </td>
                     <td className="px-4 py-3">{fleetNameById(fleets ?? [], v.fleetId)}</td>
                     <td className="px-4 py-3"><Badge variant="outline">{v.fuelType ?? "—"}</Badge></td>

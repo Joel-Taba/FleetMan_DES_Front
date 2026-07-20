@@ -33,7 +33,11 @@ import {
   fetchSubscriptionDocuments,
   fetchSubscriptionPlans,
   rejectSubscription,
+  verifySubscriptionDocument,
+  type KycDocumentVerificationResult,
 } from "@/lib/api/admin";
+import { ApiError } from "@/lib/api/mock-wrapper";
+import { KycVerificationDialog } from "../KycVerificationDialog";
 import { useLang } from "@/lib/i18n";
 
 export function SubscriptionDetail({ id }: { id: string }) {
@@ -55,6 +59,14 @@ export function SubscriptionDetail({ id }: { id: string }) {
   const [rejectSubject, setRejectSubject] = useState("");
   const [rejectMessage, setRejectMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [kycOpen, setKycOpen] = useState(false);
+  const [kycVerifying, setKycVerifying] = useState(false);
+  const [kycError, setKycError] = useState<string | null>(null);
+  const [kycResult, setKycResult] = useState<KycDocumentVerificationResult | null>(null);
+  const [verifyingDocId, setVerifyingDocId] = useState<string | null>(null);
+  const [documentDecisions, setDocumentDecisions] = useState<
+    Record<string, "ACCEPTED" | "REJECTED">
+  >({});
 
   useEffect(() => {
     if (sub) {
@@ -82,6 +94,42 @@ export function SubscriptionDetail({ id }: { id: string }) {
   const requestedPlanName = sub?.requestedPlanId
     ? (plans ?? []).find((p) => p.id === sub.requestedPlanId)?.name ?? sub.requestedPlanId
     : null;
+
+  async function handleVerifyDocument(doc: DocumentPreview) {
+    setVerifyingDocId(doc.id);
+    setKycVerifying(true);
+    setKycOpen(true);
+    setKycResult(null);
+    setKycError(null);
+    try {
+      const result = await verifySubscriptionDocument(id, doc.id);
+      if (!result) {
+        throw new ApiError(
+          t("Le service KYC n'a renvoyé aucun résultat. Vérifiez la connexion au Kernel ou réessayez."),
+          502
+        );
+      }
+      setKycResult(result);
+    } catch (e) {
+      setKycError(e instanceof Error ? e.message : t("Échec de la vérification KYC"));
+      console.error("KYC verification failed", e);
+    } finally {
+      setKycVerifying(false);
+      setVerifyingDocId(null);
+    }
+  }
+
+  function handleAcceptDocument() {
+    if (!kycResult) return;
+    setDocumentDecisions((prev) => ({ ...prev, [kycResult.documentId]: "ACCEPTED" }));
+    setKycOpen(false);
+  }
+
+  function handleRejectDocument() {
+    if (!kycResult) return;
+    setDocumentDecisions((prev) => ({ ...prev, [kycResult.documentId]: "REJECTED" }));
+    setKycOpen(false);
+  }
 
   async function handleApprove() {
     if (!sub) return;
@@ -208,13 +256,23 @@ export function SubscriptionDetail({ id }: { id: string }) {
                   </div>
                 </CardHeader>
                 <CardContent>
+                  {kycError && (
+                    <p className="mb-4 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                      {kycError}
+                    </p>
+                  )}
                   <DataGate
                     loading={docsLoading}
                     error={docsError}
                     empty={docPreviews.length === 0}
                     emptyMessage={t("Aucun document fourni pour cette demande.")}
                   >
-                    <DocumentsGrid documents={docPreviews} readOnly />
+                    <DocumentsGrid
+                      documents={docPreviews}
+                      onVerifyDocument={handleVerifyDocument}
+                      verifyingDocumentId={verifyingDocId}
+                      documentVerificationStatus={documentDecisions}
+                    />
                   </DataGate>
                 </CardContent>
               </Card>
@@ -293,6 +351,16 @@ export function SubscriptionDetail({ id }: { id: string }) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <KycVerificationDialog
+        open={kycOpen}
+        onOpenChange={setKycOpen}
+        result={kycResult}
+        verifying={kycVerifying}
+        error={kycError}
+        onAcceptDocument={handleAcceptDocument}
+        onRejectDocument={handleRejectDocument}
+      />
     </div>
   );
 }

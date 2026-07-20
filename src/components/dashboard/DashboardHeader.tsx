@@ -9,6 +9,8 @@ import { useLang } from "@/lib/i18n";
 import { useAuth } from "@/context/AuthProvider";
 import { getPrimaryRole } from "@/lib/auth/session";
 import { Tooltip } from "@/components/ui/tooltip";
+import { SyncStatusBadge } from "@/components/offline/SyncStatusBadge";
+import { StaleDataIndicator } from "@/components/offline/StaleDataIndicator";
 import { cn } from "@/lib/utils";
 
 type DashboardHeaderProps = {
@@ -59,6 +61,9 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
       </div>
 
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
+        <StaleDataIndicator className="hidden md:inline-flex" />
+        <SyncStatusBadge className="hidden sm:inline-flex" />
+
         <span className="hidden items-center rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary sm:inline-flex">
           {t("4/10 objets utilisés")}
         </span>

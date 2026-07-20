@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, Mail, Phone, Users } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Truck, Users } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataGate } from "../DataGate";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { fetchFleetManager } from "@/lib/api/admin";
+import { fetchFleetManager, fetchManagerFleets } from "@/lib/api/admin";
 import {
   formatLastLogin,
   managerFullName,
@@ -18,6 +18,10 @@ import { useLang } from "@/lib/i18n";
 export function ManagerDetail({ id }: { id: string }) {
   const { t } = useLang();
   const { data: manager, loading, error } = useApiQuery(() => fetchFleetManager(id), [id]);
+  const { data: fleets, loading: fleetsLoading } = useApiQuery(
+    () => fetchManagerFleets(id),
+    [id]
+  );
 
   const active = manager ? managerIsActive(manager) : false;
 
@@ -70,10 +74,50 @@ export function ManagerDetail({ id }: { id: string }) {
                   {manager.service ?? "FLEET_MANAGEMENT"}
                 </p>
                 <div className="flex flex-wrap gap-2">
-                  {manager.roles.map((r) => (
+                  {(manager.roles ?? []).map((r) => (
                     <Badge key={r} variant="outline">{r}</Badge>
                   ))}
+                  {(manager.roles ?? []).length === 0 && (
+                    <span className="text-sm text-muted-foreground">—</span>
+                  )}
                 </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Truck className="h-4 w-4 text-muted-foreground" />
+                  {t("Flottes assignées")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {fleetsLoading ? (
+                  <p className="text-sm text-muted-foreground">{t("Chargement…")}</p>
+                ) : (fleets ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t("Aucune flotte assignée pour le moment.")}
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border">
+                    {(fleets ?? []).map((fleet) => (
+                      <li
+                        key={fleet.id}
+                        className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                            <Truck className="h-4 w-4" />
+                          </div>
+                          <span className="font-medium">{fleet.name}</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {fleet.vehicleCount ?? 0} {t("véhicule(s)")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </CardContent>
             </Card>
           </>

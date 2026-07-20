@@ -363,7 +363,7 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const vehicles: ApiVehicle[] = [
-    vehicle("v1", "f1", "LT-892-CE", "Toyota", "Hilux", "ON_TRIP", "d1", 87420),
+    vehicle("v1", "f1", "LT-892-CE", "Toyota", "Hilux", "ON_TRIP", "user-driver-001", 87420),
     vehicle("v2", "f2", "CE-456-AB", "Mercedes", "Actros", "AVAILABLE", null, 120500),
     vehicle("v3", "f3", "SW-123-DL", "Toyota", "Corolla", "MAINTENANCE", "d2", 45200),
     vehicle("v4", "f1", "AB-789-YA", "Hyundai", "H100", "OUT_OF_SERVICE", null, 198000),
@@ -378,7 +378,7 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const drivers: ApiDriver[] = [
-    driver("d1", "f1", "André", "Mbarga", "CM-B-123456", "ACTIVE", "v1", "andre.mbarga@fleetman.cm", "+237677123456"),
+    driver("user-driver-001", "f1", "André", "Mbarga", "CM-B-123456", "ACTIVE", "v1", "driver@fleetman.cm", "+237690000004"),
     driver("d2", "f3", "Claire", "Ndjock", "CM-B-987654", "ACTIVE", "v3", "claire.ndjock@vip.cm", "+237699887766"),
     driver("d3", "f1", "Marc", "Tchinda", "CM-B-555121", "ACTIVE", "v5", "marc.tchinda@logistics.cm", "+237611223344"),
     driver("d4", "f2", "Jean", "Kouam", "CM-B-441122", "ACTIVE", "v6", "jean.kouam@express.cm", "+237690112233"),
@@ -389,12 +389,12 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const trips: ApiTrip[] = [
-    { id: "t1", vehicleId: "v1", driverId: "d1", fleetId: "f1", status: "DEPARTED", startDate: dateOnly(0), startTime: "08:15:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0001", departureKmIndex: 87200, departureFuelIndex: 68, departureLocation: "Yaoundé", departureLat: 3.848, departureLng: 11.502, missionObject: "Livraison Mbalmayo", missionCost: 85000, missionCostCurrency: "XAF", details: [{ id: "td1", itemType: "CARGO", description: "Matériaux", quantity: 12, departureQuantity: 12 }] },
+    { id: "t1", vehicleId: "v1", driverId: "user-driver-001", fleetId: "f1", status: "DEPARTED", startDate: dateOnly(0), startTime: "08:15:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0001", departureKmIndex: 87200, departureFuelIndex: 68, departureLocation: "Yaoundé", departureLat: 3.848, departureLng: 11.502, missionObject: "Livraison Mbalmayo", missionCost: 85000, missionCostCurrency: "XAF", details: [{ id: "td1", itemType: "CARGO", description: "Matériaux", quantity: 12, departureQuantity: 12 }] },
     { id: "t2", vehicleId: "v6", driverId: "d4", fleetId: "f2", status: "DEPARTED", startDate: dateOnly(0), startTime: "09:00:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0002", departureKmIndex: 45100, departureFuelIndex: 42, departureLocation: "Douala", departureLat: 4.051, departureLng: 9.768, missionObject: "Approvisionnement Kribi", missionCost: 110000, missionCostCurrency: "XAF" },
     { id: "t3", vehicleId: "v11", driverId: "d6", fleetId: "f2", status: "RETURNING", startDate: dateOnly(0), startTime: "07:30:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0003", departureKmIndex: 120500, departureFuelIndex: 55, departureLocation: "Yaoundé", departureLat: 3.848, departureLng: 11.502, missionObject: "Transport marchandises Douala", missionCost: 120000, missionCostCurrency: "XAF" },
     { id: "t9", vehicleId: "v8", driverId: "d5", fleetId: "f3", status: "DEPARTED", startDate: dateOnly(-1), startTime: "06:45:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0009", departureKmIndex: 28800, departureFuelIndex: 72, departureLocation: "Douala", departureLat: 4.051, departureLng: 9.768, missionObject: "Livraison Kribi", missionCost: 95000, missionCostCurrency: "XAF" },
     { id: "t10", vehicleId: "v5", driverId: "d3", fleetId: "f1", status: "RETURNING", startDate: dateOnly(0), startTime: "06:00:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0010", departureKmIndex: 65200, departureFuelIndex: 58, departureLocation: "Yaoundé", departureLat: 3.848, departureLng: 11.502, missionObject: "Course Obala", missionCost: 45000, missionCostCurrency: "XAF" },
-    { id: "t4", vehicleId: "v1", driverId: "d1", status: "COMPLETED", startDate: dateOnly(-1), startTime: "08:00:00", endDate: dateOnly(-1), endTime: "12:40:00", distanceKm: 124, computedDistanceKm: 124, durationMinutes: 265, tripCode: "TRJ-2026-0004", departureKmIndex: 87200, returnKmIndex: 87324 },
+    { id: "t4", vehicleId: "v1", driverId: "user-driver-001", status: "COMPLETED", startDate: dateOnly(-1), startTime: "08:00:00", endDate: dateOnly(-1), endTime: "12:40:00", distanceKm: 124, computedDistanceKm: 124, durationMinutes: 265, tripCode: "TRJ-2026-0004", departureKmIndex: 87200, returnKmIndex: 87324 },
     { id: "t5", vehicleId: "v5", driverId: "d3", status: "COMPLETED", startDate: dateOnly(-2), startTime: "14:00:00", endDate: dateOnly(-2), endTime: "18:30:00", distanceKm: 89, computedDistanceKm: 89, durationMinutes: 270, tripCode: "TRJ-2026-0005", departureKmIndex: 65200, returnKmIndex: 65289 },
     { id: "t6", vehicleId: "v2", driverId: "d8", status: "CANCELLED", startDate: dateOnly(-3), startTime: "09:00:00", endDate: dateOnly(-3), endTime: "09:15:00", distanceKm: 0, durationMinutes: 15, tripCode: "TRJ-2026-0006" },
     { id: "t7", vehicleId: "v8", driverId: "d5", status: "SCHEDULED", startDate: dateOnly(1), startTime: "10:00:00", endDate: null, endTime: null, distanceKm: null, durationMinutes: null, tripCode: "TRJ-2026-0007" },
@@ -408,10 +408,10 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const assignments: AssignmentResponse[] = [
-    { id: "a1", scheduleId: "s1", fleetId: "f1", vehicleId: "v1", driverId: "d1", missionId: null, startDatetime: isoDaysAgo(0, 8), endDatetime: isoDaysAgo(0, 12), status: "IN_PROGRESS", startLocation: "Yaoundé", endLocation: "Mbalmayo", estimatedKm: 130, actualKm: null, notes: null, createdAt: isoDaysAgo(3) },
+    { id: "a1", scheduleId: "s1", fleetId: "f1", vehicleId: "v1", driverId: "user-driver-001", missionId: null, startDatetime: isoDaysAgo(0, 8), endDatetime: isoDaysAgo(0, 12), status: "IN_PROGRESS", startLocation: "Yaoundé", endLocation: "Mbalmayo", estimatedKm: 130, actualKm: null, notes: null, createdAt: isoDaysAgo(3) },
     { id: "a2", scheduleId: "s1", fleetId: "f2", vehicleId: "v6", driverId: "d4", missionId: null, startDatetime: isoDaysAgo(0, 9), endDatetime: isoDaysAgo(0, 17), status: "IN_PROGRESS", startLocation: "Douala", endLocation: "Kribi", estimatedKm: 180, actualKm: null, notes: null, createdAt: isoDaysAgo(3) },
     { id: "a3", scheduleId: "s1", fleetId: "f1", vehicleId: "v5", driverId: "d3", missionId: null, startDatetime: isoDaysAgo(1, 8), endDatetime: isoDaysAgo(1, 12), status: "COMPLETED", startLocation: "Yaoundé", endLocation: "Obala", estimatedKm: 60, actualKm: 58, notes: null, createdAt: isoDaysAgo(4) },
-    { id: "a4", scheduleId: "s1", fleetId: "f1", vehicleId: "v1", driverId: "d1", missionId: null, startDatetime: isoDaysAgo(0, 8), endDatetime: isoDaysAgo(0, 12), status: "CONFLICT", startLocation: "Yaoundé", endLocation: "Edéa", estimatedKm: 200, actualKm: null, notes: "Chevauchement détecté", createdAt: isoDaysAgo(2) },
+    { id: "a4", scheduleId: "s1", fleetId: "f1", vehicleId: "v1", driverId: "user-driver-001", missionId: null, startDatetime: isoDaysAgo(0, 8), endDatetime: isoDaysAgo(0, 12), status: "CONFLICT", startLocation: "Yaoundé", endLocation: "Edéa", estimatedKm: 200, actualKm: null, notes: "Chevauchement détecté", createdAt: isoDaysAgo(2) },
     { id: "a5", scheduleId: "s2", fleetId: "f3", vehicleId: "v8", driverId: "d5", missionId: null, startDatetime: isoDaysAgo(2, 14), endDatetime: isoDaysAgo(2, 18), status: "COMPLETED", startLocation: "Douala", endLocation: "Limbe", estimatedKm: 90, actualKm: 92, notes: null, createdAt: isoDaysAgo(10) },
     { id: "a6", scheduleId: "s3", fleetId: "f2", vehicleId: "v7", driverId: "d8", missionId: null, startDatetime: isoDaysAgo(-2, 7), endDatetime: isoDaysAgo(-2, 15), status: "PLANNED", startLocation: "Douala", endLocation: "Garoua", estimatedKm: 900, actualKm: null, notes: null, createdAt: isoDaysAgo(1) },
   ];
@@ -424,13 +424,13 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const maintenances: MaintenanceResponse[] = [
-    { id: "m1", subject: "Vidange + filtres", cost: 65000, dateTime: isoDaysAgo(10), report: "Entretien périodique 10 000 km", vehicleId: "v1", vehicleRegistration: "LT-892-CE", driverId: "d1", driverFullName: "Conducteur d1" },
+    { id: "m1", subject: "Vidange + filtres", cost: 65000, dateTime: isoDaysAgo(10), report: "Entretien périodique 10 000 km", vehicleId: "v1", vehicleRegistration: "LT-892-CE", driverId: "user-driver-001", driverFullName: "Conducteur d1" },
     { id: "m2", subject: "Révision freins", cost: 120000, dateTime: isoDaysAgo(3), report: "Plaquettes avant remplacées", vehicleId: "v3", vehicleRegistration: "SW-123-DL", driverId: "d2", driverFullName: "Conducteur d2" },
     { id: "m3", subject: "Contrôle technique", cost: 35000, dateTime: isoDaysAgo(15), report: "Validé sans réserve", vehicleId: "v8", vehicleRegistration: "OU-552-PQ", driverId: null, driverFullName: null },
   ];
 
   const fuelRecharges: FuelRechargeResponse[] = [
-    { id: "fr1", quantity: 65, price: 45500, unitCost: 700, rechargeDateTime: isoDaysAgo(0, 7), stationName: "Total Bastos", vehicleId: "v1", vehicleRegistration: "LT-892-CE", driverId: "d1", driverFullName: "Conducteur d1" },
+    { id: "fr1", quantity: 65, price: 45500, unitCost: 700, rechargeDateTime: isoDaysAgo(0, 7), stationName: "Total Bastos", vehicleId: "v1", vehicleRegistration: "LT-892-CE", driverId: "user-driver-001", driverFullName: "Conducteur d1" },
     { id: "fr2", quantity: 120, price: 84000, unitCost: 700, rechargeDateTime: isoDaysAgo(1, 16), stationName: "Tradex Douala", vehicleId: "v6", vehicleRegistration: "NW-221-HK", driverId: "d4", driverFullName: "Conducteur d4" },
     { id: "fr3", quantity: 45, price: 31500, unitCost: 700, rechargeDateTime: isoDaysAgo(2, 12), stationName: "Camoco Yaoundé", vehicleId: "v5", vehicleRegistration: "LT-334-FG", driverId: "d3", driverFullName: "Conducteur d3" },
   ];
@@ -596,7 +596,7 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const expenses: ExpenseResponse[] = [
-    { id: "exp-1", expenseType: "FUEL", amount: 45500, description: "Plein Total Bastos", expenseDate: isoDaysAgo(0, 7), status: "APPROVED", sourceType: "MANUAL", sourceId: null, rejectionReason: null, validatedAt: isoDaysAgo(0, 8), validatedBy: DEMO_MANAGER_ID, vehicleId: "v1", vehicleRegistration: "LT-892-CE", fleetId: "f1", managerId: DEMO_MANAGER_ID, driverId: "d1", driverFullName: "Conducteur d1", createdAt: isoDaysAgo(0, 7) },
+    { id: "exp-1", expenseType: "FUEL", amount: 45500, description: "Plein Total Bastos", expenseDate: isoDaysAgo(0, 7), status: "APPROVED", sourceType: "MANUAL", sourceId: null, rejectionReason: null, validatedAt: isoDaysAgo(0, 8), validatedBy: DEMO_MANAGER_ID, vehicleId: "v1", vehicleRegistration: "LT-892-CE", fleetId: "f1", managerId: DEMO_MANAGER_ID, driverId: "user-driver-001", driverFullName: "Conducteur d1", createdAt: isoDaysAgo(0, 7) },
     { id: "exp-2", expenseType: "MAINTENANCE", amount: 120000, description: "Révision freins", expenseDate: isoDaysAgo(3), status: "APPROVED", sourceType: "AUTO", sourceId: "m2", rejectionReason: null, validatedAt: isoDaysAgo(3), validatedBy: DEMO_MANAGER_ID, vehicleId: "v3", vehicleRegistration: "SW-123-DL", fleetId: "f3", managerId: DEMO_MANAGER_ID, driverId: "d2", driverFullName: "Conducteur d2", createdAt: isoDaysAgo(3) },
     { id: "exp-3", expenseType: "INCIDENT", amount: 85000, description: "Panne moteur", expenseDate: isoDaysAgo(1), status: "APPROVED", sourceType: "AUTO", sourceId: "i1", rejectionReason: null, validatedAt: isoDaysAgo(1), validatedBy: DEMO_MANAGER_ID, vehicleId: "v3", vehicleRegistration: "SW-123-DL", fleetId: "f3", managerId: DEMO_MANAGER_ID, driverId: "d2", driverFullName: "Conducteur d2", createdAt: isoDaysAgo(1) },
     { id: "exp-4", expenseType: "TOLL", amount: 15000, description: "Péage Edéa-Douala", expenseDate: isoDaysAgo(2), status: "PENDING", sourceType: "MANUAL", sourceId: null, rejectionReason: null, validatedAt: null, validatedBy: null, vehicleId: "v6", vehicleRegistration: "NW-221-HK", fleetId: "f2", managerId: DEMO_MANAGER_ID, driverId: "d4", driverFullName: "Conducteur d4", createdAt: isoDaysAgo(2) },
@@ -613,8 +613,8 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const driverDocuments: DriverDocumentResponse[] = [
-    { id: "dd-d1-lic", driverId: "d1", docType: "DRIVING_LICENSE", docNumber: "CM-B-123456", issuer: "MINTRANS", issueDate: "2020-05-10", expiryDate: dateOnly(365), fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "permis-andre-mbarga.pdf", status: "VALID", daysUntilExpiry: 365, notes: null, licenseCategories: "B,C", createdAt: isoDaysAgo(200), updatedAt: isoDaysAgo(5) },
-    { id: "dd-d1-med", driverId: "d1", docType: "MEDICAL_CERT", docNumber: "MED-2025-001", issuer: "Hôpital Central", issueDate: "2025-01-15", expiryDate: dateOnly(200), fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "visite-medicale.pdf", status: "VALID", daysUntilExpiry: 200, notes: null, licenseCategories: null, createdAt: isoDaysAgo(120), updatedAt: isoDaysAgo(3) },
+    { id: "dd-d1-lic", driverId: "user-driver-001", docType: "DRIVING_LICENSE", docNumber: "CM-B-123456", issuer: "MINTRANS", issueDate: "2020-05-10", expiryDate: dateOnly(365), fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "permis-andre-mbarga.pdf", status: "VALID", daysUntilExpiry: 365, notes: null, licenseCategories: "B,C", createdAt: isoDaysAgo(200), updatedAt: isoDaysAgo(5) },
+    { id: "dd-d1-med", driverId: "user-driver-001", docType: "MEDICAL_CERT", docNumber: "MED-2025-001", issuer: "Hôpital Central", issueDate: "2025-01-15", expiryDate: dateOnly(200), fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "visite-medicale.pdf", status: "VALID", daysUntilExpiry: 200, notes: null, licenseCategories: null, createdAt: isoDaysAgo(120), updatedAt: isoDaysAgo(3) },
     { id: "dd-d2-lic", driverId: "d2", docType: "DRIVING_LICENSE", docNumber: "CM-B-987654", issuer: "MINTRANS", issueDate: "2019-08-20", expiryDate: dateOnly(120), fileUrl: SAMPLE_PDF, fileMimeType: "application/pdf", fileOriginalName: "permis-claire-ndjock.pdf", status: "VALID", daysUntilExpiry: 120, notes: null, licenseCategories: "B", createdAt: isoDaysAgo(250), updatedAt: isoDaysAgo(8) },
   ];
 
@@ -1041,6 +1041,7 @@ export function buildManagerProfile(db: MockDatabase): FleetManagerResponse {
     status: "ACTIVE",
     fleetCount: db.fleets.length,
     photoUrl: null,
+    galleryUrls: [],
   };
 }
 

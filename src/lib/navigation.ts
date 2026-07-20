@@ -11,6 +11,7 @@ const superAdminNav: NavItem[] = [
 const adminNav: NavItem[] = [
   { label: "Vue d'ensemble", href: "/dashboard/admin", icon: "LayoutDashboard" },
   { label: "Gestionnaires", href: "/dashboard/admin/managers", icon: "Users" },
+  { label: "Flottes", href: "/dashboard/admin/fleets", icon: "Truck" },
   { label: "Référentiels", href: "/dashboard/admin/references", icon: "Database" },
 ];
 

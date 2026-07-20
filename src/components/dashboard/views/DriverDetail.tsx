@@ -21,9 +21,10 @@ import {
   fetchDriverDocuments,
   fetchFleets,
   fetchVehicles,
-  updateDriver,
-  uploadDocumentFile,
 } from "@/lib/api/manager";
+import { createClientId } from "@/lib/offline/db";
+import { uploadDocumentFileOfflineAware } from "@/lib/offline/mutations/document-mutations";
+import { updateDriverOfflineAware } from "@/lib/offline/mutations/driver-mutations";
 import { driverFullName, driverInitials, driverLabel, fleetNameById, vehiclePlateById } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
 
@@ -79,7 +80,7 @@ export function DriverDetail({ id }: { id: string }) {
   async function saveProfile() {
     setSaving(true);
     try {
-      await updateDriver(id, form);
+      await updateDriverOfflineAware(id, form);
       setEditing(false);
       refetch();
     } finally {
@@ -90,14 +91,19 @@ export function DriverDetail({ id }: { id: string }) {
   async function toggleStatus() {
     if (!driver) return;
     const next = driver.status === "ACTIVE" ? "INACTIVE" : "ACTIVE";
-    await updateDriver(id, { status: next });
+    await updateDriverOfflineAware(id, { status: next });
     refetch();
   }
 
   async function handlePhotoUpload(file: File | null) {
     if (!file) return;
-    const uploaded = await uploadDocumentFile(file, "driver-photo");
-    await updateDriver(id, { photoUrl: uploaded.fileUrl });
+    const clientMutationId = createClientId();
+    const uploaded = await uploadDocumentFileOfflineAware(
+      file,
+      "driver-photo",
+      clientMutationId
+    );
+    await updateDriverOfflineAware(id, { photoUrl: uploaded.fileUrl }, clientMutationId);
     refetch();
   }
 

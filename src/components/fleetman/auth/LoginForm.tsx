@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,14 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get("reason");
+    if (reason) {
+      setError(decodeURIComponent(reason));
+    }
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError(null);
@@ -53,7 +61,9 @@ export function LoginForm() {
         err instanceof ApiError
           ? err.status === 401
             ? "Identifiants incorrects. Vérifiez votre email et mot de passe."
-            : err.message
+            : err.status === 503
+              ? "Le service d'authentification est temporairement indisponible. Vérifiez votre connexion internet et réessayez."
+              : err.message
           : "Impossible de se connecter au serveur. Vérifiez que le backend est démarré.";
       setError(message);
     } finally {

@@ -13,8 +13,16 @@ import { Label } from "@/components/ui/label";
 import { LocationPicker, type PlaceResult } from "../LocationPicker";
 import { DEFAULT_MAP_CENTER } from "@/lib/geocoding";
 import { useLang } from "@/lib/i18n";
-import { useApiQuery } from "@/hooks/use-api-query";
-import { createTrip, fetchDrivers, fetchFleets, fetchVehicles } from "@/lib/api/manager";
+import { validateTripCreate } from "@/lib/offline/validators/trip";
+import { createTripOfflineAware } from "@/lib/offline/mutations/trip-mutations";
+import { isOfflineModeEnabled } from "@/lib/offline/api-client";
+import { ACTIVE_TRIP_STATUSES, checkTripResourceConflict } from "@/lib/offline/validators/heuristics";
+import {
+  useManagerDrivers,
+  useManagerFleets,
+  useManagerTrips,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
 import type { TripDetailInput } from "@/lib/api/types/manager";
 import { driverLabel } from "@/lib/api/mappers/manager";
 import { cn } from "@/lib/utils";
@@ -99,9 +107,38 @@ function StepIndicator({ current }: { current: number }) {
 export function TripPlanForm() {
   const { t } = useLang();
   const router = useRouter();
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
-  const { data: drivers } = useApiQuery(() => fetchDrivers(), []);
-  const { data: fleets } = useApiQuery(fetchFleets, []);
+  const { data: vehicles } = useManagerVehicles();
+  const { data: drivers } = useManagerDrivers();
+  const { data: fleets } = useManagerFleets();
+  const { data: trips } = useManagerTrips();
+
+  // Un véhicule/chauffeur déjà engagé sur un trajet sans retour enregistré
+  // (SCHEDULED, DEPARTED ou RETURNING) ne doit plus apparaître comme
+  // disponible pour un nouveau trajet.
+  const busyVehicleIds = useMemo(() => {
+    const set = new Set<string>();
+    (trips ?? []).forEach((trip) => {
+      if (ACTIVE_TRIP_STATUSES.has(trip.status)) set.add(trip.vehicleId);
+    });
+    return set;
+  }, [trips]);
+
+  const busyDriverIds = useMemo(() => {
+    const set = new Set<string>();
+    (trips ?? []).forEach((trip) => {
+      if (ACTIVE_TRIP_STATUSES.has(trip.status)) set.add(trip.driverId);
+    });
+    return set;
+  }, [trips]);
+
+  const availableVehicles = useMemo(
+    () => (vehicles ?? []).filter((v) => !busyVehicleIds.has(v.id)),
+    [vehicles, busyVehicleIds]
+  );
+  const availableDrivers = useMemo(
+    () => (drivers ?? []).filter((d) => !busyDriverIds.has(d.userId)),
+    [drivers, busyDriverIds]
+  );
 
   const [step, setStep] = useState(1);
   const [vehicleId, setVehicleId] = useState("");
@@ -219,7 +256,19 @@ export function TripPlanForm() {
     setSubmitting(true);
     setError(null);
     try {
-      const trip = await createTrip({
+      if (isOfflineModeEnabled()) {
+        const warning = await checkTripResourceConflict({ vehicleId, driverId });
+        if (
+          warning &&
+          typeof window !== "undefined" &&
+          !window.confirm(`${warning}\n\nContinuer quand même ?`)
+        ) {
+          setSubmitting(false);
+          return;
+        }
+      }
+
+      const trip = await createTripOfflineAware({
         vehicleId,
         driverId,
         fleetId: effectiveFleetId,
@@ -293,12 +342,17 @@ export function TripPlanForm() {
                   onChange={(e) => setVehicleId(e.target.value)}
                 >
                   <option value="">—</option>
-                  {(vehicles ?? []).map((v) => (
+                  {availableVehicles.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.licensePlate} — {v.brand} {v.model}
                     </option>
                   ))}
                 </select>
+                {availableVehicles.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("Aucun véhicule disponible — tous sont déjà engagés sur un trajet en cours.")}
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label>{t("Chauffeur")} *</Label>
@@ -308,12 +362,17 @@ export function TripPlanForm() {
                   onChange={(e) => setDriverId(e.target.value)}
                 >
                   <option value="">—</option>
-                  {(drivers ?? []).map((d) => (
+                  {availableDrivers.map((d) => (
                     <option key={d.userId} value={d.userId}>
                       {driverLabel(d)}
                     </option>
                   ))}
                 </select>
+                {availableDrivers.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {t("Aucun chauffeur disponible — tous sont déjà engagés sur un trajet en cours.")}
+                  </p>
+                )}
               </div>
             </div>
           )}

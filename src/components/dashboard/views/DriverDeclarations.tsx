@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AlertTriangle, Fuel, Wrench } from "lucide-react";
+import { useDriverRecentDeclarations } from "@/lib/offline/hooks/useDriverRecentDeclarations";
 
 const actions = [
   { href: "/dashboard/driver/declarations/incident", label: "Signaler un Incident", icon: AlertTriangle, color: "bg-destructive/10 text-destructive" },
@@ -9,7 +10,18 @@ const actions = [
   { href: "/dashboard/driver/declarations/maintenance", label: "Signaler Maintenance", icon: Wrench, color: "bg-warning/10 text-warning" },
 ];
 
+const statusClass: Record<string, string> = {
+  APPROVED: "text-success",
+  RESOLVED: "text-success",
+  ENREGISTRÉ: "text-primary",
+  PENDING: "text-warning",
+  OPEN: "text-warning",
+  IN_PROGRESS: "text-warning",
+};
+
 export function DriverDeclarations() {
+  const { items, loading, offlineReady } = useDriverRecentDeclarations();
+
   return (
     <div className="space-y-6">
       <h1 className="font-display text-xl font-bold">Déclarations terrain</h1>
@@ -23,22 +35,32 @@ export function DriverDeclarations() {
             <div className={`rounded-full p-4 ${a.color}`}>
               <a.icon className="h-8 w-8" />
             </div>
-            <span className="font-semibold text-center">{a.label}</span>
+            <span className="text-center font-semibold">{a.label}</span>
           </Link>
         ))}
       </div>
       <div>
         <h2 className="mb-3 font-semibold">Mes déclarations récentes</h2>
-        <ul className="space-y-2 text-sm">
-          <li className="flex justify-between rounded-lg border p-3">
-            <span>Plein — 65 L</span>
-            <span className="text-success">APPROVED</span>
-          </li>
-          <li className="flex justify-between rounded-lg border p-3">
-            <span>Incident LOW</span>
-            <span className="text-warning">PENDING</span>
-          </li>
-        </ul>
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Chargement…</p>
+        ) : items.length === 0 ? (
+          <p className="rounded-lg border p-4 text-sm text-muted-foreground">
+            {offlineReady
+              ? "Aucune déclaration enregistrée localement."
+              : "Les déclarations apparaîtront ici après enregistrement ou synchronisation."}
+          </p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {items.map((item) => (
+              <li key={`${item.kind}-${item.id}`} className="flex justify-between rounded-lg border p-3">
+                <span>{item.label}</span>
+                <span className={statusClass[item.status] ?? "text-muted-foreground"}>
+                  {item.status}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

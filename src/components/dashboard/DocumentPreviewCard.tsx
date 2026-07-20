@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, ImageIcon, ExternalLink, Pencil } from "lucide-react";
+import { FileText, ImageIcon, ExternalLink, Pencil, ShieldCheck, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ui/tooltip";
 import { useLang } from "@/lib/i18n";
 import { resolveFileUrl } from "@/lib/documents";
 import { cn } from "@/lib/utils";
@@ -69,10 +69,16 @@ function isImage(mime?: string | null, url?: string) {
 export function DocumentPreviewCard({
   doc,
   onEdit,
+  onVerify,
+  verifying = false,
+  verificationStatus,
   readOnly = false,
 }: {
   doc: DocumentPreview;
   onEdit?: (doc: DocumentPreview) => void;
+  onVerify?: (doc: DocumentPreview) => void;
+  verifying?: boolean;
+  verificationStatus?: "ACCEPTED" | "REJECTED" | null;
   readOnly?: boolean;
 }) {
   const { t } = useLang();
@@ -100,6 +106,28 @@ export function DocumentPreviewCard({
           </div>
         )}
         <div className="absolute right-2 top-2 flex gap-1">
+          {onVerify && (
+            <Tooltip
+              label={verifying ? t("Vérification en cours…") : t("Vérifier le document (KYC)")}
+              side="left"
+            >
+              <Button
+                type="button"
+                size="icon"
+                variant="secondary"
+                className="h-8 w-8 bg-background/90 backdrop-blur"
+                disabled={verifying}
+                onClick={() => onVerify(doc)}
+                aria-label={t("Vérifier le document (KYC)")}
+              >
+                {verifying ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                )}
+              </Button>
+            </Tooltip>
+          )}
           {!readOnly && onEdit && (
             <Button
               type="button"
@@ -128,10 +156,30 @@ export function DocumentPreviewCard({
           </div>
           {doc.status && (
             <Badge
-              variant={doc.status === "VALID" ? "success" : doc.status === "EXPIRED" ? "destructive" : "warning"}
+              variant={
+                doc.status === "VALID" || doc.status === "KYC_VALID"
+                  ? "success"
+                  : doc.status === "EXPIRED" || doc.status === "KYC_INVALID"
+                    ? "destructive"
+                    : "warning"
+              }
               className="shrink-0 text-[10px]"
             >
-              {doc.status}
+              {doc.status === "KYC_VALID"
+                ? t("Validé KYC")
+                : doc.status === "KYC_INVALID"
+                  ? t("Rejeté KYC")
+                  : doc.status}
+            </Badge>
+          )}
+          {verificationStatus === "ACCEPTED" && (
+            <Badge variant="success" className="shrink-0 text-[10px]">
+              {t("Validé")}
+            </Badge>
+          )}
+          {verificationStatus === "REJECTED" && (
+            <Badge variant="destructive" className="shrink-0 text-[10px]">
+              {t("Refusé")}
             </Badge>
           )}
         </div>
@@ -161,12 +209,18 @@ export function DocumentsGrid({
   emptyMessage,
   className,
   onEditDocument,
+  onVerifyDocument,
+  verifyingDocumentId,
+  documentVerificationStatus,
   readOnly = false,
 }: {
   documents: DocumentPreview[];
   emptyMessage?: string;
   className?: string;
   onEditDocument?: (doc: DocumentPreview) => void;
+  onVerifyDocument?: (doc: DocumentPreview) => void;
+  verifyingDocumentId?: string | null;
+  documentVerificationStatus?: Record<string, "ACCEPTED" | "REJECTED">;
   readOnly?: boolean;
 }) {
   const { t } = useLang();
@@ -180,7 +234,15 @@ export function DocumentsGrid({
   return (
     <div className={cn("grid gap-4 sm:grid-cols-2", className)}>
       {documents.map((d) => (
-        <DocumentPreviewCard key={d.id} doc={d} onEdit={onEditDocument} readOnly={readOnly} />
+        <DocumentPreviewCard
+          key={d.id}
+          doc={d}
+          onEdit={onEditDocument}
+          onVerify={onVerifyDocument}
+          verifying={verifyingDocumentId === d.id}
+          verificationStatus={documentVerificationStatus?.[d.id] ?? null}
+          readOnly={readOnly}
+        />
       ))}
     </div>
   );

@@ -16,23 +16,21 @@ import {
 } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DataGate } from "../DataGate";
 import { LicensePlate } from "../LicensePlate";
 import { useApiQuery } from "@/hooks/use-api-query";
 import {
-  fetchDrivers,
   fetchFleet,
   fetchFleetKpi,
   fetchFleetKpiHistory,
-  fetchTrips,
-  fetchVehicles,
-  updateFleet,
 } from "@/lib/api/manager";
+import {
+  useManagerDrivers,
+  useManagerTrips,
+  useManagerVehicles,
+} from "@/lib/offline/hooks/useManagerResources";
+import { useOfflineEntity } from "@/lib/offline/hooks/useOfflineEntity";
 import { driverLabel, mapVehicleStatus } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
 
@@ -45,20 +43,16 @@ const STATUS_COLORS: Record<string, string> = {
 
 export function FleetDetail({ id }: { id: string }) {
   const { t } = useLang();
-  const { data: fleet, loading, error, refetch } = useApiQuery(() => fetchFleet(id), [id]);
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(id), [id]);
-  const { data: drivers } = useApiQuery(() => fetchDrivers({ fleetId: id }), [id]);
+  const { data: fleet, loading, error } = useOfflineEntity("fleet", id, () => fetchFleet(id));
+  const { data: vehicles } = useManagerVehicles(id);
+  const { data: drivers } = useManagerDrivers(id);
   const { data: kpi } = useApiQuery(() => fetchFleetKpi(id), [id]);
   const { data: kpiHistory } = useApiQuery(() => {
     const to = new Date().toISOString().slice(0, 10);
     const from = new Date(Date.now() - 180 * 86400000).toISOString().slice(0, 10);
     return fetchFleetKpiHistory(id, "MONTHLY", from, to);
   }, [id]);
-  const { data: trips } = useApiQuery(() => fetchTrips(), []);
-
-  const [editOpen, setEditOpen] = useState(false);
-  const [fleetName, setFleetName] = useState("");
-  const [saving, setSaving] = useState(false);
+  const { data: trips } = useManagerTrips();
 
   const fleetVehicles = vehicles ?? [];
   const fleetDrivers = drivers ?? [];
@@ -83,18 +77,6 @@ export function FleetDetail({ id }: { id: string }) {
     [kpiHistory]
   );
 
-  async function saveFleetName() {
-    if (!fleetName.trim()) return;
-    setSaving(true);
-    try {
-      await updateFleet(id, fleetName.trim());
-      setEditOpen(false);
-      refetch();
-    } finally {
-      setSaving(false);
-    }
-  }
-
   return (
     <DataGate loading={loading} error={error}>
       {fleet && (
@@ -114,16 +96,6 @@ export function FleetDetail({ id }: { id: string }) {
                   <Badge variant="success">{t("Actif")}</Badge>
                 </div>
               </div>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setFleetName(fleet.name);
-                  setEditOpen(true);
-                }}
-              >
-                {t("Modifier")}
-              </Button>
             </div>
           </div>
 
@@ -208,22 +180,6 @@ export function FleetDetail({ id }: { id: string }) {
               </div>
             </TabsContent>
           </Tabs>
-
-          <Dialog open={editOpen} onOpenChange={setEditOpen}>
-            <DialogContent>
-              <DialogHeader><DialogTitle>{t("Modifier la flotte")}</DialogTitle></DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>{t("Nom de la flotte")}</Label>
-                  <Input value={fleetName} onChange={(e) => setFleetName(e.target.value)} />
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="secondary" onClick={() => setEditOpen(false)}>{t("Annuler")}</Button>
-                  <Button onClick={() => void saveFleetName()} disabled={saving}>{saving ? t("Sauvegarde…") : t("Enregistrer")}</Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       )}
     </DataGate>

@@ -10,15 +10,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
-import { useApiQuery } from "@/hooks/use-api-query";
-import { createMaintenance, fetchMaintenances, fetchVehicles } from "@/lib/api/manager";
+import { createMaintenanceOfflineAware } from "@/lib/offline/mutations/operations-mutations";
+import { useManagerMaintenances, useManagerVehicles } from "@/lib/offline/hooks/useManagerResources";
 import { useLang } from "@/lib/i18n";
 import { parseDecimalInput, validateDecimalInput } from "@/lib/numeric-input";
 
 export function OperationsMaintenances() {
   const { t } = useLang();
-  const { data: maintenances, loading, error, refetch } = useApiQuery(fetchMaintenances, []);
-  const { data: vehicles } = useApiQuery(() => fetchVehicles(), []);
+  const { data: maintenances, loading, error, refetch } = useManagerMaintenances();
+  const { data: vehicles } = useManagerVehicles();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +39,7 @@ export function OperationsMaintenances() {
     setFormError(null);
     setSubmitting(true);
     try {
-      await createMaintenance({
+      await createMaintenanceOfflineAware({
         subject: form.subject,
         cost: form.cost.trim() ? parseDecimalInput(form.cost) ?? undefined : undefined,
         vehicleId: form.vehicleId,
