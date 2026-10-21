@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Search, ChevronLeft, ChevronRight, Eye, Plus, Truck } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Eye, Plus, Truck, Check, X, Trash2 } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Tooltip } from "@/components/ui/tooltip";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Dialog,
   DialogContent,
@@ -22,10 +22,12 @@ import {
 } from "@/components/ui/dialog";
 import {
   assignFleetsToManager,
+  deleteFleetManager,
   fetchAdminFleets,
   fetchFleetManagers,
   fetchManagerFleets,
 } from "@/lib/api/admin";
+import { isPasswordStrong } from "@/lib/password";
 import type { FleetResponse } from "@/lib/api/types/manager";
 import {
   createFleetManagerOfflineAware,
@@ -75,6 +77,18 @@ export function ManagersManagement() {
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState<string | null>(null);
 
+  // Garde synchrone anti double-clic : `disabled={assigning}` ne prend effet qu'au
+  // prochain rendu React, donc un double-clic rapide peut envoyer deux requêtes
+  // avant que le bouton ne soit désactivé. Un ref est lu/écrit immédiatement.
+  const createInFlightRef = useRef(false);
+  const assignInFlightRef = useRef(false);
+
+  // ── Suppression d'un gestionnaire ────────────────────────────────────────
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteInFlightRef = useRef(false);
+
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
     return (managers ?? []).filter((m) => {
@@ -107,6 +121,24 @@ export function ManagersManagement() {
     }
   }
 
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    if (deleteInFlightRef.current) return;
+    deleteInFlightRef.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await deleteFleetManager(deleteTarget.id);
+      setDeleteTarget(null);
+      await refetch();
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : t("Suppression impossible."));
+    } finally {
+      deleteInFlightRef.current = false;
+      setDeleting(false);
+    }
+  }
+
   function resetCreateForm() {
     setFirstName("");
     setLastName("");
@@ -120,6 +152,7 @@ export function ManagersManagement() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
+    if (createInFlightRef.current) return;
     setCreateError(null);
     if (!firstName.trim() && !lastName.trim()) {
       setCreateError(t("Le prénom ou le nom doit être renseigné."));
@@ -135,14 +168,17 @@ export function ManagersManagement() {
       );
       return;
     }
-    if (password.length < 8) {
-      setCreateError(t("Mot de passe trop court (8 caractères min.)."));
+    if (!isPasswordStrong(password)) {
+      setCreateError(
+        t("Le mot de passe doit contenir au moins 10 caractères, une majuscule, une minuscule, un chiffre et un symbole.")
+      );
       return;
     }
     if (password !== confirm) {
       setCreateError(t("Les mots de passe ne correspondent pas."));
       return;
     }
+    createInFlightRef.current = true;
     setCreating(true);
     try {
       const username =
@@ -163,6 +199,7 @@ export function ManagersManagement() {
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : t("Création impossible."));
     } finally {
+      createInFlightRef.current = false;
       setCreating(false);
     }
   }
@@ -196,6 +233,8 @@ export function ManagersManagement() {
 
   async function handleAssignSubmit() {
     if (!assignTarget || selectedFleetIds.size === 0) return;
+    if (assignInFlightRef.current) return;
+    assignInFlightRef.current = true;
     setAssigning(true);
     setAssignError(null);
     try {
@@ -205,6 +244,7 @@ export function ManagersManagement() {
     } catch (err) {
       setAssignError(err instanceof ApiError ? err.message : t("Assignation impossible."));
     } finally {
+      assignInFlightRef.current = false;
       setAssigning(false);
     }
   }
@@ -327,6 +367,7 @@ export function ManagersManagement() {
       </div>
 
       {toggleError && <p className="mb-4 text-sm text-destructive">{toggleError}</p>}
+      {deleteError && <p className="mb-4 text-sm text-destructive">{deleteError}</p>}
 
       <DataGate loading={loading} error={error} empty={filtered.length === 0}>
         <div className="overflow-hidden rounded-xl border border-border bg-card">
@@ -370,11 +411,19 @@ export function ManagersManagement() {
                     <td className="px-4 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <Tooltip label={active ? t("Désactiver") : t("Activer")}>
-                          <Switch
-                            checked={active}
+                          <button
+                            type="button"
                             disabled={togglingId === m.id}
-                            onCheckedChange={() => handleToggle(m.id)}
-                          />
+                            aria-label={active ? t("Désactiver") : t("Activer")}
+                            onClick={() => handleToggle(m.id)}
+                            className={`flex rounded-full p-2 disabled:opacity-50 ${
+                              active
+                                ? "text-success hover:bg-success/10"
+                                : "text-muted-foreground hover:bg-muted hover:text-destructive"
+                            }`}
+                          >
+                            {active ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                          </button>
                         </Tooltip>
                         <Tooltip label={t("Assigner des flottes")}>
                           <button
@@ -394,6 +443,19 @@ export function ManagersManagement() {
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
+                        </Tooltip>
+                        <Tooltip label={t("Supprimer")}>
+                          <button
+                            type="button"
+                            className="flex rounded-full p-2 text-muted-foreground hover:bg-muted hover:text-destructive"
+                            aria-label={t("Supprimer")}
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteTarget({ id: m.id, name: managerFullName(m) });
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </Tooltip>
                       </div>
                     </td>
@@ -466,6 +528,23 @@ export function ManagersManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ConfirmDialog
+        open={deleteTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        title={t("Supprimer ce gestionnaire ?")}
+        description={
+          deleteTarget
+            ? `${t("Le gestionnaire")} « ${deleteTarget.name} » ${t("sera définitivement supprimé. Cette action est irréversible.")}`
+            : ""
+        }
+        confirmLabel={t("Supprimer")}
+        variant="destructive"
+        loading={deleting}
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

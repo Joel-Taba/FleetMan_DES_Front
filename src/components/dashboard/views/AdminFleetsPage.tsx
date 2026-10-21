@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Pencil, Trash2, Eye, Search, Truck, Car, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Eye, Search, Truck, Car, Users, Wallet } from "lucide-react";
 import { PageHeader } from "../PageHeader";
 import { DataGate } from "../DataGate";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltip } from "@/components/ui/tooltip";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import {
   Dialog,
   DialogContent,
@@ -31,8 +33,10 @@ import { useAdminEntityList } from "@/lib/offline/hooks/useAdminEntityList";
 import { managerFullName } from "@/lib/api/mappers/admin";
 import { ApiError } from "@/lib/api/mock-wrapper";
 import { useLang } from "@/lib/i18n";
+import { parsePhoneValue, validatePhone } from "@/lib/phone";
+import { parseDecimalInput } from "@/lib/numeric-input";
 
-const EMPTY_FORM = { name: "", phoneNumber: "" };
+const EMPTY_FORM = { name: "", phoneNumber: "", monthlyBudget: "" };
 
 export function AdminFleetsPage() {
   const { t } = useLang();
@@ -77,7 +81,11 @@ export function AdminFleetsPage() {
 
   function openEdit(fleet: FleetResponse) {
     setEditing(fleet);
-    setForm({ name: fleet.name, phoneNumber: "" });
+    setForm({
+      name: fleet.name,
+      phoneNumber: fleet.phoneNumber ?? "",
+      monthlyBudget: fleet.monthlyBudget != null ? String(fleet.monthlyBudget) : "",
+    });
     setFormError(null);
     setDialogOpen(true);
   }
@@ -88,6 +96,19 @@ export function AdminFleetsPage() {
       setFormError(t("Le nom de la flotte est obligatoire."));
       return;
     }
+    if (form.phoneNumber.trim()) {
+      const { country, national } = parsePhoneValue(form.phoneNumber);
+      const phoneError = validatePhone(country, national);
+      if (phoneError) {
+        setFormError(phoneError);
+        return;
+      }
+    }
+    const monthlyBudget = form.monthlyBudget.trim() ? parseDecimalInput(form.monthlyBudget) : null;
+    if (form.monthlyBudget.trim() && monthlyBudget == null) {
+      setFormError(t("Le budget mensuel doit être un nombre valide."));
+      return;
+    }
     setSubmitting(true);
     setFormError(null);
     try {
@@ -95,11 +116,13 @@ export function AdminFleetsPage() {
         await updateAdminFleetOfflineAware(editing.id, {
           name: form.name.trim(),
           phoneNumber: form.phoneNumber.trim() || null,
+          monthlyBudget,
         });
       } else {
         await createAdminFleetOfflineAware({
           name: form.name.trim(),
           phoneNumber: form.phoneNumber.trim() || null,
+          monthlyBudget,
         });
       }
       setDialogOpen(false);
@@ -258,11 +281,19 @@ export function AdminFleetsPage() {
             </div>
             <div className="space-y-2">
               <Label>{t("Téléphone (dispatching)")}</Label>
-              <Input
-                type="tel"
+              <PhoneInput
                 value={form.phoneNumber}
-                onChange={(e) => setForm((f) => ({ ...f, phoneNumber: e.target.value }))}
-                placeholder="+237 6XX XX XX XX"
+                onChange={(value) => setForm((f) => ({ ...f, phoneNumber: value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("Budget mensuel alloué (XAF)")}</Label>
+              <NumericInput
+                mode="decimal"
+                min={0}
+                value={form.monthlyBudget}
+                onValueChange={(value) => setForm((f) => ({ ...f, monthlyBudget: value }))}
+                placeholder="Ex: 500000"
               />
             </div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}
@@ -314,7 +345,24 @@ export function AdminFleetsPage() {
                   </div>
                   <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
                     <Car className="h-4 w-4 text-muted-foreground" />
-                    <span>{Math.round(detailStats.totalKmTraveled ?? 0)} km</span>
+                    <span>{detailStats.totalVehicles} {t("véhicules")}</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+                    <Wallet className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      {detailStats.budgetAllocated != null
+                        ? `${detailStats.budgetAllocated.toLocaleString("fr-FR")} XAF`
+                        : t("Aucun budget alloué")}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+                    <Wallet className="h-4 w-4 text-muted-foreground" />
+                    <span>
+                      {(detailStats.budgetConsumed ?? 0).toLocaleString("fr-FR")} XAF {t("consommés")}
+                      {detailStats.budgetAllocated
+                        ? ` (${Math.round(((detailStats.budgetConsumed ?? 0) / detailStats.budgetAllocated) * 100)}%)`
+                        : ""}
+                    </span>
                   </div>
                 </div>
               ) : (

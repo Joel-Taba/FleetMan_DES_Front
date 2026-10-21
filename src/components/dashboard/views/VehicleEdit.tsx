@@ -26,6 +26,7 @@ import { useOfflineEntity } from "@/lib/offline/hooks/useOfflineEntity";
 import { fetchVehicle } from "@/lib/api/manager";
 import { VehicleSyncBadge } from "@/components/offline/VehicleSyncBadge";
 import { mapVehicleStatus } from "@/lib/api/mappers/manager";
+import { resolveFileUrl } from "@/lib/documents";
 import { useLang } from "@/lib/i18n";
 
 export function VehicleEdit({ id }: { id: string }) {
@@ -161,7 +162,7 @@ export function VehicleEdit({ id }: { id: string }) {
                 <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
                   {mainPhoto ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={mainPhoto} alt="" className="h-full w-full object-cover" />
+                    <img src={resolveFileUrl(mainPhoto)} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                       {t("Aucune photo")}
@@ -189,7 +190,7 @@ export function VehicleEdit({ id }: { id: string }) {
                         onClick={() => setMainPhoto(url)}
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt="" className="aspect-video w-full object-cover" />
+                        <img src={resolveFileUrl(url)} alt="" className="aspect-video w-full object-cover" />
                         {mainPhoto === url && (
                           <span className="absolute right-1 top-1 rounded bg-primary p-0.5 text-white">
                             <Star className="h-3 w-3 fill-current" />

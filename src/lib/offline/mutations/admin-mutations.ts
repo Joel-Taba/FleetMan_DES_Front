@@ -362,6 +362,8 @@ function buildOptimisticAdminFleet(clientEntityId: string, body: AdminFleetBody)
   return {
     id: clientEntityId,
     name: body.name.trim(),
+    phoneNumber: body.phoneNumber ?? null,
+    monthlyBudget: body.monthlyBudget ?? null,
     creationDate: new Date().toISOString().slice(0, 10),
     managerUserId: null as unknown as string,
     vehicleCount: 0,

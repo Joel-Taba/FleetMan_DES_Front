@@ -505,6 +505,8 @@ export class MockApiProvider {
       const fleet = {
         id: `f-${Date.now()}`,
         name: String(body.name ?? "Nouvelle flotte"),
+        phoneNumber: (body.phoneNumber as string | null | undefined) ?? null,
+        monthlyBudget: (body.monthlyBudget as number | null | undefined) ?? null,
         creationDate: new Date().toISOString().slice(0, 10),
         managerUserId: db.users.find((u) => u.roles.includes("FLEET_MANAGER"))?.id ?? "",
         vehicleCount: 0,

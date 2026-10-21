@@ -18,6 +18,7 @@ import { DocumentUploadDialog } from "../DocumentUploadDialog";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchDrivers, fetchVehicle, fetchVehicleDocuments } from "@/lib/api/manager";
 import { driverFullName, mapVehicleStatus, vehicleMileage } from "@/lib/api/mappers/manager";
+import { resolveFileUrl } from "@/lib/documents";
 import { useLang } from "@/lib/i18n";
 
 export function VehicleDetail({ id }: { id: string }) {
@@ -77,7 +78,7 @@ export function VehicleDetail({ id }: { id: string }) {
                 <div className="relative mb-4 aspect-video overflow-hidden rounded-lg bg-muted">
                   {vehicle.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={vehicle.photoUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={resolveFileUrl(vehicle.photoUrl)} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <Image src="/assets/login-truck-highway.jpg" alt="" fill className="object-cover" />
                   )}

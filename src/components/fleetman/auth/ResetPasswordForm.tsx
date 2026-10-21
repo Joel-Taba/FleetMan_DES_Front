@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, resetPasswordRequest } from "@/lib/api/mock-wrapper";
+import { isPasswordStrong } from "@/lib/password";
 
 export function ResetPasswordForm() {
   const router = useRouter();
@@ -29,8 +30,10 @@ export function ResetPasswordForm() {
       setError("Lien de réinitialisation invalide ou expiré.");
       return;
     }
-    if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
+    if (!isPasswordStrong(password)) {
+      setError(
+        "Le mot de passe doit contenir au moins 10 caractères, une majuscule, une minuscule, un chiffre et un symbole."
+      );
       return;
     }
     if (password !== confirm) {

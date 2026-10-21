@@ -342,6 +342,8 @@ export function createDefaultMockDatabase(): MockDatabase {
     {
       id: "f1",
       name: "Flotte Yaoundé",
+      phoneNumber: "+237690000001",
+      monthlyBudget: 500000,
       creationDate: "2024-01-15",
       managerUserId: DEMO_MANAGER_ID,
       vehicleCount: 5,
@@ -349,6 +351,8 @@ export function createDefaultMockDatabase(): MockDatabase {
     {
       id: "f2",
       name: "Flotte Douala",
+      phoneNumber: "+237690000002",
+      monthlyBudget: 400000,
       creationDate: "2024-03-20",
       managerUserId: DEMO_MANAGER_ID,
       vehicleCount: 4,
@@ -356,6 +360,8 @@ export function createDefaultMockDatabase(): MockDatabase {
     {
       id: "f3",
       name: "VIP Transport",
+      phoneNumber: null,
+      monthlyBudget: null,
       creationDate: "2024-06-01",
       managerUserId: DEMO_MANAGER_ID,
       vehicleCount: 3,
@@ -1372,6 +1378,8 @@ export function seedExtendedMockDatabase(config: SeedConfig = {}): MockDatabase 
   base.fleets = fleetIds.map((id, i) => ({
     id,
     name: `Flotte ${i + 1}`,
+    phoneNumber: null,
+    monthlyBudget: null,
     creationDate: dateOnly(-365 + i * 30),
     managerUserId: DEMO_MANAGER_ID,
     vehicleCount: Math.ceil(vehicles / fleets),

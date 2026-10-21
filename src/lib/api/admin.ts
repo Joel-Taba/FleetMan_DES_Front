@@ -75,6 +75,13 @@ export function toggleFleetManager(id: string) {
   });
 }
 
+/** Suppression logique : bloquée par le backend si des flottes lui sont encore assignées. */
+export function deleteFleetManager(id: string) {
+  return apiFetch<void>(`/api/v1/admin/management/managers/${id}`, {
+    method: "DELETE",
+  });
+}
+
 export type CreateFleetManagerBody = {
   username: string;
   password: string;
@@ -109,11 +116,20 @@ export function assignFleetsToManager(managerId: string, fleetIds: string[]) {
   });
 }
 
+/** Désassigne une flotte de son gestionnaire actuel (la libère pour un autre gestionnaire). */
+export function unassignFleetFromManager(managerId: string, fleetId: string) {
+  return apiFetch<void>(
+    `/api/v1/admin/management/managers/${managerId}/fleets/${fleetId}`,
+    { method: "DELETE" }
+  );
+}
+
 // ── Flottes (vue Administrateur) ─────────────────────────────────────────────
 
 export type AdminFleetBody = {
   name: string;
   phoneNumber?: string | null;
+  monthlyBudget?: number | null;
 };
 
 export function fetchAdminFleets() {
@@ -147,8 +163,11 @@ export function deleteAdminFleet(id: string) {
 export type AdminFleetStats = {
   fleetId: string;
   totalDrivers: number;
+  totalVehicles: number;
   totalKmTraveled: number | null;
   vehicleStatusDistribution: Record<string, number>;
+  budgetAllocated: number | null;
+  budgetConsumed: number | null;
 };
 
 export function fetchAdminFleetStats(id: string) {

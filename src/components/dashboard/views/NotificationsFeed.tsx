@@ -14,9 +14,13 @@ import { useLang } from "@/lib/i18n";
 
 const typeIcons: Record<string, { icon: typeof Wrench; color: string }> = {
   MAINTENANCE: { icon: Wrench, color: "bg-primary/15 text-primary" },
+  MAINTENANCE_DECLARED: { icon: Wrench, color: "bg-primary/15 text-primary" },
+  MAINTENANCE_ALERT_DUE: { icon: Wrench, color: "bg-primary/15 text-primary" },
   INCIDENT: { icon: AlertTriangle, color: "bg-destructive/15 text-destructive" },
+  INCIDENT_REPORTED: { icon: AlertTriangle, color: "bg-destructive/15 text-destructive" },
   GEOFENCE: { icon: MapPin, color: "bg-success/15 text-success" },
   DOCUMENT: { icon: FileText, color: "bg-warning/15 text-warning" },
+  DOCUMENT_EXPIRY: { icon: FileText, color: "bg-warning/15 text-warning" },
   KPI: { icon: BarChart3, color: "bg-violet-500/15 text-violet-600" },
 };
 

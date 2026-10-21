@@ -21,14 +21,7 @@ import {
 } from "@/lib/documents";
 import { docTypeLabel } from "@/components/dashboard/DocumentPreviewCard";
 import { useLang } from "@/lib/i18n";
-
-function checkPasswordStrength(password: string) {
-  return {
-    length: password.length >= 8,
-    upper: /[A-Z]/.test(password),
-    digit: /\d/.test(password),
-  };
-}
+import { checkPasswordStrength } from "@/lib/password";
 
 type PendingDoc = {
   docType: string;
@@ -74,7 +67,8 @@ export function SignupForm() {
   const [documents, setDocuments] = useState<PendingDoc[]>([]);
 
   const strength = useMemo(() => checkPasswordStrength(password), [password]);
-  const isStrong = strength.length && strength.upper && strength.digit;
+  const isStrong =
+    strength.length && strength.upper && strength.lower && strength.digit && strength.symbol;
   const selectedPlan = plans?.find((p) => p.id === requestedPlanId);
 
   const hasRequiredDocs = SUBSCRIPTION_REQUIRED_DOC_TYPES.every((type) =>
@@ -220,9 +214,11 @@ export function SignupForm() {
           {password && (
             <ul className="space-y-1 text-xs">
               {[
-                { ok: strength.length, label: "8 caractères minimum" },
+                { ok: strength.length, label: "10 caractères minimum" },
                 { ok: strength.upper, label: "Une majuscule" },
+                { ok: strength.lower, label: "Une minuscule" },
                 { ok: strength.digit, label: "Un chiffre" },
+                { ok: strength.symbol, label: "Un symbole" },
               ].map((rule) => (
                 <li key={rule.label} className={cn("flex items-center gap-1", rule.ok ? "text-success" : "text-muted-foreground")}>
                   {rule.ok ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}

@@ -27,7 +27,7 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 function passwordStrength(pw: string) {
   let score = 0;
-  if (pw.length >= 8) score++;
+  if (pw.length >= 10) score++;
   if (/[A-Z]/.test(pw)) score++;
   if (/[a-z]/.test(pw)) score++;
   if (/[0-9]/.test(pw)) score++;
@@ -90,9 +90,9 @@ export function AccountSettings() {
   function validatePassword() {
     const next: Record<string, string> = {};
     if (!oldPassword) next.oldPassword = t("Saisissez l'ancien mot de passe.");
-    if (strength < 4) {
+    if (strength < 5) {
       next.newPassword = t(
-        "Mot de passe robuste requis : 8+ car., majuscule, minuscule, chiffre, symbole."
+        "Mot de passe robuste requis : 10+ car., majuscule, minuscule, chiffre, symbole."
       );
     }
     if (newPassword !== confirmPassword) {
@@ -314,14 +314,29 @@ export function AccountSettings() {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label>{t("Ancien mot de passe")}</Label>
-            <PasswordInput value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
+            <PasswordInput
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              // "new-password" (et non "current-password") est la valeur standard
+              // reconnue par Chrome/Firefox pour dissuader le pré-remplissage
+              // automatique avec un mot de passe déjà enregistré : c'est à
+              // l'utilisateur de le saisir lui-même à chaque changement, pour
+              // garantir que c'est bien lui qui est devant l'écran.
+              autoComplete="new-password"
+              data-1p-ignore=""
+              data-lpignore="true"
+            />
             {errors.oldPassword && (
               <p className="text-xs text-destructive">{errors.oldPassword}</p>
             )}
           </div>
           <div className="space-y-2">
             <Label>{t("Nouveau mot de passe")}</Label>
-            <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            <PasswordInput
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              autoComplete="new-password"
+            />
             {newPassword && (
               <p className={cn("text-xs", strength >= 4 ? "text-success" : "text-warning")}>
                 {t("Robustesse")} : {strengthLabel}
@@ -336,6 +351,7 @@ export function AccountSettings() {
             <PasswordInput
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              autoComplete="new-password"
             />
             {errors.confirmPassword && (
               <p className="text-xs text-destructive">{errors.confirmPassword}</p>

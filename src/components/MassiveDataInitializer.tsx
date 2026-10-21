@@ -9,6 +9,11 @@ export function MassiveDataInitializer() {
   const [initializing, setInitializing] = useState(false);
 
   useEffect(() => {
+    // Uniquement en mode front-only (données mock en localStorage) — jamais
+    // en mode réel (NEXT_PUBLIC_USE_MOCK=false), pour ne pas proposer de
+    // données factices pendant les tests sur données réelles.
+    if (process.env.NEXT_PUBLIC_USE_MOCK !== "true") return;
+
     const existingData = loadMockDatabase();
     const hasDeclined = localStorage.getItem("fleetman_declined_massive_data");
     const isExtended = (existingData?.vehicles.length ?? 0) > 20;

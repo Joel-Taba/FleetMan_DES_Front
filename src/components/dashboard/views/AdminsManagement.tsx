@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip } from "@/components/ui/tooltip";
 import { PasswordInput } from "@/components/ui/password-input";
+import { isPasswordStrong } from "@/lib/password";
 import {
   Dialog,
   DialogContent,
@@ -84,8 +85,10 @@ export function AdminsManagement() {
       );
       return;
     }
-    if (password.length < 8) {
-      setFormError("Mot de passe trop court (8 caractères min.).");
+    if (!isPasswordStrong(password)) {
+      setFormError(
+        t("Le mot de passe doit contenir au moins 10 caractères, une majuscule, une minuscule, un chiffre et un symbole.")
+      );
       return;
     }
     if (password !== confirm) {

@@ -31,7 +31,7 @@ import { readBrowserOnline } from "@/lib/offline/network/online";
 import { cn } from "@/lib/utils";
 import { useLang } from "@/lib/i18n";
 import { FEATURE_LABELS, PLAN_FEATURE_KEYS } from "@/lib/plan-features";
-import { parseDecimalInput } from "@/lib/numeric-input";
+import { parseDecimalInput, parseIntegerInput } from "@/lib/numeric-input";
 import { ApiError } from "@/lib/api/mock-wrapper";
 
 function defaultTechnicalFeatures() {
@@ -70,8 +70,12 @@ export function SubscriptionPlansPage() {
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [monthlyPriceInput, setMonthlyPriceInput] = useState("0");
+  const [isFreePlan, setIsFreePlan] = useState(false);
+  const [monthlyPriceInput, setMonthlyPriceInput] = useState("");
   const [annualPriceInput, setAnnualPriceInput] = useState("");
+  const [maxFleetsInput, setMaxFleetsInput] = useState("1");
+  const [maxVehiclesInput, setMaxVehiclesInput] = useState("5");
+  const [maxDriversInput, setMaxDriversInput] = useState("10");
 
   useEffect(() => {
     if (!dialogOpen) {
@@ -89,16 +93,16 @@ export function SubscriptionPlansPage() {
       .finally(() => setFeaturesLoading(false));
   }, [dialogOpen, editing]);
 
-  const isFreePlan =
-    (monthlyPriceInput === "" || monthlyPriceInput === "0") &&
-    (annualPriceInput === "" || annualPriceInput === "0");
-
   function openCreate() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormError(null);
-    setMonthlyPriceInput("0");
+    setIsFreePlan(false);
+    setMonthlyPriceInput("");
     setAnnualPriceInput("");
+    setMaxFleetsInput(String(EMPTY_FORM.maxFleets));
+    setMaxVehiclesInput(String(EMPTY_FORM.maxVehicles));
+    setMaxDriversInput(String(EMPTY_FORM.maxDrivers));
     setPlanFeatures(defaultTechnicalFeatures());
     setDialogOpen(true);
   }
@@ -117,15 +121,23 @@ export function SubscriptionPlansPage() {
       currency: plan.currency,
       features: plan.features ?? "",
     });
-    setMonthlyPriceInput(plan.monthlyPrice > 0 ? String(plan.monthlyPrice) : "0");
+    setIsFreePlan(plan.monthlyPrice === 0);
+    setMonthlyPriceInput(plan.monthlyPrice > 0 ? String(plan.monthlyPrice) : "");
     setAnnualPriceInput(plan.annualPrice != null ? String(plan.annualPrice) : "");
+    setMaxFleetsInput(String(plan.maxFleets));
+    setMaxVehiclesInput(String(plan.maxVehicles));
+    setMaxDriversInput(String(plan.maxDrivers));
     setDialogOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSubmitting(true);
     setFormError(null);
+    if (!isFreePlan && parseDecimalInput(monthlyPriceInput) == null) {
+      setFormError(t("Le prix mensuel est obligatoire, sauf si le plan est gratuit."));
+      return;
+    }
+    setSubmitting(true);
     try {
       const monthlyPrice = isFreePlan ? 0 : parseDecimalInput(monthlyPriceInput) ?? 0;
       const annualPrice = isFreePlan || !annualPriceInput.trim()
@@ -133,6 +145,9 @@ export function SubscriptionPlansPage() {
         : parseDecimalInput(annualPriceInput) ?? undefined;
       const payload: CreatePlanBody = {
         ...form,
+        maxFleets: parseIntegerInput(maxFleetsInput) ?? 1,
+        maxVehicles: parseIntegerInput(maxVehiclesInput) ?? 1,
+        maxDrivers: parseIntegerInput(maxDriversInput) ?? 1,
         monthlyPrice,
         annualPrice,
         technicalFeatures: planFeatures,
@@ -332,13 +347,10 @@ export function SubscriptionPlansPage() {
                   id="plan-free-toggle"
                   checked={isFreePlan}
                   onCheckedChange={(checked) => {
+                    setIsFreePlan(checked === true);
                     if (checked === true) {
-                      setMonthlyPriceInput("0");
+                      setMonthlyPriceInput("");
                       setAnnualPriceInput("");
-                      setForm((f) => ({ ...f, monthlyPrice: 0, annualPrice: undefined }));
-                    } else {
-                      setMonthlyPriceInput("25000");
-                      setForm((f) => ({ ...f, monthlyPrice: 25000 }));
                     }
                   }}
                 />
@@ -347,12 +359,12 @@ export function SubscriptionPlansPage() {
                 </Label>
               </div>
               <div className="space-y-1.5">
-                <Label>{t("Prix mensuel (XAF)")}</Label>
+                <Label>{isFreePlan ? t("Prix mensuel (XAF)") : t("Prix mensuel (XAF) *")}</Label>
                 <NumericInput
                   mode="decimal"
                   disabled={isFreePlan}
-                  placeholder={t("Optionnel — laissez vide pour un plan gratuit")}
-                  value={isFreePlan ? "" : monthlyPriceInput}
+                  placeholder={isFreePlan ? t("Gratuit") : t("Obligatoire")}
+                  value={monthlyPriceInput}
                   onValueChange={setMonthlyPriceInput}
                 />
               </div>
@@ -362,23 +374,23 @@ export function SubscriptionPlansPage() {
                   mode="decimal"
                   disabled={isFreePlan}
                   placeholder={t("Optionnel")}
-                  value={isFreePlan ? "" : annualPriceInput}
+                  value={annualPriceInput}
                   onValueChange={setAnnualPriceInput}
                 />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("Max flottes")}</Label>
-                <NumericInput mode="integer" value={String(form.maxFleets)} onValueChange={(v) => setForm(f => ({ ...f, maxFleets: parseInt(v || "1", 10) || 1 }))} />
+                <NumericInput mode="integer" value={maxFleetsInput} onValueChange={setMaxFleetsInput} />
                 <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="space-y-1.5">
                 <Label>{t("Max véhicules")}</Label>
-                <NumericInput mode="integer" value={String(form.maxVehicles)} onValueChange={(v) => setForm(f => ({ ...f, maxVehicles: parseInt(v || "1", 10) || 1 }))} />
+                <NumericInput mode="integer" value={maxVehiclesInput} onValueChange={setMaxVehiclesInput} />
                 <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="space-y-1.5">
                 <Label>{t("Max conducteurs")}</Label>
-                <NumericInput mode="integer" value={String(form.maxDrivers)} onValueChange={(v) => setForm(f => ({ ...f, maxDrivers: parseInt(v || "1", 10) || 1 }))} />
+                <NumericInput mode="integer" value={maxDriversInput} onValueChange={setMaxDriversInput} />
                 <p className="text-xs text-muted-foreground">{t("999 = illimité")}</p>
               </div>
               <div className="col-span-2 space-y-1.5">

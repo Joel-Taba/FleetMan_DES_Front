@@ -63,6 +63,8 @@ export type ManagerSubscriptionResponse = {
 export type FleetResponse = {
   id: string;
   name: string;
+  phoneNumber: string | null;
+  monthlyBudget: number | null;
   creationDate: string;
   managerUserId: string;
   vehicleCount: number | null;

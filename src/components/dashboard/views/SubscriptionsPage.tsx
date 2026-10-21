@@ -55,6 +55,8 @@ export function SubscriptionsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [graceDaysInput, setGraceDaysInput] = useState("7");
   const [savingGrace, setSavingGrace] = useState(false);
+  const [graceConfirmOpen, setGraceConfirmOpen] = useState(false);
+  const [graceSaveError, setGraceSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (graceSettings?.graceDays != null) setGraceDaysInput(String(graceSettings.graceDays));
@@ -104,9 +106,13 @@ export function SubscriptionsPage() {
     const days = parseIntegerInput(graceDaysInput);
     if (days == null || days > 365) return;
     setSavingGrace(true);
+    setGraceSaveError(null);
     try {
       await updateSubscriptionGraceDaysOfflineAware(days);
-      refetchGrace();
+      await refetchGrace();
+      setGraceConfirmOpen(true);
+    } catch {
+      setGraceSaveError(t("Échec de l'enregistrement. Veuillez réessayer."));
     } finally {
       setSavingGrace(false);
     }
@@ -137,6 +143,9 @@ export function SubscriptionsPage() {
               <p className="text-xs text-muted-foreground">
                 {t("L'abonnement reste accessible pendant ce délai, puis se résilie automatiquement.")}
               </p>
+              {graceSaveError && (
+                <p className="text-xs text-destructive">{graceSaveError}</p>
+              )}
             </div>
             <Button onClick={handleSaveGraceDays} disabled={savingGrace}>
               {savingGrace ? t("Enregistrement…") : t("Valider")}
@@ -144,6 +153,23 @@ export function SubscriptionsPage() {
           </CardContent>
         </Card>
       </section>
+
+      <Dialog open={graceConfirmOpen} onOpenChange={setGraceConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              {t("Modification enregistrée")}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t("La période de grâce après expiration a bien été mise à jour à")} {graceDaysInput} {t("jour(s).")}
+          </p>
+          <Button onClick={() => setGraceConfirmOpen(false)} className="w-full">
+            {t("OK")}
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <section>
         <PageHeader

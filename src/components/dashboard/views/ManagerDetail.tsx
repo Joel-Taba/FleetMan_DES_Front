@@ -1,12 +1,17 @@
 "use client";
 
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Mail, Phone, Truck, Users } from "lucide-react";
+import { ArrowLeft, Mail, Phone, Truck, Users, X } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DataGate } from "../DataGate";
 import { useApiQuery } from "@/hooks/use-api-query";
-import { fetchFleetManager, fetchManagerFleets } from "@/lib/api/admin";
+import { ApiError } from "@/lib/api/mock-wrapper";
+import { fetchFleetManager, fetchManagerFleets, unassignFleetFromManager } from "@/lib/api/admin";
+import type { FleetResponse } from "@/lib/api/types/manager";
 import {
   formatLastLogin,
   managerFullName,
@@ -18,12 +23,37 @@ import { useLang } from "@/lib/i18n";
 export function ManagerDetail({ id }: { id: string }) {
   const { t } = useLang();
   const { data: manager, loading, error } = useApiQuery(() => fetchFleetManager(id), [id]);
-  const { data: fleets, loading: fleetsLoading } = useApiQuery(
+  const { data: fleets, loading: fleetsLoading, refetch: refetchFleets } = useApiQuery(
     () => fetchManagerFleets(id),
     [id]
   );
+  const [unassignTarget, setUnassignTarget] = useState<FleetResponse | null>(null);
+  const [unassigning, setUnassigning] = useState(false);
+  const [unassignError, setUnassignError] = useState<string | null>(null);
+  // Garde synchrone anti double-clic : `disabled={loading}` ne prend effet qu'au
+  // prochain rendu React, donc un double-clic rapide peut envoyer deux requêtes
+  // avant que le bouton ne soit désactivé.
+  const unassignInFlightRef = useRef(false);
 
   const active = manager ? managerIsActive(manager) : false;
+
+  async function handleUnassign() {
+    if (!unassignTarget) return;
+    if (unassignInFlightRef.current) return;
+    unassignInFlightRef.current = true;
+    setUnassigning(true);
+    setUnassignError(null);
+    try {
+      await unassignFleetFromManager(id, unassignTarget.id);
+      setUnassignTarget(null);
+      refetchFleets();
+    } catch (err) {
+      setUnassignError(err instanceof ApiError ? err.message : t("Désassignation impossible."));
+    } finally {
+      unassignInFlightRef.current = false;
+      setUnassigning(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -92,6 +122,9 @@ export function ManagerDetail({ id }: { id: string }) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                {unassignError && (
+                  <p className="mb-3 text-sm text-destructive">{unassignError}</p>
+                )}
                 {fleetsLoading ? (
                   <p className="text-sm text-muted-foreground">{t("Chargement…")}</p>
                 ) : (fleets ?? []).length === 0 ? (
@@ -111,9 +144,24 @@ export function ManagerDetail({ id }: { id: string }) {
                           </div>
                           <span className="font-medium">{fleet.name}</span>
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          {fleet.vehicleCount ?? 0} {t("véhicule(s)")}
-                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-muted-foreground">
+                            {fleet.vehicleCount ?? 0} {t("véhicule(s)")}
+                          </span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => {
+                              setUnassignError(null);
+                              setUnassignTarget(fleet);
+                            }}
+                          >
+                            <X className="mr-1 h-3.5 w-3.5" />
+                            {t("Désassigner")}
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -123,6 +171,23 @@ export function ManagerDetail({ id }: { id: string }) {
           </>
         )}
       </DataGate>
+
+      <ConfirmDialog
+        open={unassignTarget != null}
+        onOpenChange={(open) => {
+          if (!open) setUnassignTarget(null);
+        }}
+        title={t("Désassigner cette flotte ?")}
+        description={
+          unassignTarget
+            ? `${t("La flotte")} « ${unassignTarget.name} » ${t("sera libérée et pourra être assignée à un autre gestionnaire.")}`
+            : ""
+        }
+        confirmLabel={t("Désassigner")}
+        variant="destructive"
+        loading={unassigning}
+        onConfirm={handleUnassign}
+      />
     </div>
   );
 }
