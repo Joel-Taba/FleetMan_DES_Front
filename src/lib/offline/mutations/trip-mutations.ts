@@ -25,6 +25,7 @@ function buildOptimisticTrip(
     status: "SCHEDULED",
     startDate: body.startDate,
     startTime: body.startTime,
+    scheduledReturnDatetime: body.scheduledReturnDatetime ?? null,
     endDate: null,
     endTime: null,
     distanceKm: null,

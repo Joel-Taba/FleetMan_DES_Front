@@ -38,7 +38,7 @@ export function TripDetail({ id }: { id: string }) {
     ? [
         { icon: User, label: t("Chauffeur"), value: driver ? (driverFullName(driver) ?? driverLabel(driver)) : "—" },
         { icon: Gauge, label: t("Distance"), value: formatTripDistance(trip) },
-        { icon: Clock, label: "Durée", value: trip.durationMinutes != null ? `${trip.durationMinutes} min` : "—" },
+        { icon: Clock, label: t("Durée"), value: trip.durationMinutes != null ? `${trip.durationMinutes} min` : "—" },
         { icon: Flag, label: t("Statut"), value: tripStatusLabel(trip.status) },
       ]
     : [];
@@ -81,12 +81,12 @@ export function TripDetail({ id }: { id: string }) {
             </div>
 
             <Card>
-              <CardHeader><CardTitle>Informations</CardTitle></CardHeader>
+              <CardHeader><CardTitle>{t("Informations")}</CardTitle></CardHeader>
               <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
-                <div><span className="text-muted-foreground">Départ</span><p>{formatTripDateTime(trip.startDate, trip.startTime)}</p></div>
-                <div><span className="text-muted-foreground">Fin</span><p>{trip.endDate ? formatTripDateTime(trip.endDate, trip.endTime) : "—"}</p></div>
-                <div><span className="text-muted-foreground">Véhicule</span><p>{plate ?? "—"}</p></div>
-                <div><span className="text-muted-foreground">ID trajet</span><p className="font-mono text-xs">{trip.id}</p></div>
+                <div><span className="text-muted-foreground">{t("Départ")}</span><p>{formatTripDateTime(trip.startDate, trip.startTime)}</p></div>
+                <div><span className="text-muted-foreground">{t("Fin")}</span><p>{trip.endDate ? formatTripDateTime(trip.endDate, trip.endTime) : "—"}</p></div>
+                <div><span className="text-muted-foreground">{t("Véhicule")}</span><p>{plate ?? "—"}</p></div>
+                <div><span className="text-muted-foreground">{t("ID trajet")}</span><p className="font-mono text-xs">{trip.id}</p></div>
               </CardContent>
             </Card>
           </>

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Bell, Menu, HelpCircle, Home, ChevronRight, Languages } from "lucide-react";
 import { getRoleFromPath, getPageTitle, getNotificationsHref } from "@/lib/navigation";
@@ -12,6 +11,10 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { SyncStatusBadge } from "@/components/offline/SyncStatusBadge";
 import { StaleDataIndicator } from "@/components/offline/StaleDataIndicator";
 import { cn } from "@/lib/utils";
+import { useApiQuery } from "@/hooks/use-api-query";
+import { usePlanFeatures } from "@/hooks/use-plan-features";
+import { countUnreadAlerts } from "@/lib/api/manager";
+import { SecureImage } from "@/components/ui/secure-image";
 
 type DashboardHeaderProps = {
   onMenuClick?: () => void;
@@ -37,6 +40,14 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
   const profileHref = profileHrefByRole[role] ?? "/dashboard";
   const notificationsHref = getNotificationsHref(pathname ?? "");
   const showNotifications = role === "FLEET_MANAGER" || role === "FLEET_DRIVER";
+  const isManager = role === "FLEET_MANAGER";
+  // Compteurs réels (auparavant figés à « 4 » et « 4/10 ») ; endpoints réservés au manager.
+  const { limits } = usePlanFeatures();
+  const { data: unread } = useApiQuery(
+    () => (isManager ? countUnreadAlerts() : Promise.resolve(null)),
+    [isManager]
+  );
+  const unreadCount = unread?.count ?? 0;
 
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border/60 bg-fleet-cream/90 px-5 backdrop-blur lg:px-8">
@@ -44,7 +55,7 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         type="button"
         className="rounded-xl p-2 hover:bg-muted lg:hidden"
         onClick={onMenuClick}
-        aria-label="Menu"
+        aria-label={t("Menu")}
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -64,9 +75,11 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
         <StaleDataIndicator className="hidden md:inline-flex" />
         <SyncStatusBadge className="hidden sm:inline-flex" />
 
-        <span className="hidden items-center rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary sm:inline-flex">
-          {t("4/10 objets utilisés")}
-        </span>
+        {isManager && limits && (
+          <span className="hidden items-center rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary sm:inline-flex">
+            {limits.currentVehicles}/{limits.maxVehicles} {t("véhicules utilisés")}
+          </span>
+        )}
 
         <Tooltip label={t("Centre d'aide")} side="bottom">
           <Link
@@ -86,9 +99,11 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
               aria-label={t("Notifications")}
             >
               <Bell className="h-5 w-5" />
-              <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold text-white">
-                4
-              </span>
+              {unreadCount > 0 && (
+                <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-0.5 text-[10px] font-bold text-white">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              )}
             </Link>
           </Tooltip>
         )}
@@ -101,7 +116,7 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
             type="button"
             onClick={toggle}
             className="flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Langue"
+            aria-label={t("Langue")}
           >
             <Languages className="h-4 w-4" />
             <span className="text-xs font-medium">
@@ -120,12 +135,11 @@ export function DashboardHeader({ onMenuClick }: DashboardHeaderProps) {
             aria-label={t("Mon profil")}
           >
             {user?.photoUrl ? (
-              <Image
+              <SecureImage
                 src={user.photoUrl}
                 alt={t("Photo de profil")}
                 width={36}
                 height={36}
-                unoptimized
                 className="h-full w-full object-cover"
               />
             ) : (

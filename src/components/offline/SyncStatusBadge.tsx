@@ -6,12 +6,14 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { getOfflineDb, isOfflineDbAvailable } from "@/lib/offline/db";
 import { useOfflineOptional } from "@/lib/offline/network/OfflineProvider";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 type SyncStatusBadgeProps = {
   className?: string;
 };
 
 export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
+  const { t } = useLang();
   const offline = useOfflineOptional();
 
   const conflictCount = useLiveQuery(async () => {
@@ -48,7 +50,7 @@ export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
         )}
       >
         <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-        Sync…
+        {t("Sync…")}
       </span>
     );
   }
@@ -62,7 +64,7 @@ export function SyncStatusBadge({ className }: SyncStatusBadgeProps) {
         )}
       >
         <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-        Préparation offline…
+        {t("Préparation offline…")}
       </span>
     );
   }

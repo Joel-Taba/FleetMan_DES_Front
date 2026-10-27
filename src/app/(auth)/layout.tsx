@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { Logo } from "@/components/fleetman/Logo";
+import { Copyright } from "@/components/fleetman/Copyright";
 
 export default function AuthLayout({
   children,
@@ -26,7 +27,7 @@ export default function AuthLayout({
         </div>
 
         <p className="mt-6 text-center text-xs text-white/70">
-          © 2026 FleetMan. Tous droits réservés.
+          <Copyright />
         </p>
       </div>
     </div>

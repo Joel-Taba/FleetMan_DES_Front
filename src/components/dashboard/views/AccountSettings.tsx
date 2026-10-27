@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import { Camera, LogOut } from "lucide-react";
 import { useAuth } from "@/context/AuthProvider";
 import { useLang } from "@/lib/i18n";
@@ -22,6 +21,7 @@ import {
 import { ApiError } from "@/lib/api/mock-wrapper";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { parsePhoneValue, validatePhone } from "@/lib/phone";
+import { SecureImage } from "@/components/ui/secure-image";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
@@ -216,12 +216,11 @@ export function AccountSettings() {
         <CardContent className="flex flex-col items-center pt-6">
           <div className="relative">
             {displayPhoto ? (
-              <Image
+              <SecureImage
                 src={displayPhoto}
                 alt={t("Photo de profil")}
                 width={96}
                 height={96}
-                unoptimized
                 className={cn(
                   "h-24 w-24 rounded-full object-cover ring-2",
                   pendingPhotoUrl ? "ring-warning/60" : "ring-primary/20"
@@ -285,7 +284,7 @@ export function AccountSettings() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="prenom.nom@entreprise.com"
+              placeholder={t("prenom.nom@entreprise.com")}
               className={cn(errors.email && "border-destructive")}
             />
             {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}

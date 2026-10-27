@@ -254,7 +254,7 @@ export function SubscriptionPlansPage() {
                       : t("Gratuit")}
                   </span>
                   {plan.monthlyPrice > 0 && (
-                    <span className="ml-1 text-sm text-muted-foreground">XAF/mois</span>
+                    <span className="ml-1 text-sm text-muted-foreground">{t("XAF/mois")}</span>
                   )}
                   {plan.annualPrice && (
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -336,7 +336,7 @@ export function SubscriptionPlansPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1.5">
                 <Label>{t("Nom du plan *")}</Label>
-                <Input required placeholder="Ex: Starter, Pro, Enterprise" value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
+                <Input required placeholder={t("Ex: Starter, Pro, Enterprise")} value={form.name} onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>{t("Description")}</Label>

@@ -1,6 +1,9 @@
+"use client";
+
 import Link from "next/link";
 import { Logo } from "./Logo";
 import { Linkedin, Twitter, Facebook, Mail, Phone, MapPin } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 const columns = [
   {
@@ -28,6 +31,7 @@ const columns = [
 ];
 
 export function Footer() {
+  const { t } = useLang();
   return (
     <footer id="contact" className="bg-fleet-dark text-white">
       <div className="mx-auto max-w-7xl px-4 py-16 lg:px-8">
@@ -37,7 +41,7 @@ export function Footer() {
             <ul className="mt-6 space-y-3 text-sm text-white/70">
               <li className="flex items-center gap-2">
                 <MapPin className="h-4 w-4 shrink-0" />
-                Yaoundé, Cameroun
+                {t("Yaoundé, Cameroun")}
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-4 w-4 shrink-0" />
@@ -54,7 +58,7 @@ export function Footer() {
                   key={i}
                   href="#"
                   className="rounded-full bg-white/10 p-2 transition-colors hover:bg-white/20"
-                  aria-label="Réseau social"
+                  aria-label={t("Réseau social")}
                 >
                   <Icon className="h-4 w-4" />
                 </a>
@@ -64,7 +68,7 @@ export function Footer() {
 
           {columns.map((col) => (
             <div key={col.title}>
-              <h3 className="font-display font-semibold">{col.title}</h3>
+              <h3 className="font-display font-semibold">{t(col.title)}</h3>
               <ul className="mt-4 space-y-2">
                 {col.links.map((link) =>
                   link.href.startsWith("/") ? (
@@ -73,7 +77,7 @@ export function Footer() {
                         href={link.href}
                         className="text-sm text-white/70 transition-colors hover:text-white"
                       >
-                        {link.label}
+                        {t(link.label)}
                       </Link>
                     </li>
                   ) : (
@@ -82,7 +86,7 @@ export function Footer() {
                         href={link.href}
                         className="text-sm text-white/70 transition-colors hover:text-white"
                       >
-                        {link.label}
+                        {t(link.label)}
                       </a>
                     </li>
                   )
@@ -93,7 +97,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 border-t border-white/10 pt-8 text-center text-sm text-white/60">
-          <p>© 2026 FleetMan. Tous droits réservés.</p>
+          <p>{t("© 2026 FleetMan. Tous droits réservés.")}</p>
           <p className="mt-2">
             <Link href="/login" className="hover:text-white">
               Connexion

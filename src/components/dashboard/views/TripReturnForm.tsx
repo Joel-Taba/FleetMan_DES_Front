@@ -17,6 +17,8 @@ import {
   registerTripReturnOfflineAware,
 } from "@/lib/offline/mutations/trip-mutations";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useManagerFuelRecharges, useManagerVehicles } from "@/lib/offline/hooks/useManagerResources";
+import { computeFuelConsumed, refueledDuringTrip } from "@/lib/trips/fuel";
 import type { ApiTrip } from "@/lib/api/types/manager";
 import { tripStatusBadgeVariant, tripStatusLabel } from "@/lib/api/mappers/manager";
 import { LocationPicker, type PlaceResult } from "../LocationPicker";
@@ -49,6 +51,12 @@ export function TripReturnForm() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  const { data: vehicles } = useManagerVehicles();
+  const tankCapacity = (vehicles ?? []).find((v) => v.id === trip?.vehicleId)?.tankCapacity ?? null;
+  const { data: recharges } = useManagerFuelRecharges();
+  // Pleins faits en route : ils s'ajoutent au carburant de départ (sinon consommation négative).
+  const refueled = trip ? refueledDuringTrip(recharges ?? [], trip) : 0;
+
   const codeSuggestions = useMemo(() => {
     const query = code.trim().toUpperCase();
     if (!query || query.length < TRIP_CODE_PREFIX.length) return [];
@@ -74,7 +82,7 @@ export function TripReturnForm() {
   const searchTrip = useCallback(async (tripCode?: string) => {
     const query = (tripCode ?? code).trim();
     if (!query || query.length < TRIP_CODE_PREFIX.length + 1) {
-      setSearchError("Complétez le code du trajet (ex. TRJ-2026-0001).");
+      setSearchError(t("Complétez le code du trajet (ex. TRJ-2026-0001)."));
       return;
     }
     setSearching(true);
@@ -85,6 +93,9 @@ export function TripReturnForm() {
       const found = await fetchTripByCodeOfflineAware(query.toUpperCase());
       if (found.status === "COMPLETED" || found.status === "CANCELLED") {
         setSearchError(`Ce trajet est déjà ${tripStatusLabel(found.status).toLowerCase()}.`);
+      } else if (found.status === "SCHEDULED") {
+        // Même règle que le backend : le retour suit un départ enregistré.
+        setSearchError(t("Le départ de ce trajet n'a pas été enregistré : lancez-le avant d'enregistrer son retour."));
       } else {
         setTrip(found);
         setCode(found.tripCode ?? query.toUpperCase());
@@ -97,11 +108,11 @@ export function TripReturnForm() {
         }
       }
     } catch {
-      setSearchError("Aucun trajet trouvé avec ce code. Vérifiez et réessayez.");
+      setSearchError(t("Aucun trajet trouvé avec ce code. Vérifiez et réessayez."));
     } finally {
       setSearching(false);
     }
-  }, [code]);
+  }, [code, t]);
 
   useEffect(() => {
     if (!presetCode || autoSearchDone.current) return;
@@ -134,14 +145,13 @@ export function TripReturnForm() {
     if (trip?.departureFuelIndex == null || !returnFuel) return null;
     const parsed = parseDecimalInput(returnFuel);
     if (parsed == null) return null;
-    const f = trip.departureFuelIndex - parsed;
-    return f > 0 ? f.toFixed(1).replace(".", ",") : null;
+    return computeFuelConsumed(trip.departureFuelIndex, refueled, parsed);
   };
 
   const submit = async () => {
     if (!trip) return;
     if (returnKm.trim()) {
-      const kmErr = validateDecimalInput(returnKm, { min: 0, label: "Index kilométrique retour" });
+      const kmErr = validateDecimalInput(returnKm, { min: 0, label: t("Index kilométrique retour") });
       if (kmErr) {
         setSaveError(kmErr);
         return;
@@ -149,15 +159,24 @@ export function TripReturnForm() {
       if (trip.departureKmIndex != null) {
         const parsed = parseDecimalInput(returnKm);
         if (parsed != null && parsed < trip.departureKmIndex) {
-          setSaveError("L'index kilométrique de retour doit être supérieur ou égal au départ.");
+          setSaveError(t("L'index kilométrique de retour doit être supérieur ou égal au départ."));
           return;
         }
       }
     }
     if (returnFuel.trim()) {
-      const fuelErr = validateDecimalInput(returnFuel, { min: 0, label: "Index carburant retour" });
+      const fuelErr = validateDecimalInput(returnFuel, {
+        min: 0,
+        max: tankCapacity ?? undefined,
+        label: t("Index carburant retour (L)"),
+      });
       if (fuelErr) {
         setSaveError(fuelErr);
+        return;
+      }
+      const fuel = previewFuel();
+      if (fuel?.error) {
+        setSaveError(fuel.error);
         return;
       }
     }
@@ -176,7 +195,7 @@ export function TripReturnForm() {
       });
       router.push("/dashboard/manager/trips");
     } catch (e: unknown) {
-      setSaveError(e instanceof Error ? e.message : "Erreur lors de l'enregistrement du retour");
+      setSaveError(e instanceof Error ? e.message : t("Erreur lors de l'enregistrement du retour"));
       setSaving(false);
     }
   };
@@ -191,8 +210,8 @@ export function TripReturnForm() {
           <ArrowLeft className="h-4 w-4" /> Trajets
         </Link>
         <PageHeader
-          title="Enregistrer un retour"
-          description="Saisissez le code du trajet pour rappeler les informations de départ, puis enregistrez le retour."
+          title={t("Enregistrer un retour")}
+          description={t("Saisissez le code du trajet pour rappeler les informations de départ, puis enregistrez le retour.")}
         />
       </div>
 
@@ -245,7 +264,7 @@ export function TripReturnForm() {
               )}
             </div>
             <Button type="button" onClick={() => searchTrip()} disabled={searching || code.length <= TRIP_CODE_PREFIX.length}>
-              {searching ? "Recherche…" : <><Search className="h-4 w-4" /> Rechercher</>}
+              {searching ? "Recherche…" : <><Search className="h-4 w-4" /> {t("Rechercher")}</>}
             </Button>
           </div>
           {searchError && (
@@ -263,7 +282,7 @@ export function TripReturnForm() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <RotateCcw className="h-5 w-5" />
-                Trajet retrouvé
+                {t("Trajet retrouvé")}
                 <Badge variant={tripStatusBadgeVariant(trip.status)} className="ml-2">
                   {tripStatusLabel(trip.status)}
                 </Badge>
@@ -273,35 +292,35 @@ export function TripReturnForm() {
             <CardContent>
               <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
                 <div>
-                  <p className="text-xs text-muted-foreground">Départ</p>
+                  <p className="text-xs text-muted-foreground">{t("Départ")}</p>
                   <p className="font-medium">{trip.startDate} à {trip.startTime}</p>
                   {trip.departureLocation && <p className="text-muted-foreground">{trip.departureLocation}</p>}
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Index km départ</p>
+                  <p className="text-xs text-muted-foreground">{t("Index km départ")}</p>
                   <p className="font-medium font-mono">
                     {trip.departureKmIndex != null ? `${trip.departureKmIndex.toLocaleString()} km` : "—"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Index carburant départ</p>
+                  <p className="text-xs text-muted-foreground">{t("Index carburant départ")}</p>
                   <p className="font-medium font-mono">
                     {trip.departureFuelIndex != null ? `${trip.departureFuelIndex} L` : "—"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Mission</p>
+                  <p className="text-xs text-muted-foreground">{t("Mission")}</p>
                   <p className="font-medium">{trip.missionObject ?? "—"}</p>
                 </div>
                 {trip.missionCost != null && (
                   <div>
-                    <p className="text-xs text-muted-foreground">Coût mission</p>
+                    <p className="text-xs text-muted-foreground">{t("Coût mission")}</p>
                     <p className="font-medium">{trip.missionCost.toLocaleString()} FCFA</p>
                   </div>
                 )}
                 {trip.details && trip.details.length > 0 && (
                   <div>
-                    <p className="text-xs text-muted-foreground">Détails mission</p>
+                    <p className="text-xs text-muted-foreground">{t("Détails mission")}</p>
                     {trip.details.map((d) => (
                       <p key={d.id} className="font-medium">
                         {d.itemType === "PASSENGER" ? "👥" : "📦"} {d.description ?? d.itemType} × {d.departureQuantity ?? d.quantity}
@@ -326,11 +345,11 @@ export function TripReturnForm() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Date de retour *</Label>
+                  <Label>{t("Date de retour *")}</Label>
                   <Input type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Heure de retour *</Label>
+                  <Label>{t("Heure de retour *")}</Label>
                   <Input type="time" value={returnTime} onChange={(e) => setReturnTime(e.target.value)} required />
                 </div>
               </div>
@@ -339,13 +358,13 @@ export function TripReturnForm() {
                 label={t("Lieu de retour")}
                 value={returnPlace}
                 onChange={setReturnPlace}
-                placeholder="Dépôt, parking, adresse de retour…"
+                placeholder={t("Dépôt, parking, adresse de retour…")}
                 mapHeightClassName="h-[260px]"
               />
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Index kilométrique retour (km)</Label>
+                  <Label>{t("Index kilométrique retour (km)")}</Label>
                   <NumericInput
                     mode="decimal"
                     placeholder={trip.departureKmIndex != null ? `Départ: ${trip.departureKmIndex}` : "Ex: 87680"}
@@ -353,29 +372,41 @@ export function TripReturnForm() {
                     onValueChange={setReturnKm}
                   />
                   {previewDistance() && (
-                    <p className="text-xs text-success">→ Distance calculée : <strong>{previewDistance()} km</strong></p>
+                    <p className="text-xs text-success">{t("→ Distance calculée :")} <strong>{previewDistance()} km</strong></p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label>Index carburant retour (L)</Label>
+                  <Label>{t("Index carburant retour (L)")}</Label>
                   <NumericInput
                     mode="decimal"
                     placeholder={trip.departureFuelIndex != null ? `Départ: ${trip.departureFuelIndex} L` : "Ex: 38"}
                     value={returnFuel}
                     onValueChange={setReturnFuel}
                   />
-                  {previewFuel() && (
-                    <p className="text-xs text-success">→ Consommation calculée : <strong>{previewFuel()} L</strong></p>
+                  {refueled > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Pleins enregistrés pendant le trajet : {refueled.toFixed(1).replace(".", ",")} L
+                    </p>
                   )}
+                  {(() => {
+                    const fuel = previewFuel();
+                    if (fuel?.error) return <p className="text-xs text-destructive">{fuel.error}</p>;
+                    if (fuel?.consumed == null) return null;
+                    return (
+                      <p className="text-xs text-success">
+                        → Consommation calculée : <strong>{fuel.consumed.toFixed(1).replace(".", ",")} L</strong>
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button type="button" variant="secondary" asChild>
-                  <Link href="/dashboard/manager/trips">Annuler</Link>
+                  <Link href="/dashboard/manager/trips">{t("Annuler")}</Link>
                 </Button>
                 <Button type="button" onClick={submit} disabled={saving || !returnDate || !returnTime}>
-                  {saving ? "Enregistrement…" : <><Check className="h-4 w-4" /> Enregistrer le retour</>}
+                  {saving ? "Enregistrement…" : <><Check className="h-4 w-4" /> {t("Enregistrer le retour")}</>}
                 </Button>
               </div>
             </CardContent>

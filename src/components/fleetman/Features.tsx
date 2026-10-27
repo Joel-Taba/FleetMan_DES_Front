@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useReveal } from "@/hooks/use-reveal";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 const features = [
   {
@@ -58,6 +59,7 @@ const features = [
 ];
 
 export function Features() {
+  const { t } = useLang();
   const { ref, isVisible } = useReveal<HTMLElement>();
 
   return (
@@ -74,11 +76,10 @@ export function Features() {
           )}
         >
           <h2 className="font-display text-3xl font-bold text-white sm:text-4xl">
-            Tout ce dont vous avez besoin pour maîtriser votre flotte
+            {t("Tout ce dont vous avez besoin pour maîtriser votre flotte")}
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground text-white/70">
-            Des modules opérationnels déjà implémentés, prêts pour vos équipes
-            terrain et vos gestionnaires.
+            {t("Des modules opérationnels déjà implémentés, prêts pour vos équipes terrain et vos gestionnaires.")}
           </p>
         </div>
 
@@ -94,9 +95,9 @@ export function Features() {
             >
               <feature.icon className={cn("mb-4 h-10 w-10", feature.color)} />
               <h3 className="font-display text-lg font-semibold text-white">
-                {feature.title}
+                {t(feature.title)}
               </h3>
-              <p className="mt-2 text-sm text-white/70">{feature.description}</p>
+              <p className="mt-2 text-sm text-white/70">{t(feature.description)}</p>
               <span className="mt-4 inline-block rounded-full bg-success/20 px-3 py-1 text-xs font-medium text-success">
                 Implémenté
               </span>

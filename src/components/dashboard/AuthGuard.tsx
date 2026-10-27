@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthProvider";
 import { getRoleFromPath, isSharedDashboardPath } from "@/lib/navigation";
 import type { UserRole } from "@/lib/types";
 import { getDashboardPathForRole, getPrimaryRole } from "@/lib/auth/session";
+import { useLang } from "@/lib/i18n";
 
 function userCanAccess(pathname: string, roles: UserRole[]): boolean {
   if (isSharedDashboardPath(pathname)) return true;
@@ -15,6 +16,7 @@ function userCanAccess(pathname: string, roles: UserRole[]): boolean {
 
 /** Protège les routes dashboard : connexion obligatoire + rôle cohérent avec l'URL. */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
+  const { t } = useLang();
   const { user, isLoading, isAuthenticated } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
@@ -43,7 +45,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   if (isLoading || !canAccess) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted-foreground">
-        Chargement…
+        {t("Chargement…")}
       </div>
     );
   }

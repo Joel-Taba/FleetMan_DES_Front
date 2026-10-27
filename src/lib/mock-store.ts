@@ -28,6 +28,14 @@ import type {
   ManagerSubscriptionResponse,
 } from "@/lib/api/types/manager";
 import type { GeofenceZone } from "@/lib/api/manager";
+import {
+  ACTIVE_ASSIGNMENT_STATUSES,
+  IN_PROGRESS_TRIP_STATUSES,
+  OPEN_TRIP_STATUSES,
+  findAssignmentConflict,
+  findTripConflict,
+  tripSlot,
+} from "@/lib/scheduling/slots";
 import { FEATURE_LABELS, PLAN_FEATURE_KEYS, type PlanFeatureKey } from "./plan-features";
 
 export const MOCK_STORAGE_KEY = "fleetman_mock_db";
@@ -408,7 +416,7 @@ export function createDefaultMockDatabase(): MockDatabase {
   ];
 
   const schedules: ScheduleResponse[] = [
-    { id: "s1", fleetId: "f1", managerId: DEMO_MANAGER_ID, title: "Planning semaine 10-16 Juin", periodType: "WEEKLY", startDate: "2026-06-10", endDate: "2026-06-16", status: "ACTIVE", notes: null, createdAt: isoDaysAgo(5) },
+    { id: "s1", fleetId: "f1", managerId: DEMO_MANAGER_ID, title: "Planning semaine 10-16 Juin", periodType: "WEEKLY", startDate: "2026-06-10", endDate: "2026-06-16", status: "PUBLISHED", notes: null, createdAt: isoDaysAgo(5) },
     { id: "s2", fleetId: "f2", managerId: DEMO_MANAGER_ID, title: "Planning Mai S2", periodType: "WEEKLY", startDate: "2026-05-17", endDate: "2026-05-31", status: "PUBLISHED", notes: null, createdAt: isoDaysAgo(20) },
     { id: "s3", fleetId: "f1", managerId: DEMO_MANAGER_ID, title: "Brouillon Juillet", periodType: "WEEKLY", startDate: "2026-07-01", endDate: "2026-07-07", status: "DRAFT", notes: "En préparation", createdAt: isoDaysAgo(2) },
   ];
@@ -417,9 +425,9 @@ export function createDefaultMockDatabase(): MockDatabase {
     { id: "a1", scheduleId: "s1", fleetId: "f1", vehicleId: "v1", driverId: "user-driver-001", missionId: null, startDatetime: isoDaysAgo(0, 8), endDatetime: isoDaysAgo(0, 12), status: "IN_PROGRESS", startLocation: "Yaoundé", endLocation: "Mbalmayo", estimatedKm: 130, actualKm: null, notes: null, createdAt: isoDaysAgo(3) },
     { id: "a2", scheduleId: "s1", fleetId: "f2", vehicleId: "v6", driverId: "d4", missionId: null, startDatetime: isoDaysAgo(0, 9), endDatetime: isoDaysAgo(0, 17), status: "IN_PROGRESS", startLocation: "Douala", endLocation: "Kribi", estimatedKm: 180, actualKm: null, notes: null, createdAt: isoDaysAgo(3) },
     { id: "a3", scheduleId: "s1", fleetId: "f1", vehicleId: "v5", driverId: "d3", missionId: null, startDatetime: isoDaysAgo(1, 8), endDatetime: isoDaysAgo(1, 12), status: "COMPLETED", startLocation: "Yaoundé", endLocation: "Obala", estimatedKm: 60, actualKm: 58, notes: null, createdAt: isoDaysAgo(4) },
-    { id: "a4", scheduleId: "s1", fleetId: "f1", vehicleId: "v1", driverId: "user-driver-001", missionId: null, startDatetime: isoDaysAgo(0, 8), endDatetime: isoDaysAgo(0, 12), status: "CONFLICT", startLocation: "Yaoundé", endLocation: "Edéa", estimatedKm: 200, actualKm: null, notes: "Chevauchement détecté", createdAt: isoDaysAgo(2) },
+    { id: "a4", scheduleId: "s1", fleetId: "f1", vehicleId: "v1", driverId: "user-driver-001", missionId: null, startDatetime: isoDaysAgo(-1, 13), endDatetime: isoDaysAgo(-1, 17), status: "PENDING", startLocation: "Yaoundé", endLocation: "Edéa", estimatedKm: 200, actualKm: null, notes: null, createdAt: isoDaysAgo(2) },
     { id: "a5", scheduleId: "s2", fleetId: "f3", vehicleId: "v8", driverId: "d5", missionId: null, startDatetime: isoDaysAgo(2, 14), endDatetime: isoDaysAgo(2, 18), status: "COMPLETED", startLocation: "Douala", endLocation: "Limbe", estimatedKm: 90, actualKm: 92, notes: null, createdAt: isoDaysAgo(10) },
-    { id: "a6", scheduleId: "s3", fleetId: "f2", vehicleId: "v7", driverId: "d8", missionId: null, startDatetime: isoDaysAgo(-2, 7), endDatetime: isoDaysAgo(-2, 15), status: "PLANNED", startLocation: "Douala", endLocation: "Garoua", estimatedKm: 900, actualKm: null, notes: null, createdAt: isoDaysAgo(1) },
+    { id: "a6", scheduleId: "s3", fleetId: "f2", vehicleId: "v7", driverId: "d8", missionId: null, startDatetime: isoDaysAgo(-2, 7), endDatetime: isoDaysAgo(-2, 15), status: "PENDING", startLocation: "Douala", endLocation: "Garoua", estimatedKm: 900, actualKm: null, notes: null, createdAt: isoDaysAgo(1) },
   ];
 
   const incidents: IncidentResponse[] = [
@@ -675,6 +683,7 @@ export function getMockDatabase(): MockDatabase {
   const existing = loadMockDatabase();
   if (existing) return migrateMockDatabase(existing);
   const db = createDefaultMockDatabase();
+  normalizeMockScheduling(db);
   syncDriverVehicleLinksFromTrips(db);
   saveMockDatabase(db);
   return db;
@@ -686,8 +695,130 @@ export function ensureMockDatabaseSeeded(): MockDatabase {
     return migrateMockDatabase(existing);
   }
   const db = createDefaultMockDatabase();
+  normalizeMockScheduling(db);
   saveMockDatabase(db);
   return db;
+}
+
+
+/**
+ * Aligne les données de démo sur les règles et statuts du backend : les jeux de démo
+ * contenaient des statuts inexistants (CONFLICT, PLANNED, ACTIVE, ON_LEAVE,
+ * OUT_OF_SERVICE…) et des engagements simultanés d'un même véhicule ou conducteur
+ * (affectation « a4 » dupliquant « a1 », plusieurs trajets en cours par véhicule…).
+ * Les éléments en conflit sont annulés ; le statut ON_TRIP suit les trajets en cours.
+ * @returns true si la base a été modifiée
+ */
+export function normalizeMockScheduling(db: MockDatabase): boolean {
+  let changed = false;
+  const set = <T extends { status: string }>(item: T, status: string) => {
+    if (item.status !== status) {
+      item.status = status;
+      changed = true;
+    }
+  };
+  const VEHICLE: Record<string, string> = { OUT_OF_SERVICE: "MAINTENANCE", IN_USE: "ON_TRIP", IN_MAINTENANCE: "MAINTENANCE" };
+  const DRIVER: Record<string, string> = { ON_LEAVE: "INACTIVE", OFF_DUTY: "INACTIVE", AVAILABLE: "ACTIVE", ON_TRIP: "ACTIVE" };
+  const ASSIGNMENT: Record<string, string> = { PLANNED: "PENDING", CONFLICT: "PENDING", ACTIVE: "IN_PROGRESS" };
+  const SCHEDULE: Record<string, string> = { ACTIVE: "PUBLISHED" };
+  const INCIDENT: Record<string, string> = { IN_PROGRESS: "UNDER_INVESTIGATION", OPEN: "REPORTED" };
+  db.vehicles.forEach((v) => VEHICLE[v.status] && set(v, VEHICLE[v.status]));
+  db.drivers.forEach((d) => DRIVER[d.status] && set(d, DRIVER[d.status]));
+  db.assignments.forEach((a) => ASSIGNMENT[a.status] && set(a, ASSIGNMENT[a.status]));
+  db.schedules.forEach((sc) => SCHEDULE[sc.status] && set(sc, SCHEDULE[sc.status]));
+  db.incidents.forEach((i) => INCIDENT[i.status] && set(i, INCIDENT[i.status]));
+
+  // Retour prévu des trajets ouverts : sans lui, le créneau reste ouvert indéfiniment.
+  const pad = (n: number) => String(n).padStart(2, "0");
+  db.trips.forEach((t) => {
+    if (OPEN_TRIP_STATUSES.has(t.status) && !t.scheduledReturnDatetime && t.startDate) {
+      const end = new Date(`${t.startDate}T${(t.startTime || "08:00:00").slice(0, 8)}`);
+      end.setHours(end.getHours() + 9);
+      t.scheduledReturnDatetime = `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}:00`;
+      changed = true;
+    }
+  });
+
+  // Trajets ouverts : on garde, dans l'ordre (en cours d'abord), ceux qui ne chevauchent
+  // aucun engagement déjà retenu et dont les ressources sont utilisables.
+  const vehicleById = new Map(db.vehicles.map((v) => [v.id, v]));
+  const driverById = new Map(db.drivers.map((d) => [d.userId, d]));
+  const kept: typeof db.trips = [];
+  const openTrips = db.trips
+    .filter((t) => OPEN_TRIP_STATUSES.has(t.status))
+    .sort((a, b) => Number(IN_PROGRESS_TRIP_STATUSES.has(b.status)) - Number(IN_PROGRESS_TRIP_STATUSES.has(a.status)));
+  for (const t of openTrips) {
+    const vehicle = vehicleById.get(t.vehicleId);
+    const driver = driverById.get(t.driverId);
+    const unusable = vehicle?.status === "MAINTENANCE" || driver?.status === "INACTIVE";
+    const conflict = findTripConflict(kept, [], { vehicleId: t.vehicleId, driverId: t.driverId, slot: tripSlot(t) });
+    if (unusable || conflict) {
+      set(t, "CANCELLED");
+    } else {
+      kept.push(t);
+    }
+  }
+  // Affectations actives : même règle, contre les affectations retenues et les trajets ouverts.
+  const keptAssignments: typeof db.assignments = [];
+  for (const a of db.assignments.filter((x) => ACTIVE_ASSIGNMENT_STATUSES.has(x.status))) {
+    const conflict = findAssignmentConflict(keptAssignments, kept, {
+      vehicleId: a.vehicleId,
+      driverId: a.driverId,
+      slot: { start: new Date(a.startDatetime).getTime(), end: new Date(a.endDatetime).getTime() },
+    });
+    if (conflict) {
+      set(a, "CANCELLED");
+    } else {
+      keptAssignments.push(a);
+    }
+  }
+  // ON_TRIP = un trajet réellement en cours, ni plus ni moins.
+  const onTrip = new Set(kept.filter((t) => IN_PROGRESS_TRIP_STATUSES.has(t.status)).map((t) => t.vehicleId));
+  db.vehicles.forEach((v) => {
+    if (onTrip.has(v.id)) set(v, "ON_TRIP");
+    else if (v.status === "ON_TRIP") set(v, "AVAILABLE");
+  });
+  if (normalizeMockLicenses(db)) changed = true;
+  return changed;
+}
+
+/**
+ * Le permis est contrôlé à chaque engagement (trajet, départ, affectation) : comme le
+ * profil demo du backend, chaque chauffeur démo reçoit un permis valide s'il n'en a pas.
+ * Les permis existants (ex. catégorie B seule) sont conservés pour illustrer les refus.
+ */
+export function normalizeMockLicenses(db: MockDatabase): boolean {
+  if (!Array.isArray(db.driverDocuments)) return false;
+  let changed = false;
+  const now = new Date().toISOString();
+  const expiry = new Date();
+  expiry.setFullYear(expiry.getFullYear() + 5);
+  for (const driver of db.drivers) {
+    const hasLicense = db.driverDocuments.some(
+      (doc) => doc.driverId === driver.userId && doc.docType === "DRIVING_LICENSE"
+    );
+    if (hasLicense) continue;
+    db.driverDocuments.push({
+      id: `dd-${driver.userId}-lic-demo`,
+      driverId: driver.userId,
+      docType: "DRIVING_LICENSE",
+      docNumber: `DEMO-${driver.userId.slice(0, 8)}`,
+      issuer: "MINTRANS",
+      issueDate: "2022-01-01",
+      expiryDate: expiry.toISOString().slice(0, 10),
+      fileUrl: SAMPLE_PDF,
+      fileMimeType: "application/pdf",
+      fileOriginalName: "permis-demo.pdf",
+      status: "VALID",
+      daysUntilExpiry: 1825,
+      notes: "Permis de démonstration",
+      licenseCategories: "B,C,D",
+      createdAt: now,
+      updatedAt: now,
+    });
+    changed = true;
+  }
+  return changed;
 }
 
 /** Complète une base mock persistée avec les champs ajoutés dans les versions récentes. */
@@ -850,6 +981,7 @@ function migrateMockDatabase(db: MockDatabase): MockDatabase {
   }
 
   if (backfillTripRequiredFields(db)) changed = true;
+  if (normalizeMockScheduling(db)) changed = true;
 
   syncDriverVehicleLinksFromTrips(db);
   saveMockDatabase(db);
@@ -955,7 +1087,6 @@ function backfillTripRequiredFields(db: MockDatabase): boolean {
   return changed;
 }
 
-const OPEN_TRIP_STATUSES = new Set(["DEPARTED", "RETURNING"]);
 
 /** Lie chauffeur ↔ véhicule uniquement pour un trajet actif. */
 export function linkDriverToVehicleForTrip(
@@ -997,7 +1128,7 @@ export function syncDriverVehicleLinksFromTrips(db: MockDatabase) {
   for (const d of db.drivers) d.assignedVehicleId = null;
   for (const v of db.vehicles) v.currentDriverId = null;
   for (const trip of db.trips) {
-    if (!OPEN_TRIP_STATUSES.has(trip.status)) continue;
+    if (!IN_PROGRESS_TRIP_STATUSES.has(trip.status)) continue;
     linkDriverToVehicleForTrip(db, trip.driverId, trip.vehicleId);
     const vehicle = db.vehicles.find((x) => x.id === trip.vehicleId);
     if (vehicle) vehicle.status = "ON_TRIP";
@@ -1006,6 +1137,7 @@ export function syncDriverVehicleLinksFromTrips(db: MockDatabase) {
 
 export function resetMockDatabase(): MockDatabase {
   const db = createDefaultMockDatabase();
+  normalizeMockScheduling(db);
   saveMockDatabase(db);
   return db;
 }
@@ -1385,7 +1517,7 @@ export function seedExtendedMockDatabase(config: SeedConfig = {}): MockDatabase 
     vehicleCount: Math.ceil(vehicles / fleets),
   }));
 
-  const statuses = ["AVAILABLE", "ON_TRIP", "MAINTENANCE", "OUT_OF_SERVICE"];
+  const statuses = ["AVAILABLE", "AVAILABLE", "AVAILABLE", "MAINTENANCE"];
   const brands = ["Toyota", "Mercedes", "Iveco", "Ford", "Hyundai"];
   base.vehicles = Array.from({ length: vehicles }, (_, i) => {
     const fleetId = fleetIds[i % fleetIds.length];
@@ -1413,7 +1545,7 @@ export function seedExtendedMockDatabase(config: SeedConfig = {}): MockDatabase 
       fn,
       ln,
       `CM-B-${100000 + i}`,
-      i % 7 === 0 ? "ON_LEAVE" : "ACTIVE",
+      i % 7 === 0 ? "INACTIVE" : "ACTIVE",
       i % 3 === 0 ? `v${i + 1}` : null
     );
   });
@@ -1464,7 +1596,7 @@ export function seedExtendedMockDatabase(config: SeedConfig = {}): MockDatabase 
     missionId: null,
     startDatetime: isoDaysAgo(i % 10, 8 + (i % 8)),
     endDatetime: isoDaysAgo(i % 10, 12 + (i % 6)),
-    status: i % 5 === 0 ? "CONFLICT" : i % 3 === 0 ? "COMPLETED" : "PLANNED",
+    status: i % 3 === 0 ? "COMPLETED" : "PENDING",
     startLocation: "Yaoundé",
     endLocation: "Douala",
     estimatedKm: 100 + i * 5,
@@ -1478,7 +1610,7 @@ export function seedExtendedMockDatabase(config: SeedConfig = {}): MockDatabase 
     type: ["MECHANICAL", "ACCIDENT", "TIRE", "ELECTRICAL"][i % 4],
     description: `Incident test #${i + 1}`,
     severity: ["LOW", "MEDIUM", "HIGH"][i % 3],
-    status: i % 2 === 0 ? "IN_PROGRESS" : "RESOLVED",
+    status: i % 2 === 0 ? "UNDER_INVESTIGATION" : "RESOLVED",
     incidentDateTime: isoDaysAgo(i % 20),
     resolvedAt: i % 2 === 0 ? null : isoDaysAgo(i % 19),
     cost: 10000 + i * 5000,
@@ -1515,6 +1647,7 @@ export function seedExtendedMockDatabase(config: SeedConfig = {}): MockDatabase 
     driverFullName: `Conducteur d${(i % drivers) + 1}`,
   }));
 
+  normalizeMockScheduling(base);
   saveMockDatabase(base);
   return base;
 }

@@ -113,7 +113,7 @@ export function OperationsFuel() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!form.vehicleId) return;
-    const qtyErr = validateDecimalInput(form.quantity, { required: true, min: 0.1, label: "Quantité" });
+    const qtyErr = validateDecimalInput(form.quantity, { required: true, min: 0.1, label: t("Quantité") });
     const priceErr = validateDecimalInput(form.price, { required: true, min: 0, label: "Prix" });
     const err = qtyErr ?? priceErr;
     if (err) {
@@ -142,20 +142,20 @@ export function OperationsFuel() {
       <PageHeader title={t("Carburant")} description={t("Suivi des pleins et consommation.")}>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4" /> Déclarer un plein</Button>
+            <Button><Plus className="h-4 w-4" /> {t("Déclarer un plein")}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
-            <DialogHeader><DialogTitle>Enregistrer un plein</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("Enregistrer un plein")}</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label>Véhicule *</Label>
+                <Label>{t("Véhicule *")}</Label>
                 <select
                   required
                   className="h-10 w-full rounded-lg border px-3 text-sm"
                   value={form.vehicleId}
                   onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
                 >
-                  <option value="">Sélectionner un véhicule</option>
+                  <option value="">{t("Sélectionner un véhicule")}</option>
                   {(vehicles ?? []).map((v) => (
                     <option key={v.id} value={v.id}>{v.licensePlate} — {v.brand} {v.model}</option>
                   ))}
@@ -163,11 +163,11 @@ export function OperationsFuel() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Quantité (L) *</Label>
+                  <Label>{t("Quantité (L) *")}</Label>
                   <NumericInput required mode="decimal" placeholder="50" value={form.quantity} onValueChange={(v) => setForm((f) => ({ ...f, quantity: v }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Prix (FCFA) *</Label>
+                  <Label>{t("Prix (FCFA) *")}</Label>
                   <NumericInput required mode="decimal" placeholder="37500" value={form.price} onValueChange={(v) => setForm((f) => ({ ...f, price: v }))} />
                 </div>
               </div>
@@ -179,13 +179,13 @@ export function OperationsFuel() {
                   value={form.stationName}
                   onChange={(e) => setForm((f) => ({ ...f, stationName: e.target.value }))}
                 >
-                  <option value="">Non renseignée</option>
+                  <option value="">{t("Non renseignée")}</option>
                   {STATIONS.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? "Envoi…" : "Enregistrer"}</Button>
+                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? t("Envoi…") : t("Enregistrer")}</Button>
               </div>
             </form>
           </DialogContent>
@@ -193,9 +193,9 @@ export function OperationsFuel() {
       </PageHeader>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalVolume.toFixed(1)} L</p><p className="text-xs text-muted-foreground">Volume total</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalSpend.toLocaleString()} XAF</p><p className="text-xs text-muted-foreground">Dépense totale</p></CardContent></Card>
-        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{avgCost} XAF/L</p><p className="text-xs text-muted-foreground">Prix moyen</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalVolume.toFixed(1)} L</p><p className="text-xs text-muted-foreground">{t("Volume total")}</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{totalSpend.toLocaleString()} XAF</p><p className="text-xs text-muted-foreground">{t("Dépense totale")}</p></CardContent></Card>
+        <Card><CardContent className="p-4 text-center"><p className="text-2xl font-bold">{avgCost} XAF/L</p><p className="text-xs text-muted-foreground">{t("Prix moyen")}</p></CardContent></Card>
       </div>
 
       <div className="mb-6 grid gap-6 lg:grid-cols-2">
@@ -287,7 +287,7 @@ export function OperationsFuel() {
         </Card>
       </div>
 
-      <DataGate loading={loading} error={error} empty={(records ?? []).length === 0} emptyMessage="Aucune recharge carburant enregistrée.">
+      <DataGate loading={loading} error={error} empty={(records ?? []).length === 0} emptyMessage={t("Aucune recharge carburant enregistrée.")}>
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left [&_th]:px-4 [&_th]:py-3 [&_th]:font-medium">
@@ -296,7 +296,7 @@ export function OperationsFuel() {
                 <th>{t("Véhicule")}</th>
                 <th className="text-right">{t("Volume")}</th>
                 <th className="text-right">{t("Total")}</th>
-                <th className="text-right">Prix/L</th>
+                <th className="text-right">{t("Prix/L")}</th>
                 <th>{t("Station")}</th>
                 <th>{t("Chauffeur")}</th>
               </tr>

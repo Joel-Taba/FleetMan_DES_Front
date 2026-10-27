@@ -6,6 +6,7 @@ import { Menu, X, ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Logo } from "./Logo";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 const navLinks = [
   { href: "#accueil", label: "Accueil" },
@@ -16,6 +17,7 @@ const navLinks = [
 ];
 
 export function Header() {
+  const { t } = useLang();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -31,7 +33,7 @@ export function Header() {
                 href={link.href}
                 className="rounded-full px-4 py-2 text-sm font-medium text-foreground/75 transition-colors hover:bg-primary hover:text-white"
               >
-                {link.label}
+                {t(link.label)}
               </a>
             ))}
           </nav>
@@ -55,7 +57,7 @@ export function Header() {
             type="button"
             className="ml-auto rounded-full p-2 md:hidden"
             onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label={mobileOpen ? "Fermer le menu" : "Ouvrir le menu"}
+            aria-label={mobileOpen ? t("Fermer le menu") : t("Ouvrir le menu")}
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -76,7 +78,7 @@ export function Header() {
               className="text-xl font-medium text-white"
               onClick={() => setMobileOpen(false)}
             >
-              {link.label}
+              {t(link.label)}
             </a>
           ))}
           <Button variant="authWhite" size="lg" asChild>

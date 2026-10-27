@@ -42,8 +42,8 @@ export function GeofencingPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Géofencing"
-        description="Zones géographiques et alertes d'entrée/sortie."
+        title={t("Géofencing")}
+        description={t("Zones géographiques et alertes d'entrée/sortie.")}
       />
 
       <DataGate loading={loading} error={error}>
@@ -67,7 +67,7 @@ export function GeofencingPage() {
                 </TabsList>
                 <TabsContent value="zones" className="mt-0 space-y-3">
                   {(zonesRaw ?? []).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Aucune zone configurée.</p>
+                    <p className="text-sm text-muted-foreground">{t("Aucune zone configurée.")}</p>
                   ) : (zonesRaw ?? []).map((z, i) => (
                     <div key={String(z.id ?? i)} className="rounded-lg border p-3">
                       <div className="flex items-center justify-between">
@@ -94,10 +94,10 @@ export function GeofencingPage() {
                 </TabsContent>
                 <TabsContent value="alerts" className="mt-0">
                   <p className="text-sm text-muted-foreground">
-                    Les alertes géofence sont disponibles dans le fil de notifications.
+                    {t("Les alertes géofence sont disponibles dans le fil de notifications.")}
                   </p>
                   <Button className="mt-3" variant="secondary" size="sm" asChild>
-                    <a href="/dashboard/manager/notifications">Voir les notifications</a>
+                    <a href="/dashboard/manager/notifications">{t("Voir les notifications")}</a>
                   </Button>
                 </TabsContent>
               </Tabs>
@@ -108,15 +108,15 @@ export function GeofencingPage() {
 
       <Dialog open={!!editZone} onOpenChange={(open) => !open && setEditZone(null)}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Modifier la zone</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("Modifier la zone")}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Nom de la zone</Label>
+              <Label>{t("Nom de la zone")}</Label>
               <Input value={zoneName} onChange={(e) => setZoneName(e.target.value)} />
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" onClick={() => setEditZone(null)}>Annuler</Button>
-              <Button onClick={() => { setEditZone(null); }}>Enregistrer</Button>
+              <Button variant="secondary" onClick={() => setEditZone(null)}>{t("Annuler")}</Button>
+              <Button onClick={() => { setEditZone(null); }}>{t("Enregistrer")}</Button>
             </div>
           </div>
         </DialogContent>

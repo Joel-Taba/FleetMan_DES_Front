@@ -68,7 +68,7 @@ export function DriversList() {
       setForm({ firstName: "", lastName: "", licenceNumber: "", fleetId: fleets?.[0]?.id ?? "", email: "", phone: "" });
       refetch();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Erreur lors de la création");
+      setFormError(err instanceof Error ? err.message : t("Erreur lors de la création"));
     } finally {
       setSubmitting(false);
     }
@@ -87,7 +87,7 @@ export function DriversList() {
 
   return (
     <div>
-      <PageHeader title="Conducteurs" description="Annuaire de vos chauffeurs et assignations.">
+      <PageHeader title={t("Conducteurs")} description={t("Annuaire de vos chauffeurs et assignations.")}>
         <div className="flex gap-2">
           <Tooltip label={t("Vue tableau")}><Button variant={view === "table" ? "default" : "secondary"} size="icon" onClick={() => setView("table")} aria-label={t("Vue tableau")}><List className="h-4 w-4" /></Button></Tooltip>
           <Tooltip label={t("Vue grille")}><Button variant={view === "grid" ? "default" : "secondary"} size="icon" onClick={() => setView("grid")} aria-label={t("Vue grille")}><LayoutGrid className="h-4 w-4" /></Button></Tooltip>
@@ -98,7 +98,7 @@ export function DriversList() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Nouveau conducteur</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{t("Nouveau conducteur")}</DialogTitle></DialogHeader>
               <form className="space-y-4" onSubmit={handleCreate}>
                 {formError && (
                   <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -107,20 +107,20 @@ export function DriversList() {
                 )}
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Prénom</Label>
+                    <Label>{t("Prénom")}</Label>
                     <Input value={form.firstName} onChange={(e) => setForm((f) => ({ ...f, firstName: e.target.value }))} required />
                   </div>
                   <div className="space-y-2">
-                    <Label>Nom</Label>
+                    <Label>{t("Nom")}</Label>
                     <Input value={form.lastName} onChange={(e) => setForm((f) => ({ ...f, lastName: e.target.value }))} required />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>N° permis</Label>
+                  <Label>{t("N° permis")}</Label>
                   <Input value={form.licenceNumber} onChange={(e) => setForm((f) => ({ ...f, licenceNumber: e.target.value }))} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Flotte</Label>
+                  <Label>{t("Flotte")}</Label>
                   <select
                     className="h-11 w-full rounded-lg border px-3 text-sm"
                     value={form.fleetId}
@@ -131,12 +131,12 @@ export function DriversList() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Email (optionnel)</Label>
+                  <Label>{t("Email (optionnel)")}</Label>
                   <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div className="flex justify-end gap-2">
-                  <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
-                  <Button type="submit" disabled={submitting}>{submitting ? "Création…" : "Créer"}</Button>
+                  <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>
+                  <Button type="submit" disabled={submitting}>{submitting ? t("Création…") : t("Créer")}</Button>
                 </div>
               </form>
             </DialogContent>

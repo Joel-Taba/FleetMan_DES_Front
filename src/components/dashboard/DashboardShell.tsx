@@ -14,8 +14,10 @@ import { getRoleFromPath } from "@/lib/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { getPrimaryRole } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
+  const { t } = useLang();
   const pathname = usePathname();
   const { user } = useAuth();
   const primaryRole = user ? getPrimaryRole(user.roles) : null;
@@ -50,7 +52,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             type="button"
             className="rounded-xl p-2 hover:bg-muted"
             onClick={() => setSidebarOpen(true)}
-            aria-label="Menu"
+            aria-label={t("Menu")}
           >
             <span className="text-xl">☰</span>
           </button>
@@ -70,7 +72,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <Link
               href="/dashboard/driver/notifications"
               className="relative rounded-xl p-2 hover:bg-muted"
-              aria-label="Notifications"
+              aria-label={t("Notifications")}
             >
               <span className="text-lg">🔔</span>
             </Link>
@@ -132,12 +134,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 }
 
 function DriverBottomNav() {
+  const { t } = useLang();
   const pathname = usePathname();
   const items = [
     { href: "/dashboard/driver", label: "Accueil", icon: "🏠" },
     { href: "/dashboard/driver/trips", label: "Trajets", icon: "🛣️" },
-    { href: "/dashboard/driver/vehicle", label: "Véhicule", icon: "🚗" },
-    { href: "/dashboard/driver/declarations", label: "Déclarer", icon: "📋" },
+    { href: "/dashboard/driver/vehicle", label: t("Véhicule"), icon: "🚗" },
+    { href: "/dashboard/driver/declarations", label: t("Déclarer"), icon: "📋" },
     { href: "/dashboard/driver/profile", label: "Profil", icon: "👤" },
   ];
 

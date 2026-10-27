@@ -10,6 +10,7 @@ import {
 } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { useLang } from "@/lib/i18n";
 
 type PhoneInputProps = {
   value: string;
@@ -28,6 +29,7 @@ export function PhoneInput({
   disabled,
   id,
 }: PhoneInputProps) {
+  const { t } = useLang();
   const { country, national } = useMemo(() => parsePhoneValue(value), [value]);
 
   function updateCountry(next: PhoneCountry) {
@@ -43,7 +45,7 @@ export function PhoneInput({
   return (
     <div className={cn("flex gap-2", className)}>
       <select
-        aria-label="Indicatif téléphonique"
+        aria-label={t("Indicatif téléphonique")}
         className="h-10 min-w-[7.5rem] rounded-md border border-input bg-background px-2 text-sm"
         value={country.code}
         disabled={disabled}

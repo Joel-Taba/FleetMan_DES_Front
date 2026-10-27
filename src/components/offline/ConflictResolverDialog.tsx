@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import type { ConflictRecord, MutationRecord } from "@/lib/offline/db";
 import { conflictHint } from "@/lib/offline/queue/conflict-store";
 import { ConflictDiffView } from "@/components/offline/ConflictDiffView";
+import { useLang } from "@/lib/i18n";
 
 type ConflictResolverDialogProps = {
   open: boolean;
@@ -33,6 +34,7 @@ export function ConflictResolverDialog({
   onRetry,
   busy = false,
 }: ConflictResolverDialogProps) {
+  const { t } = useLang();
   if (!conflict || !mutation) return null;
 
   const hint = conflictHint(conflict.errorCode, conflict.errorMessage);
@@ -43,10 +45,10 @@ export function ConflictResolverDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-destructive">
             <AlertTriangle className="h-5 w-5" />
-            Conflit de synchronisation
+            {t("Conflit de synchronisation")}
           </DialogTitle>
           <DialogDescription>
-            Le serveur a rejeté une action en attente. Choisissez comment continuer.
+            {t("Le serveur a rejeté une action en attente. Choisissez comment continuer.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -62,10 +64,10 @@ export function ConflictResolverDialog({
 
           <div className="rounded-lg bg-muted/40 p-3 font-mono text-xs">
             <p>
-              <span className="text-muted-foreground">Méthode :</span> {mutation.method}
+              <span className="text-muted-foreground">{t("Méthode :")}</span> {mutation.method}
             </p>
             <p className="mt-1 break-all">
-              <span className="text-muted-foreground">Endpoint :</span> {mutation.path}
+              <span className="text-muted-foreground">{t("Endpoint :")}</span> {mutation.path}
             </p>
           </div>
 

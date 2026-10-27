@@ -13,6 +13,7 @@ import {
 } from "@/lib/offline/hooks/useDriverResources";
 import { formatDateTime, tripStatusLabel } from "@/lib/api/mappers/manager";
 import type { ApiTrip } from "@/lib/api/types/manager";
+import { useLang } from "@/lib/i18n";
 
 function HistoryRow({ trip }: { trip: ApiTrip }) {
   const { data: vehicle } = useDriverVehicle(trip.vehicleId);
@@ -34,24 +35,25 @@ function HistoryRow({ trip }: { trip: ApiTrip }) {
 }
 
 export function DriverTrips() {
+  const { t } = useLang();
   const { data: activeTrip } = useDriverActiveTrip();
   const { data: assignments, loading, error } = useDriverAssignments(false);
   const { data: history, loading: historyLoading, error: historyError } = useDriverTripHistory();
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-xl font-bold">Mes trajets & affectations</h1>
+      <h1 className="font-display text-xl font-bold">{t("Mes trajets & affectations")}</h1>
 
       <Link href="/dashboard/driver/trips/active">
         <Card className={activeTrip ? "border-primary/30 bg-primary/5" : ""}>
           <CardContent className="p-4 text-center font-semibold text-primary">
-            {activeTrip ? "Voir la course active →" : "Aucune course active — ouvrir l'écran trajet"}
+            {activeTrip ? t("Voir la course active →") : t("Aucune course active — ouvrir l'écran trajet")}
           </CardContent>
         </Card>
       </Link>
 
       <section>
-        <h2 className="mb-3 font-semibold">Affectations</h2>
+        <h2 className="mb-3 font-semibold">{t("Affectations")}</h2>
         <DataGate loading={loading} error={error} empty={(assignments ?? []).length === 0}>
           <ul className="space-y-3">
             {(assignments ?? []).map((assignment) => (
@@ -62,7 +64,7 @@ export function DriverTrips() {
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">Historique</h2>
+        <h2 className="mb-3 font-semibold">{t("Historique")}</h2>
         <DataGate loading={historyLoading} error={historyError} empty={(history ?? []).length === 0}>
           <ul className="space-y-3">
             {(history ?? []).slice(0, 10).map((trip) => (

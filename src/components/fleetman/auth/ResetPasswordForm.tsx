@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, resetPasswordRequest } from "@/lib/api/mock-wrapper";
 import { isPasswordStrong } from "@/lib/password";
+import { useLang } from "@/lib/i18n";
 
 export function ResetPasswordForm() {
+  const { t } = useLang();
   const router = useRouter();
   const searchParams = useSearchParams();
   const token = useMemo(() => searchParams.get("token")?.trim() ?? "", [searchParams]);
@@ -27,7 +29,7 @@ export function ResetPasswordForm() {
     setError("");
 
     if (!token) {
-      setError("Lien de réinitialisation invalide ou expiré.");
+      setError(t("Lien de réinitialisation invalide ou expiré."));
       return;
     }
     if (!isPasswordStrong(password)) {
@@ -37,7 +39,7 @@ export function ResetPasswordForm() {
       return;
     }
     if (password !== confirm) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("Les mots de passe ne correspondent pas."));
       return;
     }
 
@@ -61,13 +63,13 @@ export function ResetPasswordForm() {
     return (
       <div className="w-full">
         <h1 className="font-display text-3xl font-bold text-foreground">
-          Lien invalide
+          {t("Lien invalide")}
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Ce lien de réinitialisation est manquant ou incorrect.
+          {t("Ce lien de réinitialisation est manquant ou incorrect.")}
         </p>
         <Button asChild className="mt-8 w-full">
-          <Link href="/forgot-password">Demander un nouveau lien</Link>
+          <Link href="/forgot-password">{t("Demander un nouveau lien")}</Link>
         </Button>
       </div>
     );
@@ -80,28 +82,28 @@ export function ResetPasswordForm() {
         className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" />
-        Retour à la connexion
+        {t("Retour à la connexion")}
       </Link>
 
       <h1 className="font-display text-3xl font-bold text-foreground">
-        Nouveau mot de passe
+        {t("Nouveau mot de passe")}
       </h1>
       <p className="mt-2 text-muted-foreground">
-        Choisissez un nouveau mot de passe pour votre compte
+        {t("Choisissez un nouveau mot de passe pour votre compte")}
       </p>
 
       {done ? (
         <div className="mt-8 rounded-xl border border-success/30 bg-success/10 p-6">
           <CheckCircle2 className="mb-3 h-10 w-10 text-success" />
-          <p className="font-medium text-foreground">Mot de passe mis à jour</p>
+          <p className="font-medium text-foreground">{t("Mot de passe mis à jour")}</p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Redirection vers la page de connexion…
+            {t("Redirection vers la page de connexion…")}
           </p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-8 space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="password">Nouveau mot de passe</Label>
+            <Label htmlFor="password">{t("Nouveau mot de passe")}</Label>
             <div className="relative">
               <Input
                 id="password"
@@ -124,7 +126,7 @@ export function ResetPasswordForm() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="confirm">Confirmer le mot de passe</Label>
+            <Label htmlFor="confirm">{t("Confirmer le mot de passe")}</Label>
             <Input
               id="confirm"
               type={showPassword ? "text" : "password"}

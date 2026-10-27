@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthProvider";
 import { getDashboardPathForUser } from "@/lib/auth/session";
+import { useLang } from "@/lib/i18n";
 
 /**
  * Ancienne page « Choisir un espace de démonstration » supprimée.
@@ -11,6 +12,7 @@ import { getDashboardPathForUser } from "@/lib/auth/session";
  * de l'utilisateur connecté.
  */
 export default function DashboardRedirectPage() {
+  const { t } = useLang();
   const router = useRouter();
   const { user, isLoading, isAuthenticated } = useAuth();
 
@@ -25,7 +27,7 @@ export default function DashboardRedirectPage() {
 
   return (
     <div className="flex min-h-[50vh] items-center justify-center text-muted-foreground">
-      Redirection vers votre espace…
+      {t("Redirection vers votre espace…")}
     </div>
   );
 }

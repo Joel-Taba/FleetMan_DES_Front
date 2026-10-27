@@ -9,6 +9,15 @@ import type {
 import { computeDocStatus } from "@/lib/documents";
 import { assertFiniteNumber } from "@/lib/numeric-input";
 import {
+  ACTIVE_ASSIGNMENT_STATUSES,
+  IN_PROGRESS_TRIP_STATUSES,
+  conflictMessage,
+  findAssignmentConflict,
+  findTripConflict,
+  slotFromLocal,
+  tripSlot,
+} from "@/lib/scheduling/slots";
+import {
   assertMockPlanLimit,
   buildActiveSubscriptions,
   buildComplianceReport,
@@ -30,6 +39,8 @@ import {
   type PendingSubscriptionRecord,
   type SubscriptionPlanRecord,
 } from "@/lib/mock-store";
+import { computeFuelConsumed, refueledDuringTrip } from "@/lib/trips/fuel";
+import { defaultLicenseCategoryFor, driverLicenseError } from "@/lib/drivers/license";
 
 function delay(ms = 150) {
   return new Promise((r) => setTimeout(r, ms));
@@ -55,6 +66,97 @@ function pageOf<T>(items: T[], page: number, size: number): PageResponse<T> {
     last: page >= totalPages - 1,
     empty: content.length === 0,
   };
+}
+
+type MockDb = ReturnType<typeof getMockDatabase>;
+
+/**
+ * Mêmes règles que le backend (ResourceAvailabilityService) : véhicule hors maintenance,
+ * conducteur actif, créneau libre de tout trajet ou affectation incompatible. Le mode
+ * démo n'en appliquait aucune : un même véhicule pouvait être engagé plusieurs fois.
+ */
+function assertMockTripSlot(
+  db: MockDb,
+  params: { vehicleId: string; driverId: string; start: number; end: number; excludeTripId?: string }
+) {
+  const vehicle = db.vehicles.find((v) => v.id === params.vehicleId);
+  if (vehicle?.status === "MAINTENANCE") throw new Error("Ce véhicule est en maintenance.");
+  const driver = db.drivers.find((d) => d.userId === params.driverId);
+  if (driver?.status === "INACTIVE") throw new Error("Ce conducteur est inactif.");
+  if (!(params.end > params.start)) throw new Error("Le retour prévu doit être postérieur au départ prévu.");
+  assertMockDriverLicensed(db, params);
+  const message = conflictMessage(
+    findTripConflict(db.trips, db.assignments, {
+      vehicleId: params.vehicleId,
+      driverId: params.driverId,
+      slot: { start: params.start, end: params.end },
+      excludeTripId: params.excludeTripId,
+    }),
+    "trajet"
+  );
+  if (message) throw new Error(message);
+}
+
+/** Permis valide sur le créneau et couvrant la catégorie du type de véhicule (règle backend). */
+function assertMockDriverLicensed(
+  db: MockDb,
+  params: { vehicleId: string; driverId: string; start: number; end: number }
+) {
+  const vehicle = db.vehicles.find((v) => v.id === params.vehicleId) as { vehicleTypeId?: string | null } | undefined;
+  const typeCode = (db.references?.["vehicle-types"] ?? []).find((t) => t.id === vehicle?.vehicleTypeId)?.code;
+  const validOn = localDate(params.end < 8e15 ? params.end : params.start);
+  const message = driverLicenseError(
+    (db.driverDocuments ?? []).filter((d) => d.driverId === params.driverId),
+    defaultLicenseCategoryFor(typeCode),
+    validOn
+  );
+  if (message) throw new Error(message);
+}
+
+function localDate(epochMs: number): string {
+  const d = new Date(epochMs);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Incident grave (HIGH/CRITICAL) ouvert → véhicule immobilisé, trajet en cours interrompu ;
+ * résolution → véhicule libéré si aucun autre incident grave ne le retient (règle backend
+ * IncidentImpactService).
+ */
+function applyMockIncidentImpact(db: MockDb, incident: Record<string, unknown>) {
+  const serious = incident.severity === "HIGH" || incident.severity === "CRITICAL";
+  const open = !["RESOLVED", "CLOSED"].includes(String(incident.status));
+  const vehicle = db.vehicles.find((v) => v.id === incident.vehicleId);
+  const inProgress = db.trips.filter(
+    (t) => t.vehicleId === incident.vehicleId && IN_PROGRESS_TRIP_STATUSES.has(t.status)
+  ) as Array<ApiTrip & { interruptedAt?: string | null; resumedAt?: string | null; interrupted?: boolean }>;
+  const now = new Date().toISOString();
+  if (serious && open && !incident.vehicleImmobilized && vehicle) {
+    const heldByOther = db.incidents.some(
+      (i) => i.id !== incident.id && (i as Record<string, unknown>).vehicleImmobilized && i.vehicleId === vehicle.id
+    );
+    if (vehicle.status !== "MAINTENANCE" || heldByOther) {
+      vehicle.status = "MAINTENANCE";
+      incident.vehicleImmobilized = true;
+      inProgress.filter((t) => !t.interrupted).forEach((t) => {
+        t.interruptedAt = now;
+        t.resumedAt = null;
+        t.interrupted = true;
+      });
+    }
+  } else if ((!serious || !open) && incident.vehicleImmobilized) {
+    incident.vehicleImmobilized = false;
+    const stillHeld = db.incidents.some(
+      (i) => i.id !== incident.id && (i as Record<string, unknown>).vehicleImmobilized && i.vehicleId === incident.vehicleId
+    );
+    if (!stillHeld && vehicle?.status === "MAINTENANCE") {
+      vehicle.status = inProgress.length > 0 ? "ON_TRIP" : "AVAILABLE";
+      inProgress.filter((t) => t.interrupted).forEach((t) => {
+        t.resumedAt = now;
+        t.interrupted = false;
+      });
+    }
+  }
 }
 
 function idFromPath(pathname: string, prefix: string): string | null {
@@ -288,7 +390,17 @@ export class MockApiProvider {
     if (pathname === "/api/v1/assignments/conflicts") {
       const page = Number(params.get("page") ?? 0);
       const size = Number(params.get("size") ?? 50);
-      const conflicts = db.assignments.filter((a) => a.status === "CONFLICT");
+      // Chevauchement réel (même véhicule ou même conducteur) entre affectations actives.
+      const conflicts = db.assignments.filter(
+        (a) =>
+          ACTIVE_ASSIGNMENT_STATUSES.has(a.status) &&
+          findAssignmentConflict(db.assignments, [], {
+            vehicleId: a.vehicleId,
+            driverId: a.driverId,
+            slot: { start: new Date(a.startDatetime).getTime(), end: new Date(a.endDatetime).getTime() },
+            excludeAssignmentId: a.id,
+          }) !== null
+      );
       return pageOf(conflicts, page, size);
     }
     if (pathname === "/api/v1/assignments") {
@@ -607,12 +719,23 @@ export class MockApiProvider {
       if (trip.status === "COMPLETED" || trip.status === "CANCELLED") {
         throw new Error("Trajet déjà clôturé");
       }
+      if (!IN_PROGRESS_TRIP_STATUSES.has(trip.status)) {
+        throw new Error("Le départ de ce trajet n'a pas été enregistré : lancez-le avant d'enregistrer son retour.");
+      }
       const returnKm = body.returnKmIndex != null
         ? assertFiniteNumber(body.returnKmIndex, "Index kilométrique retour", { min: 0 })
         : null;
       const returnFuel = body.returnFuelIndex != null
         ? assertFiniteNumber(body.returnFuelIndex, "Index carburant retour", { min: 0 })
         : null;
+      // Même règle que le backend : pleins faits en route inclus, retour impossible refusé
+      // (contrôlé avant toute modification du trajet).
+      const fuel = computeFuelConsumed(
+        trip.departureFuelIndex,
+        refueledDuringTrip(db.fuelRecharges, trip),
+        returnFuel
+      );
+      if (fuel.error) throw new Error(fuel.error);
       trip.status = "COMPLETED";
       trip.endDate = String(body.returnDate ?? new Date().toISOString().slice(0, 10));
       trip.endTime = String(body.returnTime ?? "18:00:00");
@@ -626,10 +749,7 @@ export class MockApiProvider {
         trip.computedDistanceKm = dist > 0 ? dist : 0;
         trip.distanceKm = trip.computedDistanceKm;
       }
-      if (returnFuel != null && trip.departureFuelIndex != null) {
-        const fuel = trip.departureFuelIndex - returnFuel;
-        trip.computedFuelConsumed = fuel > 0 ? fuel : 0;
-      }
+      if (fuel.consumed != null) trip.computedFuelConsumed = fuel.consumed;
       const vehicle = db.vehicles.find((v) => v.id === trip.vehicleId);
       if (vehicle) vehicle.status = "AVAILABLE";
       unlinkDriverFromVehicleForTrip(db, trip.driverId, trip.vehicleId);
@@ -650,20 +770,15 @@ export class MockApiProvider {
       const departureKm = assertFiniteNumber(body.departureKmIndex, "Index kilométrage", { required: true, min: 0 });
       const departureFuel = assertFiniteNumber(body.departureFuelIndex, "Index carburant", { required: true, min: 0 });
       const missionCost = assertFiniteNumber(body.missionCost, "Coût mission", { min: 0 });
-      const driverBusy = db.trips.some(
-        (t) =>
-          t.driverId === body.driverId &&
-          (t.status === "SCHEDULED" || t.status === "DEPARTED" || t.status === "RETURNING")
-      );
-      if (driverBusy) throw new Error("Ce conducteur est déjà affecté à un trajet en cours.");
-      const vehicleBusy = db.trips.some(
-        (t) =>
-          t.vehicleId === body.vehicleId &&
-          (t.status === "SCHEDULED" || t.status === "DEPARTED" || t.status === "RETURNING")
-      );
-      if (vehicleBusy || (vehicle && vehicle.status === "ON_TRIP")) {
-        throw new Error("Ce véhicule est déjà utilisé pour une autre course.");
-      }
+      const startDate = String(body.startDate ?? new Date().toISOString().slice(0, 10));
+      const startTime = String(body.startTime ?? "08:00:00");
+      const scheduledReturn = body.scheduledReturnDatetime ? String(body.scheduledReturnDatetime) : null;
+      assertMockTripSlot(db, {
+        vehicleId: String(body.vehicleId),
+        driverId: String(body.driverId),
+        start: slotFromLocal(startDate, startTime),
+        end: scheduledReturn ? new Date(scheduledReturn).getTime() : 8.64e15,
+      });
       const seq = db.trips.length + 1;
       const tripCode = `TRJ-2026-${String(seq).padStart(4, "0")}`;
       const details = Array.isArray(body.details)
@@ -681,8 +796,9 @@ export class MockApiProvider {
         driverId: String(body.driverId),
         fleetId: String(body.fleetId ?? vehicle?.fleetId ?? "f1"),
         status: "SCHEDULED",
-        startDate: String(body.startDate ?? new Date().toISOString().slice(0, 10)),
-        startTime: String(body.startTime ?? "08:00:00"),
+        startDate,
+        startTime,
+        scheduledReturnDatetime: scheduledReturn,
         endDate: null,
         endTime: null,
         distanceKm: null,
@@ -710,9 +826,21 @@ export class MockApiProvider {
       if (!trip) throw new Error("Trajet introuvable.");
       if (trip.status !== "SCHEDULED") throw new Error("Seuls les trajets créés peuvent être lancés.");
       const vehicle = db.vehicles.find((v) => v.id === trip.vehicleId);
-      if (vehicle && vehicle.status === "ON_TRIP") {
+      const inProgress = db.trips.filter((t) => t.id !== trip.id && IN_PROGRESS_TRIP_STATUSES.has(t.status));
+      if (inProgress.some((t) => t.vehicleId === trip.vehicleId)) {
         throw new Error("Ce véhicule est déjà utilisé pour une autre course.");
       }
+      if (inProgress.some((t) => t.driverId === trip.driverId)) {
+        throw new Error("Ce conducteur est déjà affecté à un trajet en cours.");
+      }
+      const plannedEnd = tripSlot(trip).end;
+      assertMockTripSlot(db, {
+        vehicleId: trip.vehicleId,
+        driverId: trip.driverId,
+        start: Date.now(),
+        end: Math.max(plannedEnd, Date.now() + 60000),
+        excludeTripId: trip.id,
+      });
       const now = new Date();
       trip.status = "DEPARTED";
       trip.startDate = now.toISOString().slice(0, 10);
@@ -848,7 +976,9 @@ export class MockApiProvider {
         vehicleRegistration: vehicle?.licensePlate ?? null,
         driverId: body.driverId ? String(body.driverId) : null,
         driverFullName: body.reportedBy ? String(body.reportedBy) : null,
+        vehicleImmobilized: false,
       };
+      applyMockIncidentImpact(db, incident);
       db.incidents.unshift(incident);
       this.persist(db);
       return incident;
@@ -937,6 +1067,27 @@ export class MockApiProvider {
 
     if (pathname === "/api/v1/assignments") {
       const vehicle = db.vehicles.find((v) => v.id === body.vehicleId);
+      const startIso = String(body.startDatetime ?? new Date().toISOString());
+      const endIso = String(body.endDatetime ?? new Date(Date.now() + 8 * 3600000).toISOString());
+      const start = new Date(startIso).getTime();
+      const end = new Date(endIso).getTime();
+      if (!(end > start)) throw new Error("La date de fin doit être postérieure à la date de début.");
+      if (vehicle?.status === "MAINTENANCE") throw new Error("Ce véhicule est en maintenance.");
+      if (db.drivers.find((d) => d.userId === body.driverId)?.status === "INACTIVE") {
+        throw new Error("Ce conducteur est inactif et ne peut pas être affecté.");
+      }
+      const overlap = conflictMessage(
+        findAssignmentConflict(db.assignments, db.trips, {
+          vehicleId: String(body.vehicleId),
+          driverId: String(body.driverId),
+          slot: { start, end },
+        }),
+        "affectation"
+      );
+      if (overlap) throw new Error(overlap);
+      assertMockDriverLicensed(db, {
+        vehicleId: String(body.vehicleId), driverId: String(body.driverId), start, end,
+      });
       const assignment = {
         id: `a-${Date.now()}`,
         scheduleId: String(body.scheduleId ?? db.schedules[0]?.id ?? "s1"),
@@ -944,9 +1095,9 @@ export class MockApiProvider {
         vehicleId: String(body.vehicleId),
         driverId: String(body.driverId),
         missionId: body.missionId ? String(body.missionId) : null,
-        startDatetime: String(body.startDatetime ?? new Date().toISOString()),
-        endDatetime: String(body.endDatetime ?? new Date(Date.now() + 8 * 3600000).toISOString()),
-        status: "PLANNED",
+        startDatetime: startIso,
+        endDatetime: endIso,
+        status: "PENDING",
         startLocation: body.startLocation ? String(body.startLocation) : null,
         endLocation: body.endLocation ? String(body.endLocation) : null,
         estimatedKm: body.estimatedKm != null ? Number(body.estimatedKm) : null,
@@ -1219,6 +1370,7 @@ export class MockApiProvider {
         inc.status = String(body.status);
         inc.isOpen = !["RESOLVED", "CLOSED"].includes(inc.status);
         if (!inc.isOpen) inc.resolvedAt = new Date().toISOString();
+        applyMockIncidentImpact(db, inc as unknown as Record<string, unknown>);
       }
       this.persist(db);
       return inc;
@@ -1388,10 +1540,18 @@ export class MockApiProvider {
     if (cancelTrip) {
       const trip = db.trips.find((t) => t.id === cancelTrip[1]);
       if (trip) {
+        if (trip.status === "COMPLETED" || trip.status === "CANCELLED") {
+          throw new Error("Trajet déjà clôturé");
+        }
+        // Un trajet seulement planifié ne mobilise pas le véhicule (il peut être en route
+        // sur un autre trajet) : on ne libère que pour un trajet parti.
+        const wasInProgress = IN_PROGRESS_TRIP_STATUSES.has(trip.status);
         trip.status = "CANCELLED";
-        const vehicle = db.vehicles.find((v) => v.id === trip.vehicleId);
-        if (vehicle && vehicle.status === "ON_TRIP") vehicle.status = "AVAILABLE";
-        unlinkDriverFromVehicleForTrip(db, trip.driverId, trip.vehicleId);
+        if (wasInProgress) {
+          const vehicle = db.vehicles.find((v) => v.id === trip.vehicleId);
+          if (vehicle && vehicle.status === "ON_TRIP") vehicle.status = "AVAILABLE";
+          unlinkDriverFromVehicleForTrip(db, trip.driverId, trip.vehicleId);
+        }
       }
       this.persist(db);
       return trip;
@@ -1414,7 +1574,14 @@ export class MockApiProvider {
     const updateTripDriver = pathname.match(/^\/api\/v1\/trips\/([^/]+)\/driver$/);
     if (updateTripDriver && body?.newDriverId) {
       const trip = db.trips.find((t) => t.id === updateTripDriver[1]);
-      if (trip) trip.driverId = String(body.newDriverId);
+      if (trip) {
+        const slot = tripSlot(trip);
+        assertMockTripSlot(db, {
+          vehicleId: trip.vehicleId, driverId: String(body.newDriverId),
+          start: slot.start, end: slot.end, excludeTripId: trip.id,
+        });
+        trip.driverId = String(body.newDriverId);
+      }
       this.persist(db);
       return trip;
     }
@@ -1422,7 +1589,20 @@ export class MockApiProvider {
     const updateTripVehicle = pathname.match(/^\/api\/v1\/trips\/([^/]+)\/vehicle$/);
     if (updateTripVehicle && body?.newVehicleId) {
       const trip = db.trips.find((t) => t.id === updateTripVehicle[1]);
-      if (trip) trip.vehicleId = String(body.newVehicleId);
+      if (trip) {
+        const slot = tripSlot(trip);
+        assertMockTripSlot(db, {
+          vehicleId: String(body.newVehicleId), driverId: trip.driverId,
+          start: slot.start, end: slot.end, excludeTripId: trip.id,
+        });
+        // Véhicule de remplacement sur un trajet interrompu : la mission reprend.
+        const swapped = trip as ApiTrip & { interrupted?: boolean; resumedAt?: string | null };
+        if (IN_PROGRESS_TRIP_STATUSES.has(trip.status) && swapped.interrupted) {
+          swapped.interrupted = false;
+          swapped.resumedAt = new Date().toISOString();
+        }
+        trip.vehicleId = String(body.newVehicleId);
+      }
       this.persist(db);
       return trip;
     }

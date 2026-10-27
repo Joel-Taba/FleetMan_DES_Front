@@ -39,6 +39,7 @@ import type {
   BudgetResponse, ExpenseResponse, ExpenseType, BudgetScope,
 } from "@/lib/api/types/manager";
 import { parseDecimalInput, validateDecimalInput } from "@/lib/numeric-input";
+import { useLang } from "@/lib/i18n";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -104,6 +105,7 @@ function BudgetCard({
   onRecalc: (id: string) => void;
   onDelete: (id: string) => void;
 }) {
+  const { t } = useLang();
   const pct = Math.min(budget.consumptionRate, 100);
   const barColor =
     budget.alertLevel === "EXCEEDED" ? "bg-red-500"
@@ -117,7 +119,7 @@ function BudgetCard({
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <p className="font-semibold truncate">
-              {budget.scope === "FLEET" ? "🚐 Flotte" : "🚗 Véhicule"} — {entityName}
+              {budget.scope === "FLEET" ? t("🚐 Flotte") : t("🚗 Véhicule")} — {entityName}
               <BudgetSyncBadge entityId={budget.id} />
             </p>
             <p className="text-xs text-muted-foreground mt-0.5">
@@ -131,7 +133,7 @@ function BudgetCard({
 
         <div className="mt-4 space-y-1">
           <div className="flex justify-between text-sm">
-            <span className="text-muted-foreground">Consommé</span>
+            <span className="text-muted-foreground">{t("Consommé")}</span>
             <span className="font-medium">{fmt(budget.consumed)} / {fmt(budget.amount)}</span>
           </div>
           <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
@@ -172,6 +174,7 @@ function CreateBudgetDialog({
   vehicles: { id: string; licensePlate: string }[];
   onCreated: () => void;
 }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [scope, setScope] = useState<BudgetScope>("FLEET");
   const [entityId, setEntityId] = useState("");
@@ -186,7 +189,7 @@ function CreateBudgetDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!entityId) { setError("Sélectionnez une flotte ou un véhicule."); return; }
+    if (!entityId) { setError(t("Sélectionnez une flotte ou un véhicule.")); return; }
     const amountErr = validateDecimalInput(amount, { required: true, min: 0, label: "Montant" });
     if (amountErr) { setError(amountErr); return; }
     setLoading(true);
@@ -196,36 +199,36 @@ function CreateBudgetDialog({
       setEntityId(""); setAmount(""); setNotes("");
       onCreated();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de la création");
+      setError(err instanceof Error ? err.message : t("Erreur lors de la création"));
     } finally { setLoading(false); }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button><Plus className="h-4 w-4 mr-1" />Nouveau budget</Button>
+        <Button><Plus className="h-4 w-4 mr-1" />{t("Nouveau budget")}</Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Créer un budget mensuel</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{t("Créer un budget mensuel")}</DialogTitle></DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label>Portée *</Label>
+            <Label>{t("Portée *")}</Label>
             <div className="flex gap-2">
               {(["FLEET", "VEHICLE"] as BudgetScope[]).map(s => (
                 <button key={s} type="button"
                   className={`flex-1 rounded-md border py-2 text-sm font-medium transition-colors ${scope === s ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}
                   onClick={() => { setScope(s); setEntityId(""); }}>
-                  {s === "FLEET" ? "🚐 Flotte" : "🚗 Véhicule"}
+                  {s === "FLEET" ? t("🚐 Flotte") : t("🚗 Véhicule")}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>{scope === "FLEET" ? "Flotte" : "Véhicule"} *</Label>
+            <Label>{scope === "FLEET" ? t("Flotte") : t("Véhicule")} *</Label>
             <select value={entityId} onChange={e => setEntityId(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm">
-              <option value="">-- Sélectionner --</option>
+              <option value="">{t("-- Sélectionner --")}</option>
               {scope === "FLEET"
                 ? fleets.map(f => <option key={f.id} value={f.id}>{f.name}</option>)
                 : vehicles.map(v => <option key={v.id} value={v.id}>{v.licensePlate}</option>)}
@@ -234,12 +237,12 @@ function CreateBudgetDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Mois *</Label>
+              <Label>{t("Mois *")}</Label>
               <Input type="month" value={budgetMonth.slice(0, 7)}
                 onChange={e => setBudgetMonth(e.target.value + "-01")} />
             </div>
             <div className="space-y-2">
-              <Label>Montant (FCFA) *</Label>
+              <Label>{t("Montant (FCFA) *")}</Label>
               <NumericInput mode="decimal" placeholder="500000" value={amount}
                 onValueChange={setAmount} />
             </div>
@@ -247,14 +250,14 @@ function CreateBudgetDialog({
 
           <div className="space-y-2">
             <Label>Notes</Label>
-            <Input placeholder="Budget carburant mensuel..." value={notes}
+            <Input placeholder={t("Budget carburant mensuel...")} value={notes}
               onChange={e => setNotes(e.target.value)} />
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Annuler</Button>
-            <Button type="submit" disabled={loading}>{loading ? "Création…" : "Créer"}</Button>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>{t("Annuler")}</Button>
+            <Button type="submit" disabled={loading}>{loading ? t("Création…") : t("Créer")}</Button>
           </div>
         </form>
       </DialogContent>
@@ -271,6 +274,7 @@ function CreateExpenseDialog({
   vehicles: { id: string; licensePlate: string }[];
   onCreated: () => void;
 }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [vehicleId, setVehicleId] = useState("");
   const [expenseType, setExpenseType] = useState<ExpenseType>("OTHER");
@@ -283,7 +287,7 @@ function CreateExpenseDialog({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!vehicleId) { setError("Véhicule obligatoire."); return; }
+    if (!vehicleId) { setError(t("Véhicule obligatoire.")); return; }
     const amountErr = validateDecimalInput(amount, { required: true, min: 0, label: "Montant" });
     if (amountErr) { setError(amountErr); return; }
     setLoading(true);
@@ -299,30 +303,30 @@ function CreateExpenseDialog({
       setVehicleId(""); setAmount(""); setDescription("");
       onCreated();
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Erreur lors de la création");
+      setError(err instanceof Error ? err.message : t("Erreur lors de la création"));
     } finally { setLoading(false); }
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary"><Plus className="h-4 w-4 mr-1" />Nouvelle dépense</Button>
+        <Button variant="secondary"><Plus className="h-4 w-4 mr-1" />{t("Nouvelle dépense")}</Button>
       </DialogTrigger>
       <DialogContent className="max-w-md">
-        <DialogHeader><DialogTitle>Enregistrer une dépense manuelle</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{t("Enregistrer une dépense manuelle")}</DialogTitle></DialogHeader>
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div className="space-y-2">
-            <Label>Véhicule *</Label>
+            <Label>{t("Véhicule *")}</Label>
             <select value={vehicleId} onChange={e => setVehicleId(e.target.value)}
               className="w-full rounded-md border bg-background px-3 py-2 text-sm">
-              <option value="">-- Sélectionner un véhicule --</option>
+              <option value="">{t("-- Sélectionner un véhicule --")}</option>
               {vehicles.map(v => <option key={v.id} value={v.id}>{v.licensePlate}</option>)}
             </select>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <Label>Type *</Label>
+              <Label>{t("Type *")}</Label>
               <select value={expenseType} onChange={e => setExpenseType(e.target.value as ExpenseType)}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm">
                 {(Object.keys(EXPENSE_TYPE_LABELS) as ExpenseType[]).map(t => (
@@ -331,7 +335,7 @@ function CreateExpenseDialog({
               </select>
             </div>
             <div className="space-y-2">
-              <Label>Montant (FCFA) *</Label>
+              <Label>{t("Montant (FCFA) *")}</Label>
               <NumericInput mode="decimal" placeholder="15000" value={amount}
                 onValueChange={setAmount} />
             </div>
@@ -344,15 +348,15 @@ function CreateExpenseDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Description</Label>
-            <Input placeholder="Péage autoroute A1..." value={description}
+            <Label>{t("Description")}</Label>
+            <Input placeholder={t("Péage autoroute A1...")} value={description}
               onChange={e => setDescription(e.target.value)} />
           </div>
 
           {error && <p className="text-sm text-red-500">{error}</p>}
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>Annuler</Button>
-            <Button type="submit" disabled={loading}>{loading ? "Enregistrement…" : "Enregistrer"}</Button>
+            <Button type="button" variant="secondary" onClick={() => setOpen(false)}>{t("Annuler")}</Button>
+            <Button type="submit" disabled={loading}>{loading ? t("Enregistrement…") : t("Enregistrer")}</Button>
           </div>
         </form>
       </DialogContent>
@@ -369,6 +373,7 @@ function RejectExpenseDialog({
   expenseId: string;
   onRejected: () => void;
 }) {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);
@@ -392,15 +397,15 @@ function RejectExpenseDialog({
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-sm">
-        <DialogHeader><DialogTitle>Rejeter la dépense</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{t("Rejeter la dépense")}</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <Label>Motif de rejet *</Label>
-          <Input placeholder="Justificatif manquant..." value={reason}
+          <Label>{t("Motif de rejet *")}</Label>
+          <Input placeholder={t("Justificatif manquant...")} value={reason}
             onChange={e => setReason(e.target.value)} />
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={() => setOpen(false)}>Annuler</Button>
+            <Button variant="secondary" onClick={() => setOpen(false)}>{t("Annuler")}</Button>
             <Button variant="destructive" disabled={!reason.trim() || loading}
-              onClick={handleReject}>{loading ? "Rejet…" : "Rejeter"}</Button>
+              onClick={handleReject}>{loading ? t("Rejet…") : t("Rejeter")}</Button>
           </div>
         </div>
       </DialogContent>
@@ -423,6 +428,7 @@ function ExpensesTab({
   vehicles: { id: string; licensePlate: string }[];
   onRefetch: () => void;
 }) {
+  const { t } = useLang();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterType, setFilterType] = useState<string>("ALL");
@@ -454,19 +460,19 @@ function ExpensesTab({
         <div className="flex gap-2 flex-wrap">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-9 w-56" placeholder="Véhicule, description…"
+            <Input className="pl-9 w-56" placeholder={t("Véhicule, description…")}
               value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
             className="rounded-md border bg-background px-3 py-2 text-sm">
-            <option value="ALL">Tous statuts</option>
-            <option value="PENDING">En attente</option>
-            <option value="APPROVED">Approuvées</option>
-            <option value="REJECTED">Rejetées</option>
+            <option value="ALL">{t("Tous statuts")}</option>
+            <option value="PENDING">{t("En attente")}</option>
+            <option value="APPROVED">{t("Approuvées")}</option>
+            <option value="REJECTED">{t("Rejetées")}</option>
           </select>
           <select value={filterType} onChange={e => setFilterType(e.target.value)}
             className="rounded-md border bg-background px-3 py-2 text-sm">
-            <option value="ALL">Tous types</option>
+            <option value="ALL">{t("Tous types")}</option>
             {(Object.keys(EXPENSE_TYPE_LABELS) as ExpenseType[]).map(t => (
               <option key={t} value={t}>{EXPENSE_TYPE_LABELS[t]}</option>
             ))}
@@ -487,13 +493,13 @@ function ExpensesTab({
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Type</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Véhicule</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Description</th>
-                <th className="text-right px-4 py-3 font-medium text-muted-foreground">Montant</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("Type")}</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("Véhicule")}</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("Description")}</th>
+                <th className="text-right px-4 py-3 font-medium text-muted-foreground">{t("Montant")}</th>
                 <th className="text-left px-4 py-3 font-medium text-muted-foreground">Date</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Statut</th>
-                <th className="text-left px-4 py-3 font-medium text-muted-foreground">Source</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("Statut")}</th>
+                <th className="text-left px-4 py-3 font-medium text-muted-foreground">{t("Source")}</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -526,7 +532,7 @@ function ExpensesTab({
                   </td>
                   <td className="px-4 py-3">
                     <span className={`text-xs ${exp.sourceType === "AUTO" ? "text-muted-foreground" : "text-blue-600"}`}>
-                      {exp.sourceType === "AUTO" ? "Auto" : "Manuel"}
+                      {exp.sourceType === "AUTO" ? t("Auto") : t("Manuel")}
                     </span>
                   </td>
                   <td className="px-4 py-3">
@@ -555,6 +561,7 @@ function ExpensesTab({
 // ── Composant principal ───────────────────────────────────────────────────────
 
 export function BudgetPage() {
+  const { t } = useLang();
   const { data: budgets, loading: bLoading, error: bError, refetch: reBudgets } =
     useManagerBudgets();
   const { data: expenses, loading: eLoading, error: eError, refetch: reExpenses } =
@@ -587,7 +594,7 @@ export function BudgetPage() {
   }
 
   async function handleDeleteBudget(id: string) {
-    if (!confirm("Supprimer ce budget ?")) return;
+    if (!confirm(t("Supprimer ce budget ?"))) return;
     await deleteBudgetOfflineAware(id);
     reBudgets();
   }
@@ -600,8 +607,8 @@ export function BudgetPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Dépenses & Budget"
-        description="Pilotez vos budgets mensuels et validez les dépenses de vos flottes.">
+        title={t("Dépenses & Budget")}
+        description={t("Pilotez vos budgets mensuels et validez les dépenses de vos flottes.")}>
         <div className="flex gap-2">
           <CreateBudgetDialog
             fleets={(fleets ?? []).map(f => ({ id: f.id, name: f.name }))}
@@ -618,7 +625,7 @@ export function BudgetPage() {
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-blue-100 p-2.5"><Wallet className="h-5 w-5 text-blue-600" /></div>
               <div>
-                <p className="text-xs text-muted-foreground">Budget total</p>
+                <p className="text-xs text-muted-foreground">{t("Budget total")}</p>
                 <p className="font-bold text-lg leading-tight">{fmt(totalBudget)}</p>
               </div>
             </div>
@@ -629,7 +636,7 @@ export function BudgetPage() {
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-orange-100 p-2.5"><TrendingDown className="h-5 w-5 text-orange-500" /></div>
               <div>
-                <p className="text-xs text-muted-foreground">Consommé</p>
+                <p className="text-xs text-muted-foreground">{t("Consommé")}</p>
                 <p className="font-bold text-lg leading-tight">{fmt(totalConsumed)}</p>
               </div>
             </div>
@@ -640,7 +647,7 @@ export function BudgetPage() {
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-red-100 p-2.5"><AlertTriangle className="h-5 w-5 text-red-500" /></div>
               <div>
-                <p className="text-xs text-muted-foreground">Budgets dépassés</p>
+                <p className="text-xs text-muted-foreground">{t("Budgets dépassés")}</p>
                 <p className="font-bold text-lg leading-tight">{exceeded}</p>
               </div>
             </div>
@@ -651,7 +658,7 @@ export function BudgetPage() {
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-yellow-100 p-2.5"><Clock className="h-5 w-5 text-yellow-500" /></div>
               <div>
-                <p className="text-xs text-muted-foreground">Dépenses en attente</p>
+                <p className="text-xs text-muted-foreground">{t("Dépenses en attente")}</p>
                 <p className="font-bold text-lg leading-tight">{pendingExpenses}</p>
               </div>
             </div>
@@ -686,7 +693,7 @@ export function BudgetPage() {
               ))}
             </div>
             <div className="mt-3 pt-3 border-t flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Total dépenses approuvées</span>
+              <span className="text-sm text-muted-foreground">{t("Total dépenses approuvées")}</span>
               <span className="font-bold text-base">{fmt(summary.total)}</span>
             </div>
           </CardContent>

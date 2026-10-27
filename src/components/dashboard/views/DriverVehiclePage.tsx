@@ -11,8 +11,10 @@ import {
   useDriverVehicle,
 } from "@/lib/offline/hooks/useDriverResources";
 import { updateVehicleOperationalOfflineAware } from "@/lib/offline/mutations/driver-declarations";
+import { useLang } from "@/lib/i18n";
 
 export function DriverVehiclePage() {
+  const { t } = useLang();
   const { data: profile, loading: profileLoading, error } = useDriverProfile();
   const { data: vehicle, loading: vehicleLoading, refetch } = useDriverVehicle(
     profile?.assignedVehicleId
@@ -44,13 +46,13 @@ export function DriverVehiclePage() {
             <p className="text-muted-foreground">
               {vehicle.brand} {vehicle.model}
             </p>
-            <Badge variant="success">Véhicule assigné</Badge>
+            <Badge variant="success">{t("Véhicule assigné")}</Badge>
 
             <div className="rounded-xl border bg-card p-4">
-              <h2 className="font-semibold">Check-up rapide</h2>
+              <h2 className="font-semibold">{t("Check-up rapide")}</h2>
               <div className="mt-4 space-y-4">
                 <div>
-                  <label className="text-sm text-muted-foreground">Odomètre (km)</label>
+                  <label className="text-sm text-muted-foreground">{t("Odomètre (km)")}</label>
                   <Input
                     type="number"
                     className="mt-1 text-lg"
@@ -64,7 +66,7 @@ export function DriverVehiclePage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-muted-foreground">Carburant (%)</label>
+                  <label className="text-sm text-muted-foreground">{t("Carburant (%)")}</label>
                   <input
                     type="range"
                     className="mt-2 w-full"
@@ -76,13 +78,13 @@ export function DriverVehiclePage() {
                   <p className="mt-1 text-sm text-muted-foreground">{fuelLevel}%</p>
                 </div>
                 <Button className="w-full" size="lg" disabled={saving} onClick={() => void saveOperational()}>
-                  {saving ? "Enregistrement…" : "Mettre à jour"}
+                  {saving ? t("Enregistrement…") : t("Mettre à jour")}
                 </Button>
               </div>
             </div>
           </>
         ) : (
-          <p className="text-muted-foreground">Aucun véhicule assigné.</p>
+          <p className="text-muted-foreground">{t("Aucun véhicule assigné.")}</p>
         )}
       </DataGate>
     </div>

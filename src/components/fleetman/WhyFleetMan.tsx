@@ -4,6 +4,7 @@ import Image from "next/image";
 import { Check } from "lucide-react";
 import { useReveal } from "@/hooks/use-reveal";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 const bullets = [
   "Adapté au marché africain et aux réalités du transport local",
@@ -13,6 +14,7 @@ const bullets = [
 ];
 
 export function WhyFleetMan() {
+  const { t } = useLang();
   const { ref, isVisible } = useReveal<HTMLElement>();
 
   return (
@@ -30,7 +32,7 @@ export function WhyFleetMan() {
         >
           <Image
             src="/assets/africa-clean.jpg"
-            alt="Carte de l'Afrique"
+            alt={t("Carte de l'Afrique")}
             fill
             className="object-contain p-8"
           />
@@ -39,11 +41,10 @@ export function WhyFleetMan() {
 
         <div className={cn("reveal", isVisible && "is-visible")}>
           <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl">
-            Pourquoi choisir FleetMan ?
+            {t("Pourquoi choisir FleetMan ?")}
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Une plateforme conçue pour les entreprises de transport qui veulent
-            digitaliser leurs opérations sans complexité inutile.
+            {t("Une plateforme conçue pour les entreprises de transport qui veulent digitaliser leurs opérations sans complexité inutile.")}
           </p>
           <ul className="mt-8 space-y-4">
             {bullets.map((item) => (
@@ -51,7 +52,7 @@ export function WhyFleetMan() {
                 <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-success/15">
                   <Check className="h-4 w-4 text-success" />
                 </span>
-                <span className="text-foreground">{item}</span>
+                <span className="text-foreground">{t(item)}</span>
               </li>
             ))}
           </ul>

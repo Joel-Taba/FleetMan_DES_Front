@@ -276,7 +276,7 @@ export function AdminFleetsPage() {
               <Input
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                placeholder="Ex: Flotte Douala Nord"
+                placeholder={t("Ex: Flotte Douala Nord")}
               />
             </div>
             <div className="space-y-2">
@@ -293,7 +293,7 @@ export function AdminFleetsPage() {
                 min={0}
                 value={form.monthlyBudget}
                 onValueChange={(value) => setForm((f) => ({ ...f, monthlyBudget: value }))}
-                placeholder="Ex: 500000"
+                placeholder={t("Ex: 500000")}
               />
             </div>
             {formError && <p className="text-sm text-destructive">{formError}</p>}

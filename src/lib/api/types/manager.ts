@@ -206,6 +206,8 @@ export type ApiTrip = {
   status: string;
   startDate: string;
   startTime: string;
+  /** Retour prévu : fin du créneau occupé par le trajet. */
+  scheduledReturnDatetime?: string | null;
   endDate: string | null;
   endTime: string | null;
   distanceKm: number | null;
@@ -227,6 +229,11 @@ export type ApiTrip = {
   missionCost?: number | null;
   missionCostCurrency?: string | null;
   departureRegisteredAt?: string | null;
+  /** Véhicule immobilisé par un incident grave pendant le trajet (mission suspendue). */
+  interruptedAt?: string | null;
+  resumedAt?: string | null;
+  interruptionIncidentId?: string | null;
+  interrupted?: boolean;
   details?: TripDetailLine[];
 };
 

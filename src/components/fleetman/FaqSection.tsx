@@ -5,8 +5,10 @@ import { ChevronDown } from "lucide-react";
 import { useReveal } from "@/hooks/use-reveal";
 import { faqItems } from "@/lib/mock-landing-data";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 export function FaqSection() {
+  const { t } = useLang();
   const { ref, isVisible } = useReveal<HTMLElement>();
   const [open, setOpen] = useState<number | null>(0);
 
@@ -19,7 +21,7 @@ export function FaqSection() {
             isVisible && "is-visible"
           )}
         >
-          Questions fréquentes
+          {t("Questions fréquentes")}
         </h2>
         <div className="mt-10 space-y-3">
           {faqItems.map((item, i) => (
@@ -29,7 +31,7 @@ export function FaqSection() {
                 className="flex w-full items-center justify-between gap-4 p-4 text-left font-medium"
                 onClick={() => setOpen(open === i ? null : i)}
               >
-                {item.q}
+                {t(item.q)}
                 <ChevronDown
                   className={cn(
                     "h-5 w-5 shrink-0 transition",
@@ -39,7 +41,7 @@ export function FaqSection() {
               </button>
               {open === i && (
                 <p className="border-t px-4 pb-4 pt-2 text-sm text-muted-foreground">
-                  {item.a}
+                  {t(item.a)}
                 </p>
               )}
             </div>

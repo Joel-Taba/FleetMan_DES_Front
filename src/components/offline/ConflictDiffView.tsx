@@ -1,4 +1,5 @@
 "use client";
+import { useLang } from "@/lib/i18n";
 
 function formatPayload(value: unknown): string {
   if (value == null) return "—";
@@ -15,11 +16,12 @@ type ConflictDiffViewProps = {
 };
 
 export function ConflictDiffView({ localPayload, serverState }: ConflictDiffViewProps) {
+  const { t } = useLang();
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <div className="rounded-lg border bg-muted/20 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Version locale
+          {t("Version locale")}
         </p>
         <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
           {formatPayload(localPayload)}
@@ -27,7 +29,7 @@ export function ConflictDiffView({ localPayload, serverState }: ConflictDiffView
       </div>
       <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-primary">
-          Version serveur
+          {t("Version serveur")}
         </p>
         <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all text-xs">
           {formatPayload(serverState)}

@@ -2,16 +2,16 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "FleetMan — Gestion de flotte",
+    name: "FleetMan — Fleet management",
     short_name: "FleetMan",
     description:
-      "Solution de gestion de flotte pour les entreprises de transport — mode hors ligne disponible.",
+      "Fleet management solution for transport companies — offline mode available.",
     start_url: "/dashboard",
     display: "standalone",
     background_color: "#f8f6f1",
     theme_color: "#1e3a5f",
     orientation: "any",
-    lang: "fr",
+    lang: "en",
     icons: [
       {
         src: "/assets/logo-fleetMan.svg",

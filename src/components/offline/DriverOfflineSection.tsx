@@ -5,8 +5,10 @@ import { Cloud, RefreshCw } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { SyncStatusBadge } from "@/components/offline/SyncStatusBadge";
 import { useOfflineOptional } from "@/lib/offline/network/OfflineProvider";
+import { useLang } from "@/lib/i18n";
 
 export function DriverOfflineSection() {
+  const { t } = useLang();
   const offline = useOfflineOptional();
 
   if (!offline?.isOfflineMode || !offline.offlineRole) return null;
@@ -19,9 +21,9 @@ export function DriverOfflineSection() {
             <Cloud className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <p className="font-semibold">Mode hors ligne</p>
+            <p className="font-semibold">{t("Mode hors ligne")}</p>
             <p className="text-sm text-muted-foreground">
-              Consultez la file de synchronisation et résolvez les conflits.
+              {t("Consultez la file de synchronisation et résolvez les conflits.")}
             </p>
           </div>
         </div>

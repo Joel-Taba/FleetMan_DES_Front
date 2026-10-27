@@ -1,6 +1,7 @@
 "use client";
 
 import "./globals.css";
+import { useLang } from "@/lib/i18n";
 
 export default function GlobalError({
   error,
@@ -9,10 +10,11 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const { t } = useLang();
   return (
     <html lang="fr">
       <body className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#f5f5f0] p-8 font-sans">
-        <h1 className="text-2xl font-bold text-[#0B1120]">Erreur FleetMan</h1>
+        <h1 className="text-2xl font-bold text-[#0B1120]">{t("Erreur FleetMan")}</h1>
         <p className="text-gray-600">{error.message}</p>
         <button
           type="button"

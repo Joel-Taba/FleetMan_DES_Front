@@ -171,6 +171,9 @@ function TripTable({
                 <td className="px-4 py-3">{formatTripDistance(trip)}</td>
                 <td className="px-4 py-3">
                   <Badge variant={tripStatusBadgeVariant(trip.status)}>{tripStatusLabel(trip.status)}</Badge>
+                  {trip.interrupted && (
+                    <Badge variant="destructive" className="ml-1">{t("Interrompu")}</Badge>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
@@ -358,10 +361,10 @@ export function TripsPage() {
 
   return (
     <div>
-      <PageHeader title="Trajets" description="Historique et suivi temps réel.">
+      <PageHeader title={t("Trajets")} description={t("Historique et suivi temps réel.")}>
         <div className="flex gap-2">
           <Button variant="secondary" asChild>
-            <Link href="/dashboard/manager/trips/return">Enregistrer un retour</Link>
+            <Link href="/dashboard/manager/trips/return">{t("Enregistrer un retour")}</Link>
           </Button>
           <Button asChild>
             <Link href="/dashboard/manager/trips/plan">
@@ -434,7 +437,7 @@ export function TripsPage() {
               trips={filteredHistory}
               vehicles={vehicles ?? []}
               driverName={driverName}
-              emptyMessage="Aucun trajet dans l'historique pour cette période."
+              emptyMessage={t("Aucun trajet dans l'historique pour cette période.")}
               showEndColumn
               returnTab="history"
               onDelete={(id, code) => setDeleteTarget({ id, code })}
@@ -490,6 +493,9 @@ export function TripsPage() {
                           <Badge variant={tripStatusBadgeVariant(trip.status)}>
                             {tripStatusLabel(trip.status)}
                           </Badge>
+                          {trip.interrupted && (
+                            <Badge variant="destructive">{t("Interrompu")}</Badge>
+                          )}
                         </div>
                         <p className="mt-2 font-mono text-xs font-semibold text-primary">{trip.tripCode}</p>
                         <p className="mt-1 font-medium">{driverName(trip.driverId)}</p>

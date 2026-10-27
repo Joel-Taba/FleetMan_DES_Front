@@ -9,6 +9,7 @@ import {
 } from "@/lib/offline/hooks/useDriverResources";
 import { formatDateTime } from "@/lib/api/mappers/manager";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 type DriverNotification = {
   id: string;
@@ -27,6 +28,7 @@ const typeConfig = {
 };
 
 export function DriverNotifications() {
+  const { t } = useLang();
   const { data: assignments, loading, error } = useDriverAssignments(true);
   const { data: activeTrip } = useDriverActiveTrip();
 
@@ -47,7 +49,7 @@ export function DriverNotifications() {
     notifications.push({
       id: `assignment-${assignment.id}`,
       type: "assignment",
-      title: "Affectation planifiée",
+      title: t("Affectation planifiée"),
       body: `${assignment.startLocation ?? "Départ"} → ${assignment.endLocation ?? "Arrivée"}`,
       time: formatDateTime(assignment.startDatetime),
       read: assignment.status === "COMPLETED",
@@ -74,7 +76,7 @@ export function DriverNotifications() {
           <Bell className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h1 className="font-display text-xl font-bold">Notifications</h1>
+          <h1 className="font-display text-xl font-bold">{t("Notifications")}</h1>
           <p className="text-sm text-muted-foreground">
             {unread > 0 ? `${unread} non lue(s)` : "Tout est à jour"}
           </p>
@@ -114,7 +116,7 @@ export function DriverNotifications() {
       </DataGate>
 
       <Link href="/dashboard/driver" className="block text-center text-sm text-primary">
-        Retour à l&apos;accueil
+        {t("Retour à l'accueil")}
       </Link>
     </div>
   );

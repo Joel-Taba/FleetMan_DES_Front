@@ -13,6 +13,7 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchManagerKpis, fetchManagerProfile } from "@/lib/api/manager";
 import { apiFetch, apiUploadFile } from "@/lib/api/mock-wrapper";
 import { useLang } from "@/lib/i18n";
+import { SecureImage } from "@/components/ui/secure-image";
 
 export function OrganizationPage() {
   const { t } = useLang();
@@ -111,8 +112,7 @@ export function OrganizationPage() {
               <CardContent className="space-y-6">
                 <div className="group relative mx-auto flex h-24 w-24 items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted">
                   {displayMainPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <SecureImage
                       src={displayMainPhoto}
                       alt=""
                       className="h-full w-full rounded-xl object-cover"
@@ -160,8 +160,7 @@ export function OrganizationPage() {
                         }`}
                         onClick={() => void handleSelectMainPhoto(url)}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={url} alt="" className="aspect-square w-full object-cover" />
+                        <SecureImage src={url} alt="" className="aspect-square w-full object-cover" />
                         {displayMainPhoto === url && (
                           <span className="absolute right-1 top-1 rounded bg-primary p-0.5 text-white">
                             <Star className="h-3 w-3 fill-current" />

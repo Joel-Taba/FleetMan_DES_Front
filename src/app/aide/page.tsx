@@ -4,7 +4,7 @@ import { HelpPageShell } from "@/components/fleetman/HelpPageShell";
 import { Mail, Phone, BookOpen, MessageCircle } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Centre d'aide — FleetMan",
+  title: "Help center — FleetMan",
 };
 
 const faqs = [

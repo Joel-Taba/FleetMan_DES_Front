@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AlertTriangle, Fuel, Wrench } from "lucide-react";
 import { useDriverRecentDeclarations } from "@/lib/offline/hooks/useDriverRecentDeclarations";
+import { useLang } from "@/lib/i18n";
 
 const actions = [
   { href: "/dashboard/driver/declarations/incident", label: "Signaler un Incident", icon: AlertTriangle, color: "bg-destructive/10 text-destructive" },
@@ -20,11 +21,12 @@ const statusClass: Record<string, string> = {
 };
 
 export function DriverDeclarations() {
+  const { t } = useLang();
   const { items, loading, offlineReady } = useDriverRecentDeclarations();
 
   return (
     <div className="space-y-6">
-      <h1 className="font-display text-xl font-bold">Déclarations terrain</h1>
+      <h1 className="font-display text-xl font-bold">{t("Déclarations terrain")}</h1>
       <div className="grid gap-4">
         {actions.map((a) => (
           <Link
@@ -35,14 +37,14 @@ export function DriverDeclarations() {
             <div className={`rounded-full p-4 ${a.color}`}>
               <a.icon className="h-8 w-8" />
             </div>
-            <span className="text-center font-semibold">{a.label}</span>
+            <span className="text-center font-semibold">{t(a.label)}</span>
           </Link>
         ))}
       </div>
       <div>
-        <h2 className="mb-3 font-semibold">Mes déclarations récentes</h2>
+        <h2 className="mb-3 font-semibold">{t("Mes déclarations récentes")}</h2>
         {loading ? (
-          <p className="text-sm text-muted-foreground">Chargement…</p>
+          <p className="text-sm text-muted-foreground">{t("Chargement…")}</p>
         ) : items.length === 0 ? (
           <p className="rounded-lg border p-4 text-sm text-muted-foreground">
             {offlineReady

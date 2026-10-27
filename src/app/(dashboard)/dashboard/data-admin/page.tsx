@@ -3,24 +3,34 @@
 import { useState, useEffect } from "react";
 import { Database, Trash2, RefreshCw, Download, Upload, Info } from "lucide-react";
 import {
-  initializeMassiveData,
-  loadMassiveDataFromLocalStorage,
-  clearMassiveDataFromLocalStorage,
-  type MassiveDataConfig
-} from "@/lib/massive-data-generator";
+  getMockDatabase,
+  loadMockDatabase,
+  MOCK_STORAGE_KEY,
+  resetMockDatabase,
+  saveMockDatabase,
+  seedExtendedMockDatabase,
+  type MockDatabase,
+  type SeedConfig,
+} from "@/lib/mock-store";
+
+// Cette page alimentait une clé (« fleetman_massive_data ») que rien ne lisait : les
+// données générées n'apparaissaient nulle part. Elle pilote désormais la vraie base
+// du mode démo (MOCK_STORAGE_KEY), dont les données respectent les règles métier
+// (statuts valides, aucun engagement simultané d'un véhicule ou d'un conducteur).
+const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 export default function DataAdminPage() {
-  const [dataInfo, setDataInfo] = useState<any>(null);
+  const [dataInfo, setDataInfo] = useState<MockDatabase | null>(null);
   const [generating, setGenerating] = useState(false);
-  const [config, setConfig] = useState<MassiveDataConfig>({
+  const [config, setConfig] = useState<Required<SeedConfig>>({
     vehicles: 80,
     fleets: 10,
     drivers: 120,
     trips: 250,
     assignments: 100,
     incidents: 80,
-    expenses: 200,
-    maintenances: 100
+    maintenances: 100,
+    fuelRecharges: 200,
   });
 
   useEffect(() => {
@@ -28,20 +38,20 @@ export default function DataAdminPage() {
   }, []);
 
   function loadDataInfo() {
-    const data = loadMassiveDataFromLocalStorage();
-    setDataInfo(data);
+    setDataInfo(loadMockDatabase());
   }
 
   async function handleGenerate() {
     setGenerating(true);
-    
+
     // Simuler un délai pour montrer l'animation
     await new Promise(resolve => setTimeout(resolve, 500));
-    
+
     try {
-      initializeMassiveData(config);
+      seedExtendedMockDatabase(config);
+      localStorage.setItem("fleetman_extended_data", "true");
       loadDataInfo();
-      alert("✅ Données massives générées et sauvegardées !");
+      alert("✅ Données de démo générées : rechargez les pages du tableau de bord pour les voir.");
     } catch (error) {
       alert("❌ Erreur lors de la génération des données");
       console.error(error);
@@ -51,15 +61,16 @@ export default function DataAdminPage() {
   }
 
   function handleClear() {
-    if (confirm("⚠️ Êtes-vous sûr de vouloir supprimer toutes les données massives ?")) {
-      clearMassiveDataFromLocalStorage();
-      setDataInfo(null);
-      alert("✅ Données supprimées !");
+    if (confirm("⚠️ Remplacer les données actuelles par le jeu de démo par défaut ?")) {
+      resetMockDatabase();
+      localStorage.removeItem("fleetman_extended_data");
+      loadDataInfo();
+      alert("✅ Jeu de démo par défaut restauré !");
     }
   }
 
   function handleExport() {
-    const data = loadMassiveDataFromLocalStorage();
+    const data = loadMockDatabase();
     if (!data) {
       alert("⚠️ Aucune donnée à exporter");
       return;
@@ -81,8 +92,13 @@ export default function DataAdminPage() {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const data = JSON.parse(e.target?.result as string);
-        localStorage.setItem("fleetman_massive_data", JSON.stringify(data));
+        const data = JSON.parse(e.target?.result as string) as MockDatabase;
+        if (!Array.isArray(data.vehicles) || !Array.isArray(data.trips)) {
+          throw new Error("Format inattendu : export de la base de démo FleetMan attendu.");
+        }
+        saveMockDatabase(data);
+        // Rechargement via la migration : statuts et chevauchements sont normalisés.
+        getMockDatabase();
         loadDataInfo();
         alert("✅ Données importées avec succès !");
       } catch (error) {
@@ -93,7 +109,7 @@ export default function DataAdminPage() {
     reader.readAsText(file);
   }
 
-  const storageSize = dataInfo 
+  const storageSize = dataInfo
     ? (JSON.stringify(dataInfo).length / 1024 / 1024).toFixed(2)
     : "0";
 
@@ -107,9 +123,16 @@ export default function DataAdminPage() {
             <h1 className="text-3xl font-bold text-foreground">Administration des Données Mock</h1>
           </div>
           <p className="text-muted-foreground">
-            Gérez les données massives stockées dans le localStorage pour tester l'interface avec un volume réaliste
+            Gérez les données massives stockées dans le localStorage pour tester l&apos;interface avec un volume réaliste
           </p>
         </div>
+
+        {!USE_MOCK && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+            Le mode démo est désactivé (<code>NEXT_PUBLIC_USE_MOCK=false</code>) : l&apos;application lit le
+            backend, ces données locales ne seront pas affichées.
+          </div>
+        )}
 
         {/* Info Card */}
         <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -118,7 +141,7 @@ export default function DataAdminPage() {
             <div className="text-sm text-blue-900">
               <p className="font-semibold mb-1">Pourquoi des données massives ?</p>
               <p>
-                Pour tester l'interface avec un volume réaliste de données (pagination, filtres, performance, etc.). 
+                Pour tester l&apos;interface avec un volume réaliste de données (pagination, filtres, performance, etc.). 
                 Les données sont générées aléatoirement et stockées dans le localStorage de votre navigateur.
               </p>
             </div>
@@ -148,7 +171,7 @@ export default function DataAdminPage() {
               </div>
             </div>
             <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>Généré le : {new Date(dataInfo.generatedAt).toLocaleString('fr-FR')}</span>
+              <span>{dataInfo.assignments?.length || 0} affectations · clé <code>{MOCK_STORAGE_KEY}</code></span>
               <span>Taille : {storageSize} MB</span>
             </div>
           </div>
@@ -157,7 +180,7 @@ export default function DataAdminPage() {
             <Database className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
             <h3 className="text-lg font-semibold text-foreground mb-2">Aucune donnée massive</h3>
             <p className="text-muted-foreground">
-              Générez des données massives pour tester l'interface avec un volume réaliste
+              Générez des données massives pour tester l&apos;interface avec un volume réaliste
             </p>
           </div>
         )}
@@ -175,7 +198,7 @@ export default function DataAdminPage() {
                    key === "trips" ? "Trajets" :
                    key === "assignments" ? "Affectations" :
                    key === "incidents" ? "Incidents" :
-                   key === "expenses" ? "Dépenses" :
+                   key === "fuelRecharges" ? "Pleins carburant" :
                    key === "maintenances" ? "Maintenances" : key}
                 </label>
                 <input
@@ -220,7 +243,7 @@ export default function DataAdminPage() {
             className="flex items-center justify-center gap-2 rounded-lg border-2 border-destructive text-destructive px-4 py-3 font-medium hover:bg-destructive hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Trash2 className="h-5 w-5" />
-            Supprimer Tout
+            Réinitialiser
           </button>
 
           <button
@@ -248,12 +271,12 @@ export default function DataAdminPage() {
         <div className="mt-8 rounded-2xl border border-border bg-card p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-foreground mb-3">📝 Instructions</h2>
           <ol className="space-y-2 text-sm text-muted-foreground list-decimal list-inside">
-            <li>Configurez le nombre d'entrées à générer pour chaque type de données</li>
-            <li>Cliquez sur <strong>"Générer Données"</strong> pour créer et sauvegarder les données dans le localStorage</li>
+            <li>Configurez le nombre d&apos;entrées à générer pour chaque type de données</li>
+            <li>Cliquez sur <strong>« Générer Données »</strong> pour créer et sauvegarder les données dans le localStorage</li>
             <li>Naviguez dans les différentes sections du dashboard pour voir les données massives</li>
             <li>Testez la pagination, les filtres et les performances avec un volume réaliste</li>
-            <li>Utilisez <strong>"Exporter JSON"</strong> pour sauvegarder une copie des données</li>
-            <li>Utilisez <strong>"Supprimer Tout"</strong> pour réinitialiser le localStorage</li>
+            <li>Utilisez <strong>« Exporter JSON »</strong> pour sauvegarder une copie des données</li>
+            <li>Utilisez <strong>« Réinitialiser »</strong> pour revenir au jeu de démo par défaut</li>
           </ol>
         </div>
 
@@ -261,7 +284,7 @@ export default function DataAdminPage() {
         <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4">
           <h3 className="font-semibold text-green-900 mb-2">✅ Recommandations pour les Tests</h3>
           <ul className="space-y-1 text-sm text-green-800">
-            <li>• <strong>Pagination :</strong> Générez 100+ véhicules pour tester l'affichage paginé</li>
+            <li>• <strong>Pagination :</strong> Générez 100+ véhicules pour tester l&apos;affichage paginé</li>
             <li>• <strong>Filtres :</strong> Avec 250+ trajets, testez les filtres par statut, date, etc.</li>
             <li>• <strong>Performance :</strong> Observez le temps de chargement avec 500+ entrées</li>
             <li>• <strong>Recherche :</strong> Testez la recherche avec 120+ conducteurs</li>

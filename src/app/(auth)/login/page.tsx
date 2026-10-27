@@ -1,7 +1,7 @@
 import { LoginForm } from "@/components/fleetman/auth/LoginForm";
 
 export const metadata = {
-  title: "Connexion — FleetMan",
+  title: "Sign in — FleetMan",
 };
 
 export default function LoginPage() {

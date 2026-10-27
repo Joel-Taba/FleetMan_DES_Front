@@ -23,6 +23,7 @@ import { getCurrentUser, getPrimaryRole } from "@/lib/auth/session";
 import { isBackofficeOfflineRole, isOfflineModeEnabled } from "@/lib/offline/api-client";
 import { fullBootstrap, runSync } from "@/lib/offline/sync/sync-engine";
 import type { OfflineRole } from "@/lib/offline/db";
+import { tr } from "@/lib/i18n-messages";
 
 type OfflineContextValue = {
   isOnline: boolean;
@@ -150,7 +151,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         if (!cancelled) {
           setLastSyncError(
-            error instanceof Error ? error.message : "Échec du bootstrap offline"
+            error instanceof Error ? error.message : tr("Échec du bootstrap offline")
           );
         }
       } finally {

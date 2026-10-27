@@ -30,7 +30,7 @@ export function OperationsMaintenances() {
     e.preventDefault();
     if (!form.vehicleId || !form.subject) return;
     if (form.cost.trim()) {
-      const costErr = validateDecimalInput(form.cost, { min: 0, label: "Coût" });
+      const costErr = validateDecimalInput(form.cost, { min: 0, label: t("Coût") });
       if (costErr) {
         setFormError(costErr);
         return;
@@ -58,72 +58,72 @@ export function OperationsMaintenances() {
       <PageHeader title={t("Maintenances")} description={t("Registre des opérations de maintenance.")}>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4" /> Déclarer une maintenance</Button>
+            <Button><Plus className="h-4 w-4" /> {t("Déclarer une maintenance")}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
-            <DialogHeader><DialogTitle>Déclarer une maintenance</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("Déclarer une maintenance")}</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label>Véhicule *</Label>
+                <Label>{t("Véhicule *")}</Label>
                 <select
                   required
                   className="h-10 w-full rounded-lg border px-3 text-sm"
                   value={form.vehicleId}
                   onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}
                 >
-                  <option value="">Sélectionner un véhicule</option>
+                  <option value="">{t("Sélectionner un véhicule")}</option>
                   {(vehicles ?? []).map((v) => (
                     <option key={v.id} value={v.id}>{v.licensePlate} — {v.brand} {v.model}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Objet / Titre *</Label>
+                <Label>{t("Objet / Titre *")}</Label>
                 <Input
                   required
-                  placeholder="Ex: Vidange moteur"
+                  placeholder={t("Ex: Vidange moteur")}
                   value={form.subject}
                   onChange={(e) => setForm((f) => ({ ...f, subject: e.target.value }))}
                 />
               </div>
               <div className="space-y-2">
-                <Label>Coût (FCFA)</Label>
+                <Label>{t("Coût (FCFA)")}</Label>
                 <NumericInput
                   mode="decimal"
-                  placeholder="Ex: 45000"
+                  placeholder={t("Ex: 45000")}
                   value={form.cost}
                   onValueChange={(v) => setForm((f) => ({ ...f, cost: v }))}
                 />
               </div>
               {formError && <p className="text-sm text-destructive">{formError}</p>}
               <div className="space-y-2">
-                <Label>Lieu</Label>
+                <Label>{t("Lieu")}</Label>
                 <Input
-                  placeholder="Ex: Garage Central Yaoundé"
+                  placeholder={t("Ex: Garage Central Yaoundé")}
                   value={form.locationName}
                   onChange={(e) => setForm((f) => ({ ...f, locationName: e.target.value }))}
                 />
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? "Envoi…" : "Enregistrer"}</Button>
+                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? t("Envoi…") : t("Enregistrer")}</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </PageHeader>
 
-      <DataGate loading={loading} error={error} empty={(maintenances ?? []).length === 0} emptyMessage="Aucune maintenance enregistrée.">
+      <DataGate loading={loading} error={error} empty={(maintenances ?? []).length === 0} emptyMessage={t("Aucune maintenance enregistrée.")}>
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
                 <th className="px-4 py-3 text-left align-middle">Date</th>
-                <th className="px-4 py-3 text-left align-middle">Véhicule</th>
-                <th className="px-4 py-3 text-left align-middle">Objet</th>
-                <th className="px-4 py-3 text-left align-middle">Rapport</th>
-                <th className="px-4 py-3 text-left align-middle">Coût</th>
-                <th className="px-4 py-3 text-left align-middle">Chauffeur</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Véhicule")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Objet")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Rapport")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Coût")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Chauffeur")}</th>
               </tr>
             </thead>
             <tbody>

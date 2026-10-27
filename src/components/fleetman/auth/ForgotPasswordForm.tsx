@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, forgotPasswordRequest } from "@/lib/api/mock-wrapper";
+import { useLang } from "@/lib/i18n";
 
 export function ForgotPasswordForm() {
+  const { t } = useLang();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
@@ -28,7 +30,7 @@ export function ForgotPasswordForm() {
 
     try {
       if (!email.includes("@")) {
-        setError("Veuillez entrer une adresse email valide.");
+        setError(t("Veuillez entrer une adresse email valide."));
         return;
       }
       await forgotPasswordRequest(email.trim());
@@ -52,20 +54,20 @@ export function ForgotPasswordForm() {
         className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" />
-        Retour à la connexion
+        {t("Retour à la connexion")}
       </Link>
 
       <h1 className="font-display text-3xl font-bold text-foreground">
-        Réinitialiser votre mot de passe
+        {t("Réinitialiser votre mot de passe")}
       </h1>
       <p className="mt-2 text-muted-foreground">
-        Entrez votre email pour recevoir un lien de réinitialisation
+        {t("Entrez votre email pour recevoir un lien de réinitialisation")}
       </p>
 
       {sent ? (
         <div className="mt-8 rounded-xl border border-success/30 bg-success/10 p-6">
           <CheckCircle2 className="mb-3 h-10 w-10 text-success" />
-          <p className="font-medium text-foreground">Email envoyé !</p>
+          <p className="font-medium text-foreground">{t("Email envoyé !")}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             Si un compte existe pour <strong>{email}</strong>, vous recevrez un
             lien de réinitialisation. Vérifiez aussi vos spams.
@@ -84,7 +86,7 @@ export function ForgotPasswordForm() {
               setCooldown(0);
             }}
           >
-            Renvoyer le lien
+            {t("Renvoyer le lien")}
           </Button>
         </div>
       ) : (
@@ -98,7 +100,7 @@ export function ForgotPasswordForm() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="vous@entreprise.cm"
+              placeholder={t("vous@entreprise.cm")}
             />
           </div>
 
@@ -109,7 +111,7 @@ export function ForgotPasswordForm() {
           )}
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Envoi..." : "Envoyer le lien"}
+            {loading ? t("Envoi...") : t("Envoyer le lien")}
           </Button>
         </form>
       )}

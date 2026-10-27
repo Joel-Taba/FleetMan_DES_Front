@@ -12,6 +12,7 @@ import {
   declareIncidentOfflineAware,
   declareMaintenanceOfflineAware,
 } from "@/lib/offline/mutations/driver-declarations";
+import { useLang } from "@/lib/i18n";
 
 type FormKind = "incident" | "fuel" | "maintenance";
 
@@ -50,6 +51,7 @@ const config: Record<
 };
 
 export function DriverDeclarationForm({ kind }: { kind: FormKind }) {
+  const { t } = useLang();
   const router = useRouter();
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -85,7 +87,7 @@ export function DriverDeclarationForm({ kind }: { kind: FormKind }) {
       }
       setSubmitted(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Échec de l'envoi.");
+      setError(err instanceof Error ? err.message : t("Échec de l'envoi."));
     } finally {
       setSubmitting(false);
     }
@@ -97,12 +99,12 @@ export function DriverDeclarationForm({ kind }: { kind: FormKind }) {
         <div className="rounded-full bg-success/10 p-4">
           <Check className="h-10 w-10 text-success" />
         </div>
-        <h2 className="mt-4 font-display text-xl font-bold">Déclaration envoyée</h2>
+        <h2 className="mt-4 font-display text-xl font-bold">{t("Déclaration envoyée")}</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Votre gestionnaire sera notifié sous peu.
+          {t("Votre gestionnaire sera notifié sous peu.")}
         </p>
         <Button className="mt-6" onClick={() => router.push("/dashboard/driver/declarations")}>
-          Retour aux déclarations
+          {t("Retour aux déclarations")}
         </Button>
       </div>
     );
@@ -117,11 +119,11 @@ export function DriverDeclarationForm({ kind }: { kind: FormKind }) {
         <ArrowLeft className="h-4 w-4" />
         Retour
       </Link>
-      <h1 className="font-display text-xl font-bold">{c.title}</h1>
+      <h1 className="font-display text-xl font-bold">{t(c.title)}</h1>
       <form className="space-y-4" onSubmit={(e) => void handleSubmit(e)}>
         {c.fields.map((f) => (
           <div key={f.name}>
-            <Label htmlFor={f.name}>{f.label}</Label>
+            <Label htmlFor={f.name}>{t(f.label)}</Label>
             {f.as === "select" ? (
               <select
                 id={f.name}

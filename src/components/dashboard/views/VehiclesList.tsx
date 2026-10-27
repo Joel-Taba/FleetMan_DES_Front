@@ -124,7 +124,7 @@ export function VehiclesList() {
       resetWizard();
       refetch();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Erreur lors de la création");
+      setFormError(err instanceof Error ? err.message : t("Erreur lors de la création"));
     } finally {
       setCreating(false);
     }
@@ -144,7 +144,7 @@ export function VehiclesList() {
 
   return (
     <div>
-      <PageHeader title="Véhicules" description="Gérez l'ensemble de votre parc automobile.">
+      <PageHeader title={t("Véhicules")} description={t("Gérez l'ensemble de votre parc automobile.")}>
         <Dialog
           open={wizardOpen}
           onOpenChange={(o) => {
@@ -168,7 +168,7 @@ export function VehiclesList() {
             {step === 0 && (
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Flotte</Label>
+                  <Label>{t("Flotte")}</Label>
                   <select
                     className="h-11 w-full rounded-lg border px-3 text-sm"
                     value={form.fleetId}
@@ -180,11 +180,11 @@ export function VehiclesList() {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Immatriculation</Label>
+                  <Label>{t("Immatriculation")}</Label>
                   <Input
                     value={form.licensePlate}
                     onChange={(e) => setForm((f) => ({ ...f, licensePlate: e.target.value }))}
-                    placeholder="LT-892-CE"
+                    placeholder={t("LT-892-CE")}
                   />
                 </div>
               </div>
@@ -192,15 +192,15 @@ export function VehiclesList() {
             {step === 1 && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Marque</Label>
+                  <Label>{t("Marque")}</Label>
                   <Input value={form.brand} onChange={(e) => setForm((f) => ({ ...f, brand: e.target.value }))} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Modèle</Label>
+                  <Label>{t("Modèle")}</Label>
                   <Input value={form.model} onChange={(e) => setForm((f) => ({ ...f, model: e.target.value }))} />
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>Année</Label>
+                  <Label>{t("Année")}</Label>
                   <Input
                     type="number"
                     value={form.manufacturingYear}
@@ -212,51 +212,51 @@ export function VehiclesList() {
             {step === 2 && (
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Carburant</Label>
+                  <Label>{t("Carburant")}</Label>
                   <select
                     className="h-11 w-full rounded-lg border px-3 text-sm"
                     value={form.fuelType}
                     onChange={(e) => setForm((f) => ({ ...f, fuelType: e.target.value }))}
                   >
-                    <option value="DIESEL">Diesel</option>
-                    <option value="PETROL">Essence</option>
-                    <option value="ELECTRIC">Électrique</option>
+                    <option value="DIESEL">{t("Diesel")}</option>
+                    <option value="PETROL">{t("Essence")}</option>
+                    <option value="ELECTRIC">{t("Électrique")}</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Transmission</Label>
+                  <Label>{t("Transmission")}</Label>
                   <select
                     className="h-11 w-full rounded-lg border px-3 text-sm"
                     value={form.transmissionType}
                     onChange={(e) => setForm((f) => ({ ...f, transmissionType: e.target.value }))}
                   >
-                    <option value="MANUAL">Manuelle</option>
-                    <option value="AUTOMATIC">Automatique</option>
+                    <option value="MANUAL">{t("Manuelle")}</option>
+                    <option value="AUTOMATIC">{t("Automatique")}</option>
                   </select>
                 </div>
                 <div className="space-y-2 sm:col-span-2">
-                  <Label>Couleur</Label>
+                  <Label>{t("Couleur")}</Label>
                   <Input value={form.color} onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))} />
                 </div>
               </div>
             )}
             {step === 3 && (
               <dl className="space-y-2 text-sm">
-                <div className="flex justify-between"><dt className="text-muted-foreground">Flotte</dt><dd>{fleetNameById(fleets ?? [], form.fleetId)}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Immatriculation</dt><dd className="font-mono">{form.licensePlate.toUpperCase()}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Véhicule</dt><dd>{form.brand} {form.model} ({form.manufacturingYear})</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Motorisation</dt><dd>{form.fuelType} · {form.transmissionType}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">{t("Flotte")}</dt><dd>{fleetNameById(fleets ?? [], form.fleetId)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">{t("Immatriculation")}</dt><dd className="font-mono">{form.licensePlate.toUpperCase()}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">{t("Véhicule")}</dt><dd>{form.brand} {form.model} ({form.manufacturingYear})</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">{t("Motorisation")}</dt><dd>{form.fuelType} · {form.transmissionType}</dd></div>
               </dl>
             )}
             <div className="mt-4 flex justify-between">
               <Button type="button" variant="secondary" onClick={() => (step > 0 ? setStep(step - 1) : setWizardOpen(false))}>
-                {step > 0 ? "Précédent" : "Annuler"}
+                {step > 0 ? t("Précédent") : t("Annuler")}
               </Button>
               {step < 3 ? (
-                <Button type="button" onClick={() => setStep(step + 1)}>Suivant</Button>
+                <Button type="button" onClick={() => setStep(step + 1)}>{t("Suivant")}</Button>
               ) : (
                 <Button type="button" onClick={handleCreate} disabled={creating}>
-                  {creating ? "Enregistrement…" : "Enregistrer"}
+                  {creating ? t("Enregistrement…") : t("Enregistrer")}
                 </Button>
               )}
             </div>
@@ -287,7 +287,7 @@ export function VehiclesList() {
                 <th>{t("Type")}</th>
                 <th>{t("Statut")}</th>
                 <th>{t("Chauffeur")}</th>
-                <th>Km</th>
+                <th>{t("Km")}</th>
                 <th className="text-right">{t("Actions")}</th>
               </tr>
             </thead>
@@ -313,7 +313,7 @@ export function VehiclesList() {
                       {driverName ? (
                         <Link href={`/dashboard/manager/drivers`} className="text-primary hover:underline">{driverName}</Link>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Aucun</span>
+                        <span className="text-xs text-muted-foreground">{t("Aucun")}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">

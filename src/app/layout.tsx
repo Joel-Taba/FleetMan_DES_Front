@@ -4,9 +4,9 @@ import { DevServiceWorkerCleanup } from "@/components/DevServiceWorkerCleanup";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "FleetMan — Gestion de flotte de véhicules",
+  title: "FleetMan — Vehicle fleet management",
   description:
-    "Solution de gestion de flotte pour les entreprises de transport en Afrique",
+    "Fleet management solution for transport companies in Africa",
   applicationName: "FleetMan",
   appleWebApp: {
     capable: true,
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen font-sans antialiased">
         <DevServiceWorkerCleanup />
         <AppProviders>{children}</AppProviders>

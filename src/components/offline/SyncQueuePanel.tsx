@@ -22,6 +22,7 @@ import {
 } from "@/lib/offline/queue/conflict-store";
 import { retryFailedMutations } from "@/lib/offline/sync/sync-engine";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 const STATUS_STYLES: Record<
   MutationStatus,
@@ -35,15 +36,17 @@ const STATUS_STYLES: Record<
 };
 
 function StatusBadge({ status }: { status: MutationStatus }) {
+  const { t } = useLang();
   const config = STATUS_STYLES[status];
   return (
     <Badge variant="outline" className={cn("font-medium", config.className)}>
-      {config.label}
+      {t(config.label)}
     </Badge>
   );
 }
 
 export function SyncQueuePanel() {
+  const { t } = useLang();
   const {
     isOnline,
     pendingCount,
@@ -93,10 +96,9 @@ export function SyncQueuePanel() {
   if (!offlineRole) {
     return (
       <div className="mx-auto max-w-3xl py-8">
-        <h1 className="font-display text-2xl font-semibold">Synchronisation</h1>
+        <h1 className="font-display text-2xl font-semibold">{t("Synchronisation")}</h1>
         <p className="mt-2 text-muted-foreground">
-          Le mode hors ligne est disponible pour les rôles gestionnaire, admin,
-          super-admin et chauffeur.
+          {t("Le mode hors ligne est disponible pour les rôles gestionnaire, admin, super-admin et chauffeur.")}
         </p>
       </div>
     );
@@ -142,7 +144,7 @@ export function SyncQueuePanel() {
 
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold">Synchronisation</h1>
+          <h1 className="font-display text-2xl font-semibold">{t("Synchronisation")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {isOnline ? "En ligne" : "Hors ligne"} · {pendingCount} en attente
             {(conflicts ?? []).length > 0
@@ -183,7 +185,7 @@ export function SyncQueuePanel() {
         <section className="rounded-2xl border border-destructive/40 bg-destructive/5 p-4">
           <h2 className="mb-3 flex items-center gap-2 font-semibold text-destructive">
             <AlertTriangle className="h-5 w-5" />
-            Conflits à résoudre
+            {t("Conflits à résoudre")}
           </h2>
           <ul className="space-y-2">
             {(conflicts ?? []).map((conflict) => {
@@ -220,10 +222,10 @@ export function SyncQueuePanel() {
         <table className="w-full text-left text-sm">
           <thead className="border-b bg-muted/40 text-xs uppercase text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">Statut</th>
-              <th className="px-4 py-3">Méthode</th>
-              <th className="px-4 py-3">Endpoint</th>
-              <th className="hidden px-4 py-3 md:table-cell">Erreur</th>
+              <th className="px-4 py-3">{t("Statut")}</th>
+              <th className="px-4 py-3">{t("Méthode")}</th>
+              <th className="px-4 py-3">{t("Endpoint")}</th>
+              <th className="hidden px-4 py-3 md:table-cell">{t("Erreur")}</th>
               <th className="px-4 py-3">Date</th>
               <th className="px-4 py-3" />
             </tr>
@@ -232,7 +234,7 @@ export function SyncQueuePanel() {
             {activeMutations.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                  Aucune mutation en file d&apos;attente.
+                  {t("Aucune mutation en file d'attente.")}
                 </td>
               </tr>
             ) : (
@@ -254,7 +256,7 @@ export function SyncQueuePanel() {
       </div>
 
       <Link href="/dashboard" className="text-sm text-primary hover:underline">
-        ← Retour au tableau de bord
+        {t("← Retour au tableau de bord")}
       </Link>
 
       <ConflictResolverDialog

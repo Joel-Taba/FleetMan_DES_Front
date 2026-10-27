@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { tr } from "@/lib/i18n";
 
 /**
  * Wrapper SSR-safe autour de la carte Leaflet. `ssr: false` garantit que la
@@ -12,7 +13,7 @@ export const MapView = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-full w-full items-center justify-center bg-muted text-sm text-muted-foreground">
-        Chargement de la carte…
+        {tr("Chargement de la carte…")}
       </div>
     ),
   }

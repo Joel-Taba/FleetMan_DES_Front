@@ -30,12 +30,20 @@ import { useApiQuery } from "@/hooks/use-api-query";
 import { formatDateTime, vehiclePlateById, driverLabel } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
 
+/** Valeur d'un champ datetime-local en heure LOCALE (toISOString donnait l'heure UTC). */
+function toLocalInput(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 export function AssignmentsList() {
   const { t } = useLang();
   const [conflictsOnly, setConflictsOnly] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Refus du serveur (ex. conflit de créneau 409) : il n'était jamais affiché.
+  const [formError, setFormError] = useState<string | null>(null);
   const [form, setForm] = useState({
     fleetId: "",
     vehicleId: "",
@@ -91,8 +99,8 @@ export function AssignmentsList() {
         fleetId: form.fleetId,
         vehicleId: form.vehicleId,
         driverId: form.driverId,
-        startDatetime: form.startDatetime || new Date().toISOString(),
-        endDatetime: form.endDatetime || new Date(Date.now() + 8 * 3600000).toISOString(),
+        startDatetime: form.startDatetime || toLocalInput(new Date()),
+        endDatetime: form.endDatetime || toLocalInput(new Date(Date.now() + 8 * 3600000)),
       };
 
       if (isOfflineModeEnabled()) {
@@ -110,6 +118,8 @@ export function AssignmentsList() {
       await createAssignmentOfflineAware(payload);
       setCreateOpen(false);
       refetch();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t("Erreur lors de la création de l'affectation"));
     } finally {
       setSubmitting(false);
     }
@@ -122,6 +132,8 @@ export function AssignmentsList() {
       await updateAssignmentOfflineAware(editId, { vehicleId: form.vehicleId, driverId: form.driverId });
       setEditId(null);
       refetch();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : t("Erreur lors de la réaffectation"));
     } finally {
       setSubmitting(false);
     }
@@ -144,9 +156,10 @@ export function AssignmentsList() {
             fleetId: fleets?.[0]?.id ?? "",
             vehicleId: "",
             driverId: "",
-            startDatetime: new Date().toISOString().slice(0, 16),
-            endDatetime: new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 16),
+            startDatetime: toLocalInput(new Date()),
+            endDatetime: toLocalInput(new Date(Date.now() + 8 * 3600000)),
           });
+          setFormError(null);
           setCreateOpen(true);
         }}>
           <Plus className="h-4 w-4" /> {t("Nouvelle affectation")}
@@ -193,6 +206,7 @@ export function AssignmentsList() {
                       size="sm"
                       variant="ghost"
                       onClick={() => {
+                        setFormError(null);
                         setEditId(a.id);
                         setForm({
                           fleetId: a.fleetId,
@@ -217,6 +231,11 @@ export function AssignmentsList() {
         <DialogContent>
           <DialogHeader><DialogTitle>{t("Nouvelle affectation")}</DialogTitle></DialogHeader>
           <form className="space-y-4" onSubmit={handleCreate}>
+            {formError && (
+              <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {formError}
+              </p>
+            )}
             <div className="space-y-2">
               <Label>{t("Flotte")}</Label>
               <select className="h-11 w-full rounded-lg border px-3 text-sm" value={form.fleetId} onChange={(e) => setForm((f) => ({ ...f, fleetId: e.target.value }))} required>
@@ -257,6 +276,11 @@ export function AssignmentsList() {
         <DialogContent>
           <DialogHeader><DialogTitle>{t("Modifier l'affectation")}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">{t("Les horaires ne sont pas modifiables. Changez uniquement le véhicule ou le conducteur.")}</p>
+          {formError && (
+            <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {formError}
+            </p>
+          )}
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>{t("Véhicule")}</Label>

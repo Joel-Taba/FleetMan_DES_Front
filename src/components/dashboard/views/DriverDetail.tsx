@@ -27,6 +27,7 @@ import { uploadDocumentFileOfflineAware } from "@/lib/offline/mutations/document
 import { updateDriverOfflineAware } from "@/lib/offline/mutations/driver-mutations";
 import { driverFullName, driverInitials, driverLabel, fleetNameById, vehiclePlateById } from "@/lib/api/mappers/manager";
 import { useLang } from "@/lib/i18n";
+import { SecureImage } from "@/components/ui/secure-image";
 
 export function DriverDetail({ id }: { id: string }) {
   const { t } = useLang();
@@ -127,8 +128,7 @@ export function DriverDetail({ id }: { id: string }) {
               <CardContent className="flex flex-col items-center p-6 text-center">
                 <div className="relative">
                   {driver.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={driver.photoUrl} alt="" className="h-24 w-24 rounded-full object-cover" />
+                    <SecureImage src={driver.photoUrl} alt="" className="h-24 w-24 rounded-full object-cover" />
                   ) : (
                     <div className="flex h-24 w-24 items-center justify-center rounded-full bg-primary/10 text-2xl font-bold text-primary">
                       {driverInitials(driver)}

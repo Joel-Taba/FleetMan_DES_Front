@@ -1,6 +1,9 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 type LogoProps = {
   className?: string;
@@ -19,6 +22,7 @@ export function Logo({
   href,
   prefetch,
 }: LogoProps) {
+  const { t } = useLang();
   const isLight = variant === "light";
 
   const content = (
@@ -46,7 +50,7 @@ export function Logo({
               isLight ? "text-white/80" : "text-muted-foreground"
             )}
           >
-            Votre flotte sous contrôle
+            {t("Votre flotte sous contrôle")}
           </p>
         )}
       </div>

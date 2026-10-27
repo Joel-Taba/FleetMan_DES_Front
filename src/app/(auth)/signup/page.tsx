@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { SignupForm } from "@/components/fleetman/auth/SignupForm";
 
 export const metadata = {
-  title: "Inscription — FleetMan",
+  title: "Sign up — FleetMan",
 };
 
 export default function SignupPage() {

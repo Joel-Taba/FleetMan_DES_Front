@@ -10,6 +10,7 @@ import { DataGate } from "../DataGate";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { archiveSchedule, fetchSchedule, publishSchedule } from "@/lib/api/manager";
 import { useState } from "react";
+import { useLang } from "@/lib/i18n";
 
 const statusVariant: Record<string, "muted" | "success" | "default" | "outline"> = {
   DRAFT: "muted",
@@ -19,6 +20,7 @@ const statusVariant: Record<string, "muted" | "success" | "default" | "outline">
 };
 
 export function ScheduleDetail({ id }: { id: string }) {
+  const { t } = useLang();
   const router = useRouter();
   const { data: schedule, loading, error, refetch } = useApiQuery(() => fetchSchedule(id), [id]);
   const [acting, setActing] = useState(false);
@@ -50,7 +52,7 @@ export function ScheduleDetail({ id }: { id: string }) {
         className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-primary"
       >
         <ArrowLeft className="h-4 w-4" />
-        Retour aux plannings
+        {t("Retour aux plannings")}
       </Link>
 
       <DataGate loading={loading} error={error}>

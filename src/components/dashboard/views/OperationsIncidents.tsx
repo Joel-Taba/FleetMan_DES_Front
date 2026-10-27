@@ -93,19 +93,19 @@ export function OperationsIncidents() {
             <Button><Plus className="h-4 w-4" /> {t("Déclarer un incident")}</Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
-            <DialogHeader><DialogTitle>Déclarer un incident</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("Déclarer un incident")}</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
               <div className="space-y-2">
-                <Label>Véhicule *</Label>
+                <Label>{t("Véhicule *")}</Label>
                 <select required className="h-10 w-full rounded-lg border px-3 text-sm" value={form.vehicleId} onChange={(e) => setForm((f) => ({ ...f, vehicleId: e.target.value }))}>
-                  <option value="">Sélectionner un véhicule</option>
+                  <option value="">{t("Sélectionner un véhicule")}</option>
                   {(vehicles ?? []).map((v) => (
                     <option key={v.id} value={v.id}>{v.licensePlate} — {v.brand} {v.model}</option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Type *</Label>
+                <Label>{t("Type *")}</Label>
                 <select className="h-10 w-full rounded-lg border px-3 text-sm" value={form.type} onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}>
                   {["ACCIDENT", "BREAKDOWN", "THEFT", "VANDALISM", "TRAFFIC_VIOLATION", "OTHER"].map((type) => (
                     <option key={type} value={type}>{type}</option>
@@ -113,7 +113,7 @@ export function OperationsIncidents() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Sévérité</Label>
+                <Label>{t("Sévérité")}</Label>
                 <select className="h-10 w-full rounded-lg border px-3 text-sm" value={form.severity} onChange={(e) => setForm((f) => ({ ...f, severity: e.target.value }))}>
                   {["LOW", "MEDIUM", "HIGH", "CRITICAL"].map((s) => (
                     <option key={s} value={s}>{s}</option>
@@ -121,16 +121,16 @@ export function OperationsIncidents() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label>Description</Label>
+                <Label>{t("Description")}</Label>
                 <Input value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
               </div>
               <div className="space-y-2">
-                <Label>Signalé par</Label>
+                <Label>{t("Signalé par")}</Label>
                 <Input
                   list="incident-reporters"
                   value={form.reportedBy}
                   onChange={(e) => setForm((f) => ({ ...f, reportedBy: e.target.value }))}
-                  placeholder="Nom du déclarant"
+                  placeholder={t("Nom du déclarant")}
                 />
                 <datalist id="incident-reporters">
                   {reporters.map((name) => (
@@ -139,27 +139,27 @@ export function OperationsIncidents() {
                 </datalist>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? "Envoi…" : "Déclarer"}</Button>
+                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? t("Envoi…") : t("Déclarer")}</Button>
               </div>
             </form>
           </DialogContent>
         </Dialog>
       </PageHeader>
 
-      <DataGate loading={loading} error={error} empty={(incidents ?? []).length === 0} emptyMessage="Aucun incident déclaré.">
+      <DataGate loading={loading} error={error} empty={(incidents ?? []).length === 0} emptyMessage={t("Aucun incident déclaré.")}>
         <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
                 <th className="px-4 py-3 text-left align-middle">Date</th>
-                <th className="px-4 py-3 text-left align-middle">Véhicule</th>
-                <th className="px-4 py-3 text-left align-middle">Chauffeur</th>
-                <th className="px-4 py-3 text-left align-middle">Type</th>
-                <th className="px-4 py-3 text-left align-middle">Sévérité</th>
-                <th className="px-4 py-3 text-left align-middle">Description</th>
-                <th className="px-4 py-3 text-left align-middle">Statut</th>
-                <th className="px-4 py-3 text-right align-middle">Actions</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Véhicule")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Chauffeur")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Type")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Sévérité")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Description")}</th>
+                <th className="px-4 py-3 text-left align-middle">{t("Statut")}</th>
+                <th className="px-4 py-3 text-right align-middle">{t("Actions")}</th>
               </tr>
             </thead>
             <tbody>

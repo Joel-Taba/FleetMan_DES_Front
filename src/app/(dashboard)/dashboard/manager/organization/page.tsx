@@ -1,6 +1,6 @@
 import { OrganizationPage } from "@/components/dashboard/views/OrganizationPage";
 
-export const metadata = { title: "Organisation — FleetMan" };
+export const metadata = { title: "Organization — FleetMan" };
 
 export default function Page() {
   return <OrganizationPage />;

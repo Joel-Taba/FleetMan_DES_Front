@@ -77,7 +77,7 @@ export function SignupForm() {
 
   function addDocument() {
     if (!pendingFile) {
-      setError("Sélectionnez un fichier.");
+      setError(t("Sélectionnez un fichier."));
       return;
     }
     const fileError = validateDocumentFile(pendingFile);
@@ -104,7 +104,7 @@ export function SignupForm() {
     e.preventDefault();
     if (!accepted || !isStrong || password !== confirmPassword) return;
     if (!hasRequiredDocs) {
-      setError("La CNI et l'extrait de casier judiciaire sont obligatoires.");
+      setError(t("La CNI et l'extrait de casier judiciaire sont obligatoires."));
       return;
     }
     setLoading(true);
@@ -136,7 +136,7 @@ export function SignupForm() {
       });
       setSuccess(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors de l'inscription.");
+      setError(err instanceof Error ? err.message : t("Erreur lors de l'inscription."));
     } finally {
       setLoading(false);
     }
@@ -148,12 +148,12 @@ export function SignupForm() {
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-success/10 text-success">
           <Check className="h-8 w-8" />
         </div>
-        <h1 className="mt-6 font-display text-2xl font-bold">Demande envoyée</h1>
+        <h1 className="mt-6 font-display text-2xl font-bold">{t("Demande envoyée")}</h1>
         <p className="mt-2 text-muted-foreground">
-          Votre demande de souscription a été enregistrée. Un super-administrateur examinera vos documents et vous notifiera par email.
+          {t("Votre demande de souscription a été enregistrée. Un super-administrateur examinera vos documents et vous notifiera par email.")}
         </p>
         <Button asChild className="mt-8">
-          <Link href="/login">Retour à la connexion</Link>
+          <Link href="/login">{t("Retour à la connexion")}</Link>
         </Button>
       </div>
     );
@@ -161,8 +161,8 @@ export function SignupForm() {
 
   return (
     <div className="w-full">
-      <h1 className="font-display text-3xl font-bold text-foreground">Rejoignez FleetMan</h1>
-      <p className="mt-2 text-muted-foreground">Créez votre compte gestionnaire de flotte</p>
+      <h1 className="font-display text-3xl font-bold text-foreground">{t("Rejoignez FleetMan")}</h1>
+      <p className="mt-2 text-muted-foreground">{t("Créez votre compte gestionnaire de flotte")}</p>
       {selectedPlan && (
         <Badge className="mt-3" variant="default">
           Plan choisi : {selectedPlan.name}
@@ -172,32 +172,32 @@ export function SignupForm() {
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="firstName">Prénom *</Label>
+            <Label htmlFor="firstName">{t("Prénom *")}</Label>
             <Input id="firstName" required value={firstName} onChange={(e) => setFirstName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="lastName">Nom *</Label>
+            <Label htmlFor="lastName">{t("Nom *")}</Label>
             <Input id="lastName" required value={lastName} onChange={(e) => setLastName(e.target.value)} />
           </div>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="company">Nom entreprise *</Label>
-          <Input id="company" required value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Transport Express CM" />
+          <Label htmlFor="company">{t("Nom entreprise *")}</Label>
+          <Input id="company" required value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder={t("Transport Express CM")} />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email *</Label>
-          <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="vous@entreprise.cm" />
+          <Label htmlFor="email">{t("Email *")}</Label>
+          <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("vous@entreprise.cm")} />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="phone">Téléphone *</Label>
-          <Input id="phone" type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+237 6XX XX XX XX" />
+          <Label htmlFor="phone">{t("Téléphone *")}</Label>
+          <Input id="phone" type="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("+237 6XX XX XX XX")} />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="password">Mot de passe *</Label>
+          <Label htmlFor="password">{t("Mot de passe *")}</Label>
           <div className="relative">
             <Input
               id="password"
@@ -214,11 +214,11 @@ export function SignupForm() {
           {password && (
             <ul className="space-y-1 text-xs">
               {[
-                { ok: strength.length, label: "10 caractères minimum" },
-                { ok: strength.upper, label: "Une majuscule" },
-                { ok: strength.lower, label: "Une minuscule" },
-                { ok: strength.digit, label: "Un chiffre" },
-                { ok: strength.symbol, label: "Un symbole" },
+                { ok: strength.length, label: t("10 caractères minimum") },
+                { ok: strength.upper, label: t("Une majuscule") },
+                { ok: strength.lower, label: t("Une minuscule") },
+                { ok: strength.digit, label: t("Un chiffre") },
+                { ok: strength.symbol, label: t("Un symbole") },
               ].map((rule) => (
                 <li key={rule.label} className={cn("flex items-center gap-1", rule.ok ? "text-success" : "text-muted-foreground")}>
                   {rule.ok ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
@@ -230,7 +230,7 @@ export function SignupForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="confirmPassword">Confirmer le mot de passe *</Label>
+          <Label htmlFor="confirmPassword">{t("Confirmer le mot de passe *")}</Label>
           <Input id="confirmPassword" type="password" required value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
         </div>
 
@@ -238,41 +238,41 @@ export function SignupForm() {
           <div>
             <h2 className="font-semibold flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              Documents de conformité
+              {t("Documents de conformité")}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Fournissez jusqu&apos;à {MAX_SUBSCRIPTION_DOCUMENTS} documents (CNI et casier judiciaire obligatoires).
+              {t("Fournissez jusqu'à")} {MAX_SUBSCRIPTION_DOCUMENTS} {t("documents (CNI et casier judiciaire obligatoires).")}
             </p>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Type de document</Label>
+              <Label>{t("Type de document")}</Label>
               <select className="h-10 w-full rounded-lg border px-3 text-sm" value={docType} onChange={(e) => setDocType(e.target.value)}>
                 {SUBSCRIPTION_DOC_TYPES.map((type) => (
                   <option key={type} value={type}>
-                    {DOC_TYPE_LABELS_FR[type] ?? docTypeLabel(type, t)}
+                    {t(DOC_TYPE_LABELS_FR[type] ?? docTypeLabel(type, t))}
                     {SUBSCRIPTION_REQUIRED_DOC_TYPES.includes(type as (typeof SUBSCRIPTION_REQUIRED_DOC_TYPES)[number]) ? " *" : ""}
                   </option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <Label>N° document</Label>
-              <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} placeholder="Référence" />
+              <Label>{t("N° document")}</Label>
+              <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} placeholder={t("Référence")} />
             </div>
             <div className="space-y-1.5">
-              <Label>Émetteur</Label>
-              <Input value={issuer} onChange={(e) => setIssuer(e.target.value)} placeholder="Organisme" />
+              <Label>{t("Émetteur")}</Label>
+              <Input value={issuer} onChange={(e) => setIssuer(e.target.value)} placeholder={t("Organisme")} />
             </div>
             <div className="space-y-1.5">
-              <Label>Fichier (PDF, JPEG, PNG)</Label>
+              <Label>{t("Fichier (PDF, JPEG, PNG)")}</Label>
               <Input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={(e) => setPendingFile(e.target.files?.[0] ?? null)} />
             </div>
           </div>
           <Button type="button" variant="secondary" size="sm" className="gap-1" onClick={addDocument} disabled={documents.length >= MAX_SUBSCRIPTION_DOCUMENTS}>
             <Upload className="h-4 w-4" />
-            Ajouter le document ({documents.length}/{MAX_SUBSCRIPTION_DOCUMENTS})
+            {t("Ajouter le document")} ({documents.length}/{MAX_SUBSCRIPTION_DOCUMENTS})
           </Button>
 
           {documents.length > 0 && (
@@ -280,7 +280,7 @@ export function SignupForm() {
               {documents.map((d, i) => (
                 <li key={i} className="flex items-center justify-between rounded-lg border bg-card px-3 py-2 text-sm">
                   <span>
-                    <span className="font-medium">{DOC_TYPE_LABELS_FR[d.docType] ?? d.docType}</span>
+                    <span className="font-medium">{t(DOC_TYPE_LABELS_FR[d.docType] ?? d.docType)}</span>
                     <span className="mx-2 text-muted-foreground">·</span>
                     <span className="text-muted-foreground">{d.file.name}</span>
                   </span>
@@ -296,7 +296,7 @@ export function SignupForm() {
         <div className="flex items-start gap-2">
           <Checkbox id="terms" checked={accepted} onCheckedChange={(v) => setAccepted(v === true)} />
           <label htmlFor="terms" className="text-sm text-muted-foreground leading-snug">
-            J&apos;accepte les CGU et la politique de confidentialité
+            {t("J'accepte les CGU et la politique de confidentialité")}
           </label>
         </div>
 
@@ -308,9 +308,9 @@ export function SignupForm() {
       </form>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
-        Déjà inscrit ?{" "}
+        {t("Déjà inscrit ?")}{" "}
         <Link href="/login" className="font-medium text-primary hover:underline">
-          Se connecter
+          {t("Se connecter")}
         </Link>
       </p>
     </div>

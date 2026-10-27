@@ -6,6 +6,7 @@ import { useReveal } from "@/hooks/use-reveal";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchPublicSubscriptionPlans } from "@/lib/api/public";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 function limitLabel(value: number, singular: string, plural: string) {
   if (value >= 999) return `${plural} illimités`;
@@ -30,6 +31,7 @@ function planCta(plan: { id: string; monthlyPrice: number }) {
 }
 
 export function PricingSection() {
+  const { t } = useLang();
   const { ref, isVisible } = useReveal<HTMLElement>();
   const { data: plans, loading, error } = useApiQuery(fetchPublicSubscriptionPlans, []);
 
@@ -48,10 +50,10 @@ export function PricingSection() {
             isVisible && "is-visible"
           )}
         >
-          Des tarifs transparents, adaptés à votre taille
+          {t("Des tarifs transparents, adaptés à votre taille")}
         </h2>
         <p className="reveal mx-auto mt-3 max-w-2xl text-center text-muted-foreground">
-          Choisissez l&apos;offre définie par notre équipe et souscrivez en quelques clics.
+          {t("Choisissez l'offre définie par notre équipe et souscrivez en quelques clics.")}
         </p>
 
         {loading ? (
@@ -60,11 +62,11 @@ export function PricingSection() {
           </div>
         ) : error ? (
           <p className="mt-12 text-center text-sm text-destructive">
-            Impossible de charger les plans tarifaires pour le moment.
+            {t("Impossible de charger les plans tarifaires pour le moment.")}
           </p>
         ) : activePlans.length === 0 ? (
           <p className="mt-12 text-center text-sm text-muted-foreground">
-            Aucun plan tarifaire disponible actuellement.
+            {t("Aucun plan tarifaire disponible actuellement.")}
           </p>
         ) : (
           <div

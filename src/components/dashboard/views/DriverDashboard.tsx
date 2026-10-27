@@ -14,8 +14,10 @@ import {
 } from "@/lib/offline/hooks/useDriverResources";
 import { driverFullName } from "@/lib/api/mappers/manager";
 import { formatDateTime } from "@/lib/api/mappers/manager";
+import { useLang } from "@/lib/i18n";
 
 export function DriverDashboard() {
+  const { t } = useLang();
   const { data: profile, loading, error } = useDriverProfile();
   const { data: activeTrip } = useDriverActiveTrip();
   const { data: assignments } = useDriverAssignments(true);
@@ -28,7 +30,7 @@ export function DriverDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="font-display text-2xl font-bold">Bonjour {firstName} 👋</h1>
-        <p className="text-sm text-muted-foreground">Prêt pour votre journée ?</p>
+        <p className="text-sm text-muted-foreground">{t("Prêt pour votre journée ?")}</p>
       </div>
 
       <DataGate loading={loading} error={error}>
@@ -44,7 +46,7 @@ export function DriverDashboard() {
         ) : (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              Aucun véhicule assigné. Contactez votre gestionnaire.
+              {t("Aucun véhicule assigné. Contactez votre gestionnaire.")}
             </CardContent>
           </Card>
         )}
@@ -56,16 +58,16 @@ export function DriverDashboard() {
           asChild
         >
           <Link href="/dashboard/driver/trips/active">
-            {activeTrip ? "VOIR MA COURSE ACTIVE" : "DÉMARRER UN TRAJET"}
+            {activeTrip ? t("VOIR MA COURSE ACTIVE") : t("DÉMARRER UN TRAJET")}
           </Link>
         </Button>
 
         <Card>
           <CardContent className="p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-semibold">Mes affectations aujourd&apos;hui</h2>
+              <h2 className="font-semibold">{t("Mes affectations aujourd'hui")}</h2>
               <Link href="/dashboard/driver/assignments" className="text-xs font-medium text-primary">
-                Tout voir
+                {t("Tout voir")}
               </Link>
             </div>
             <ul className="space-y-3">
@@ -85,7 +87,7 @@ export function DriverDashboard() {
                 </li>
               ))}
               {(assignments ?? []).length === 0 ? (
-                <li className="text-sm text-muted-foreground">Aucune affectation aujourd&apos;hui.</li>
+                <li className="text-sm text-muted-foreground">{t("Aucune affectation aujourd'hui.")}</li>
               ) : null}
             </ul>
           </CardContent>

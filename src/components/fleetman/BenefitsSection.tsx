@@ -3,8 +3,10 @@
 import { useReveal } from "@/hooks/use-reveal";
 import { benefits } from "@/lib/mock-landing-data";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 export function BenefitsSection() {
+  const { t } = useLang();
   const { ref, isVisible } = useReveal<HTMLElement>();
 
   return (
@@ -16,7 +18,7 @@ export function BenefitsSection() {
             isVisible && "is-visible"
           )}
         >
-          L&apos;impact FleetMan sur votre entreprise
+          {t("L'impact FleetMan sur votre entreprise")}
         </h2>
         <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {benefits.map((b, i) => (
@@ -29,8 +31,8 @@ export function BenefitsSection() {
               style={{ transitionDelay: `${i * 80}ms` }}
             >
               <p className="font-display text-4xl font-bold text-primary">{b.stat}</p>
-              <p className="mt-2 font-semibold">{b.title}</p>
-              <p className="mt-2 text-sm text-muted-foreground">{b.desc}</p>
+              <p className="mt-2 font-semibold">{t(b.title)}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{t(b.desc)}</p>
             </div>
           ))}
         </div>

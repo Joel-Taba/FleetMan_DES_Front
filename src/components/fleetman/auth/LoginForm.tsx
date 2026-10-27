@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthProvider";
 import { ApiError } from "@/lib/api/mock-wrapper";
+import { useLang } from "@/lib/i18n";
 
 function GoogleIcon() {
   return (
@@ -33,6 +34,7 @@ function GoogleIcon() {
 }
 
 export function LoginForm() {
+  const { t } = useLang();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -59,8 +61,10 @@ export function LoginForm() {
     } catch (err) {
       const message =
         err instanceof ApiError
-          ? err.status === 401
-            ? "Identifiants incorrects. Vérifiez votre email et mot de passe."
+          ? err.status === 401 && err.code === "AUTH_008"
+            ? err.message // adresse personnelle refusée : identifiant Yowyob envoyé par email
+            : err.status === 401
+            ? "Identifiants incorrects. Vérifiez votre identifiant et mot de passe."
             : err.status === 503
               ? "Le service d'authentification est temporairement indisponible. Vérifiez votre connexion internet et réessayez."
               : err.message
@@ -74,10 +78,10 @@ export function LoginForm() {
   return (
     <div className="w-full">
       <h1 className="font-display text-3xl font-bold text-foreground">
-        Bon retour parmi nous
+        {t("Bon retour parmi nous")}
       </h1>
       <p className="mt-2 text-muted-foreground">
-        Connectez-vous à votre compte FleetMan
+        {t("Connectez-vous à votre compte FleetMan")}
       </p>
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
@@ -88,25 +92,27 @@ export function LoginForm() {
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+          {/* type="text" : le Kernel attend désormais l'identifiant Yowyob
+              (ex. pending-…), qui n'est pas une adresse email. */}
+          <Label htmlFor="email">{t("Identifiant Yowyob ou email")}</Label>
           <Input
             id="email"
             name="email"
-            type="email"
-            placeholder="superadmin@fleetman.cm"
+            type="text"
+            placeholder={t("identifiant Yowyob")}
             required
-            autoComplete="email"
+            autoComplete="username"
           />
         </div>
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label htmlFor="password">Mot de passe</Label>
+            <Label htmlFor="password">{t("Mot de passe")}</Label>
             <Link
               href="/forgot-password"
               className="text-sm text-primary hover:underline"
             >
-              Mot de passe oublié ?
+              {t("Mot de passe oublié ?")}
             </Link>
           </div>
           <div className="relative">
@@ -146,19 +152,19 @@ export function LoginForm() {
           <span className="w-full border-t border-border" />
         </div>
         <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-background px-2 text-muted-foreground">ou</span>
+          <span className="bg-background px-2 text-muted-foreground">{t("ou")}</span>
         </div>
       </div>
 
       <Button variant="authOutline" className="w-full" type="button" disabled>
         <GoogleIcon />
-        Continuer avec Google
+        {t("Continuer avec Google")}
       </Button>
 
       <p className="mt-8 text-center text-sm text-muted-foreground">
         Pas encore de compte ?{" "}
         <Link href="/signup" className="font-medium text-primary hover:underline">
-          Créer un compte
+          {t("Créer un compte")}
         </Link>
       </p>
     </div>

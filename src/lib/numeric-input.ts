@@ -1,3 +1,4 @@
+import { tr } from "@/lib/i18n-messages";
 /** Motif d'une valeur décimale complète : chiffres + au plus une virgule décimale. */
 export const DECIMAL_INPUT_COMPLETE = /^\d+(,\d+)?$/;
 
@@ -62,23 +63,23 @@ export function validateDecimalInput(
   options: NumericValidationOptions = {}
 ): string | null {
   const trimmed = value.trim();
-  const label = options.label ?? "Ce champ";
+  const label = tr(options.label ?? "Ce champ");
 
   if (!trimmed) {
-    return options.required ? `${label} est obligatoire.` : null;
+    return options.required ? `${label} ${tr("est obligatoire.")}` : null;
   }
   if (!isValidDecimalInput(trimmed)) {
-    return `${label} : saisissez uniquement des chiffres (une virgule pour les décimales).`;
+    return `${label} : ${tr("saisissez uniquement des chiffres (une virgule pour les décimales).")}`;
   }
   const n = parseDecimalInput(trimmed);
   if (n === null) {
-    return `${label} : valeur numérique invalide.`;
+    return `${label} : ${tr("valeur numérique invalide.")}`;
   }
   if (options.min != null && n < options.min) {
-    return `${label} : la valeur minimum est ${options.min}.`;
+    return `${label} : ${tr("la valeur minimum est")} ${options.min}.`;
   }
   if (options.max != null && n > options.max) {
-    return `${label} : la valeur maximum est ${options.max}.`;
+    return `${label} : ${tr("la valeur maximum est")} ${options.max}.`;
   }
   return null;
 }
@@ -88,23 +89,23 @@ export function validateIntegerInput(
   options: NumericValidationOptions = {}
 ): string | null {
   const trimmed = value.trim();
-  const label = options.label ?? "Ce champ";
+  const label = tr(options.label ?? "Ce champ");
 
   if (!trimmed) {
-    return options.required ? `${label} est obligatoire.` : null;
+    return options.required ? `${label} ${tr("est obligatoire.")}` : null;
   }
   if (!isValidIntegerInput(trimmed)) {
-    return `${label} : saisissez uniquement des chiffres entiers.`;
+    return `${label} : ${tr("saisissez uniquement des chiffres entiers.")}`;
   }
   const n = parseIntegerInput(trimmed);
   if (n === null) {
-    return `${label} : valeur entière invalide.`;
+    return `${label} : ${tr("valeur entière invalide.")}`;
   }
   if (options.min != null && n < options.min) {
-    return `${label} : la valeur minimum est ${options.min}.`;
+    return `${label} : ${tr("la valeur minimum est")} ${options.min}.`;
   }
   if (options.max != null && n > options.max) {
-    return `${label} : la valeur maximum est ${options.max}.`;
+    return `${label} : ${tr("la valeur maximum est")} ${options.max}.`;
   }
   return null;
 }
@@ -116,18 +117,18 @@ export function assertFiniteNumber(
   options: { min?: number; max?: number; required?: boolean } = {}
 ): number | null {
   if (value == null || value === "") {
-    if (options.required) throw new Error(`${label} est obligatoire.`);
+    if (options.required) throw new Error(`${label} ${tr("est obligatoire.")}`);
     return null;
   }
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) {
-    throw new Error(`${label} : valeur numérique invalide.`);
+    throw new Error(`${label} : ${tr("valeur numérique invalide.")}`);
   }
   if (options.min != null && n < options.min) {
-    throw new Error(`${label} : la valeur minimum est ${options.min}.`);
+    throw new Error(`${label} : ${tr("la valeur minimum est")} ${options.min}.`);
   }
   if (options.max != null && n > options.max) {
-    throw new Error(`${label} : la valeur maximum est ${options.max}.`);
+    throw new Error(`${label} : ${tr("la valeur maximum est")} ${options.max}.`);
   }
   return n;
 }

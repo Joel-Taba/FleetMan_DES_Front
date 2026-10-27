@@ -309,6 +309,8 @@ export type CreateTripBody = {
   fleetId: string;
   startDate: string;
   startTime: string;
+  /** Retour prévu (ISO local, ex. 2026-11-02T18:00:00) : fin du créneau réservé. */
+  scheduledReturnDatetime?: string;
   departureLocation?: string;
   departureLat?: number;
   departureLng?: number;

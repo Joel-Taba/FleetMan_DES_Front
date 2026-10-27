@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { useLang } from "@/lib/i18n";
 
 type MapTransitionProps = {
   active: boolean;
@@ -10,6 +11,7 @@ type MapTransitionProps = {
 };
 
 export function MapTransition({ active, onComplete }: MapTransitionProps) {
+  const { t } = useLang();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export function MapTransition({ active, onComplete }: MapTransitionProps) {
           >
             <Image
               src="/assets/africa-clean.jpg"
-              alt="Carte d'Afrique"
+              alt={t("Carte d'Afrique")}
               fill
               className="object-contain"
               sizes="(max-width: 768px) 90vw, 70vh"

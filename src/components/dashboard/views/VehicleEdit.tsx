@@ -26,8 +26,8 @@ import { useOfflineEntity } from "@/lib/offline/hooks/useOfflineEntity";
 import { fetchVehicle } from "@/lib/api/manager";
 import { VehicleSyncBadge } from "@/components/offline/VehicleSyncBadge";
 import { mapVehicleStatus } from "@/lib/api/mappers/manager";
-import { resolveFileUrl } from "@/lib/documents";
 import { useLang } from "@/lib/i18n";
+import { SecureImage } from "@/components/ui/secure-image";
 
 export function VehicleEdit({ id }: { id: string }) {
   const { t } = useLang();
@@ -161,8 +161,7 @@ export function VehicleEdit({ id }: { id: string }) {
               <CardContent className="space-y-4">
                 <div className="relative aspect-video overflow-hidden rounded-lg bg-muted">
                   {mainPhoto ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={resolveFileUrl(mainPhoto)} alt="" className="h-full w-full object-cover" />
+                    <SecureImage src={mainPhoto} alt="" className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
                       {t("Aucune photo")}
@@ -189,8 +188,7 @@ export function VehicleEdit({ id }: { id: string }) {
                         className={`relative overflow-hidden rounded-md border-2 ${mainPhoto === url ? "border-primary" : "border-transparent"}`}
                         onClick={() => setMainPhoto(url)}
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={resolveFileUrl(url)} alt="" className="aspect-video w-full object-cover" />
+                        <SecureImage src={url} alt="" className="aspect-video w-full object-cover" />
                         {mainPhoto === url && (
                           <span className="absolute right-1 top-1 rounded bg-primary p-0.5 text-white">
                             <Star className="h-3 w-3 fill-current" />

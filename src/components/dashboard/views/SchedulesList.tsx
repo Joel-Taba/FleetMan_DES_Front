@@ -88,7 +88,7 @@ export function SchedulesList() {
 
   return (
     <div>
-      <PageHeader title="Plannings de service" description="Planifiez et publiez vos plannings.">
+      <PageHeader title={t("Plannings de service")} description={t("Planifiez et publiez vos plannings.")}>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button onClick={() => setForm((f) => ({ ...f, fleetId: f.fleetId || fleets?.[0]?.id || "" }))}>
@@ -96,14 +96,14 @@ export function SchedulesList() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>Nouveau planning</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{t("Nouveau planning")}</DialogTitle></DialogHeader>
             <form className="space-y-4" onSubmit={handleCreate}>
               <div className="space-y-2">
-                <Label>Titre</Label>
+                <Label>{t("Titre")}</Label>
                 <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} required />
               </div>
               <div className="space-y-2">
-                <Label>Flotte</Label>
+                <Label>{t("Flotte")}</Label>
                 <select
                   className="h-11 w-full rounded-lg border px-3 text-sm"
                   value={form.fleetId}
@@ -115,17 +115,17 @@ export function SchedulesList() {
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Début</Label>
+                  <Label>{t("Début")}</Label>
                   <Input type="date" value={form.startDate} onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Fin</Label>
+                  <Label>{t("Fin")}</Label>
                   <Input type="date" value={form.endDate} onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))} required />
                 </div>
               </div>
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>Annuler</Button>
-                <Button type="submit" disabled={submitting}>{submitting ? "Création…" : "Créer"}</Button>
+                <Button type="button" variant="secondary" onClick={() => setDialogOpen(false)}>{t("Annuler")}</Button>
+                <Button type="submit" disabled={submitting}>{submitting ? t("Création…") : t("Créer")}</Button>
               </div>
             </form>
           </DialogContent>

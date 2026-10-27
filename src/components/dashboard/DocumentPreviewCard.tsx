@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useLang } from "@/lib/i18n";
 import { resolveFileUrl } from "@/lib/documents";
+import { openSecureFile, useSecureFile } from "@/lib/files/secure-file";
 import { cn } from "@/lib/utils";
 
 export type DocumentPreview = {
@@ -86,19 +87,25 @@ export function DocumentPreviewCard({
   const pdf = isPdf(doc.fileMimeType, fileUrl);
   const image = isImage(doc.fileMimeType, fileUrl);
   const name = doc.fileOriginalName ?? doc.docNumber;
+  // Fichier protégé : affiché via une URL blob: une fois téléchargé avec le token.
+  const { src: previewUrl, loading: previewLoading } = useSecureFile(doc.fileUrl);
 
   return (
     <div className="group overflow-hidden rounded-xl border bg-card transition hover:border-primary/30 hover:shadow-soft">
       <div className="relative aspect-[4/3] bg-muted/40">
-        {pdf ? (
+        {(pdf || image) && previewLoading ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : pdf && previewUrl ? (
           <iframe
-            src={`${fileUrl}#toolbar=0&navpanes=0`}
+            src={`${previewUrl}#toolbar=0&navpanes=0`}
             title={name}
             className="h-full w-full border-0 bg-white"
           />
-        ) : image ? (
+        ) : image && previewUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={fileUrl} alt={name} className="h-full w-full object-cover" />
+          <img src={previewUrl} alt={name} className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
             <FileText className="h-10 w-10" />
@@ -144,7 +151,7 @@ export function DocumentPreviewCard({
         <div className="absolute left-2 top-2">
           <Badge variant="muted" className="gap-1 bg-background/90 text-xs backdrop-blur">
             {pdf ? <FileText className="h-3 w-3" /> : <ImageIcon className="h-3 w-3" />}
-            {pdf ? "PDF" : image ? "Photo" : "Fichier"}
+            {pdf ? "PDF" : image ? t("Photo") : t("Fichier")}
           </Badge>
         </div>
       </div>
@@ -192,12 +199,10 @@ export function DocumentPreviewCard({
           variant="ghost"
           size="sm"
           className="h-8 w-full gap-1 text-xs"
-          asChild
+          onClick={() => void openSecureFile(doc.fileUrl).catch(() => undefined)}
         >
-          <a href={fileUrl} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="h-3.5 w-3.5" />
-            {t("Ouvrir le document")}
-          </a>
+          <ExternalLink className="h-3.5 w-3.5" />
+          {t("Ouvrir le document")}
         </Button>
       </div>
     </div>

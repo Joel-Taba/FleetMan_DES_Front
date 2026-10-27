@@ -1,4 +1,5 @@
 import type { ApiDriver, ApiTrip, ApiVehicle, FleetResponse } from "@/lib/api/types/manager";
+import { tr } from "@/lib/i18n-messages";
 
 export type UiVehicleStatus = "IN_SERVICE" | "MAINTENANCE" | "ON_TRIP" | "OUT_OF_SERVICE";
 
@@ -91,7 +92,7 @@ export function tripStatusLabel(status: string) {
     COMPLETED: "Terminé",
     CANCELLED: "Annulé",
   };
-  return map[status] ?? status;
+  return tr(map[status] ?? status);
 }
 
 export function tripStatusBadgeVariant(

@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useLang } from "@/lib/i18n";
 
 type DataGateProps = {
   loading: boolean;
@@ -17,11 +18,12 @@ export function DataGate({
   empty,
   emptyMessage = "Aucune donnée disponible.",
 }: DataGateProps) {
+  const { t } = useLang();
   if (loading) {
     return (
       <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
         <Loader2 className="h-5 w-5 animate-spin" />
-        Chargement…
+        {t("Chargement…")}
       </div>
     );
   }

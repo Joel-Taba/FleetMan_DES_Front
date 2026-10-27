@@ -4,15 +4,19 @@ import { getAccessToken, getSession, canRefreshSession, syncSessionRolesFromToke
 import { refreshAccessToken, tryProactiveRefresh } from "@/lib/auth/refresh";
 import { shouldInvalidateSession } from "@/lib/auth/session-guard";
 import { invalidateSession } from "@/lib/auth/invalidate-session";
+import { tr } from "@/lib/i18n-messages";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "http://localhost:8080";
 
 export class ApiError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Code métier renvoyé par le backend (ex. `AUTH_008`), si présent. */
+  code?: string;
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -110,7 +114,7 @@ export type ApiFetchOptions = {
 
 function handleAuthFailure(message: string, redirect: boolean): never {
   invalidateSession(redirect, message);
-  throw new ApiError(message || "Session expirée. Veuillez vous reconnecter.", 401);
+  throw new ApiError(message || tr("Session expirée. Veuillez vous reconnecter."), 401);
 }
 
 export async function apiFetch<T>(
@@ -128,7 +132,7 @@ export async function apiFetch<T>(
     if (auth && isAuthFailure(res.status, body, message)) {
       handleAuthFailure(message, redirectOnAuthFailure);
     }
-    throw new ApiError(message, res.status);
+    throw new ApiError(message, res.status, typeof body.code === "string" ? body.code : undefined);
   }
   if (res.status === 204) return undefined as T;
   // Corps vide (ex. DELETE/PATCH void avec Content-Length 0)
@@ -194,6 +198,24 @@ export async function resetPasswordRequest(
     },
     false
   );
+}
+
+/**
+ * GET authentifié d'un fichier binaire (ex. `/api/v1/files/...`, protégé côté back).
+ * Une balise <img>/<iframe> n'envoie pas le Bearer : l'appelant affiche le Blob via une
+ * URL `blob:` (voir lib/files/secure-file.ts).
+ */
+export async function apiFetchBlob(path: string): Promise<Blob> {
+  const res = await fetchWithOptionalRefresh(path, { method: "GET" }, true);
+  if (!res.ok) {
+    const body = await parseErrorBody(res);
+    const message = errorMessageFromBody(res.status, body);
+    if (isAuthFailure(res.status, body, message)) {
+      handleAuthFailure(message, true);
+    }
+    throw new ApiError(message, res.status);
+  }
+  return res.blob();
 }
 
 /** POST multipart/form-data (ne force pas Content-Type JSON). */

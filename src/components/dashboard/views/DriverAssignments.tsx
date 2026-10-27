@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { LicensePlate } from "../LicensePlate";
 import { useDriverAssignments, useDriverVehicle } from "@/lib/offline/hooks/useDriverResources";
 import { formatDateTime } from "@/lib/api/mappers/manager";
+import { useLang } from "@/lib/i18n";
 
 const statusLabel: Record<string, { label: string; variant: "default" | "muted" | "success" }> = {
   IN_PROGRESS: { label: "En cours", variant: "default" },
@@ -26,6 +27,7 @@ function AssignmentCard({
     status: string;
   };
 }) {
+  const { t } = useLang();
   const { data: vehicle } = useDriverVehicle(assignment.vehicleId);
   const st = statusLabel[assignment.status] ?? statusLabel.PENDING;
 
@@ -35,7 +37,7 @@ function AssignmentCard({
         <span className="text-xs font-bold uppercase tracking-wide text-primary">
           {assignment.status}
         </span>
-        <Badge variant={st.variant}>{st.label}</Badge>
+        <Badge variant={st.variant}>{t(st.label)}</Badge>
       </div>
       <p className="mt-2 font-semibold">
         {formatDateTime(assignment.startDatetime)} → {formatDateTime(assignment.endDatetime)}
@@ -48,7 +50,7 @@ function AssignmentCard({
           href="/dashboard/driver/trips/active"
           className="mt-4 block rounded-xl bg-primary py-2.5 text-center text-sm font-semibold text-white"
         >
-          Démarrer le trajet
+          {t("Démarrer le trajet")}
         </Link>
       ) : null}
     </div>
@@ -56,14 +58,15 @@ function AssignmentCard({
 }
 
 export function DriverAssignments() {
+  const { t } = useLang();
   const { data: assignments, loading, error } = useDriverAssignments(false);
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-xl font-bold">Mes affectations</h1>
+        <h1 className="font-display text-xl font-bold">{t("Mes affectations")}</h1>
         <p className="text-sm text-muted-foreground">
-          Vos créneaux planifiés par le gestionnaire de flotte.
+          {t("Vos créneaux planifiés par le gestionnaire de flotte.")}
         </p>
       </div>
 
@@ -80,7 +83,7 @@ export function DriverAssignments() {
         className="flex items-center justify-center gap-2 text-sm text-primary"
       >
         <CalendarClock className="h-4 w-4" />
-        Retour à l&apos;accueil
+        {t("Retour à l'accueil")}
       </Link>
     </div>
   );

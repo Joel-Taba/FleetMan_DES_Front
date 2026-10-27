@@ -15,8 +15,8 @@ import { DocumentsGrid, VEHICLE_DOC_TAB, type DocumentPreview } from "../Documen
 import { useApiQuery } from "@/hooks/use-api-query";
 import { fetchDrivers, fetchVehicle, fetchVehicleDocuments } from "@/lib/api/manager";
 import { driverLabel, mapVehicleStatus, vehicleMileage } from "@/lib/api/mappers/manager";
-import { resolveFileUrl } from "@/lib/documents";
 import { useLang } from "@/lib/i18n";
+import { SecureImage } from "@/components/ui/secure-image";
 
 export function VehicleDetailView({ id }: { id: string }) {
   const { t } = useLang();
@@ -93,8 +93,7 @@ export function VehicleDetailView({ id }: { id: string }) {
                 <CardContent className="p-4">
                   <div className="relative mb-4 aspect-video overflow-hidden rounded-lg bg-muted">
                     {vehicle.photoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={resolveFileUrl(vehicle.photoUrl)} alt="" className="h-full w-full object-cover" />
+                      <SecureImage src={vehicle.photoUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <Image src="/assets/login-truck-highway.jpg" alt="" fill className="object-cover" />
                     )}
@@ -102,8 +101,7 @@ export function VehicleDetailView({ id }: { id: string }) {
                   {gallery.length > 1 && (
                     <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
                       {gallery.map((url, i) => (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img key={i} src={resolveFileUrl(url)} alt="" className="h-14 w-20 shrink-0 rounded-md object-cover" />
+                        <SecureImage key={i} src={url} alt="" className="h-14 w-20 shrink-0 rounded-md object-cover" />
                       ))}
                     </div>
                   )}

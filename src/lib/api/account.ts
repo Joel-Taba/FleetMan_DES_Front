@@ -4,6 +4,7 @@ import { API_BASE, ApiError, unwrapApiData } from "@/lib/api/client";
 import { shouldInvalidateSession } from "@/lib/auth/session-guard";
 import { invalidateSession } from "@/lib/auth/invalidate-session";
 import type { AdminUserDetail } from "@/lib/api/types/admin";
+import { tr } from "@/lib/i18n-messages";
 
 export type AccountProfile = {
   id: string;
@@ -60,7 +61,7 @@ export async function uploadMyProfilePicture(file: File): Promise<void> {
     const message =
       typeof body.detail === "string"
         ? body.detail
-        : "Session expirée. Veuillez vous reconnecter.";
+        : tr("Session expirée. Veuillez vous reconnecter.");
     if (shouldInvalidateSession(401, body, message)) {
       invalidateSession(true, message);
     }

@@ -16,11 +16,13 @@ import { useLang } from "@/lib/i18n";
 import { validateTripCreate } from "@/lib/offline/validators/trip";
 import { createTripOfflineAware } from "@/lib/offline/mutations/trip-mutations";
 import { isOfflineModeEnabled } from "@/lib/offline/api-client";
-import { ACTIVE_TRIP_STATUSES, checkTripResourceConflict } from "@/lib/offline/validators/heuristics";
+import { checkTripResourceConflict } from "@/lib/offline/validators/heuristics";
+import { conflictMessage, findTripConflict, slotFromLocal } from "@/lib/scheduling/slots";
 import {
   useManagerDrivers,
   useManagerFleets,
   useManagerTrips,
+  useManagerAssignments,
   useManagerVehicles,
 } from "@/lib/offline/hooks/useManagerResources";
 import type { TripDetailInput } from "@/lib/api/types/manager";
@@ -73,6 +75,7 @@ function MissionSection({
 }
 
 function StepIndicator({ current }: { current: number }) {
+  const { t } = useLang();
   return (
     <ol className="flex flex-wrap gap-2">
       {STEPS.map((step) => {
@@ -96,7 +99,7 @@ function StepIndicator({ current }: { current: number }) {
             >
               {done ? <Check className="h-3 w-3" /> : step.id}
             </span>
-            {step.label}
+            {t(step.label)}
           </li>
         );
       })}
@@ -111,33 +114,19 @@ export function TripPlanForm() {
   const { data: drivers } = useManagerDrivers();
   const { data: fleets } = useManagerFleets();
   const { data: trips } = useManagerTrips();
+  const { data: assignments } = useManagerAssignments();
 
-  // Un véhicule/chauffeur déjà engagé sur un trajet sans retour enregistré
-  // (SCHEDULED, DEPARTED ou RETURNING) ne doit plus apparaître comme
-  // disponible pour un nouveau trajet.
-  const busyVehicleIds = useMemo(() => {
-    const set = new Set<string>();
-    (trips ?? []).forEach((trip) => {
-      if (ACTIVE_TRIP_STATUSES.has(trip.status)) set.add(trip.vehicleId);
-    });
-    return set;
-  }, [trips]);
-
-  const busyDriverIds = useMemo(() => {
-    const set = new Set<string>();
-    (trips ?? []).forEach((trip) => {
-      if (ACTIVE_TRIP_STATUSES.has(trip.status)) set.add(trip.driverId);
-    });
-    return set;
-  }, [trips]);
-
+  // Disponibilité par créneau horaire (même règle que le backend) : un véhicule ou
+  // un conducteur engagé lundi reste planifiable mercredi. Ici on n'écarte que ce qui
+  // est indisponible quel que soit l'horaire ; le chevauchement est vérifié à l'étape
+  // « Lieu & horaire », une fois le créneau connu.
   const availableVehicles = useMemo(
-    () => (vehicles ?? []).filter((v) => !busyVehicleIds.has(v.id)),
-    [vehicles, busyVehicleIds]
+    () => (vehicles ?? []).filter((v) => v.status !== "MAINTENANCE"),
+    [vehicles]
   );
   const availableDrivers = useMemo(
-    () => (drivers ?? []).filter((d) => !busyDriverIds.has(d.userId)),
-    [drivers, busyDriverIds]
+    () => (drivers ?? []).filter((d) => d.status !== "INACTIVE"),
+    [drivers]
   );
 
   const [step, setStep] = useState(1);
@@ -147,6 +136,8 @@ export function TripPlanForm() {
   const [departurePlace, setDeparturePlace] = useState<PlaceResult | null>(DEFAULT_DEPARTURE);
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
+  const [returnDate, setReturnDate] = useState(new Date().toISOString().split("T")[0]);
+  const [returnTime, setReturnTime] = useState("18:00");
   const [kmIndex, setKmIndex] = useState("");
   const [fuelIndex, setFuelIndex] = useState("");
   const [missionObject, setMissionObject] = useState("");
@@ -170,6 +161,15 @@ export function TripPlanForm() {
       selectedVehicle?.operationalParameters?.mileage;
     return odo != null ? String(odo) : "";
   }, [selectedVehicle]);
+
+  // L'index carburant se saisit en litres : le niveau du véhicule (en %) n'est
+  // qu'une estimation rapportée à la capacité du réservoir, qui borne aussi la saisie.
+  const tankCapacity = selectedVehicle?.tankCapacity ?? null;
+  const fuelHint = useMemo(() => {
+    const level = parseFloat(selectedVehicle?.operationalParameters?.fuelLevel ?? "");
+    if (!tankCapacity || !Number.isFinite(level)) return "";
+    return `≈ ${Math.round((tankCapacity * Math.min(level, 100)) / 100)} L`;
+  }, [selectedVehicle, tankCapacity]);
 
   function buildDetails(): TripDetailInput[] {
     const details: TripDetailInput[] = [];
@@ -216,14 +216,28 @@ export function TripPlanForm() {
     if (targetStep >= 3) {
       if (!departurePlace) return "Le lieu de départ est obligatoire.";
       if (!date || !time) return "La date et l'heure de départ sont obligatoires.";
+      if (!returnDate || !returnTime) return "La date et l'heure de retour prévues sont obligatoires.";
+      const start = slotFromLocal(date, time);
+      const end = slotFromLocal(returnDate, returnTime);
+      if (!(end > start)) return "Le retour prévu doit être postérieur au départ prévu.";
+      const conflict = conflictMessage(
+        findTripConflict(trips ?? [], assignments ?? [], { vehicleId, driverId, slot: { start, end } }),
+        "trajet"
+      );
+      if (conflict) return conflict;
     }
     if (targetStep >= 4) {
-      const kmErr = validateDecimalInput(kmIndex, { required: true, min: 0, label: "Index kilométrage" });
+      const kmErr = validateDecimalInput(kmIndex, { required: true, min: 0, label: t("Index kilométrage") });
       if (kmErr) return kmErr;
-      const fuelErr = validateDecimalInput(fuelIndex, { required: true, min: 0, label: "Index carburant" });
+      const fuelErr = validateDecimalInput(fuelIndex, {
+        required: true,
+        min: 0,
+        max: tankCapacity ?? undefined,
+        label: "Index carburant (L)",
+      });
       if (fuelErr) return fuelErr;
       if (missionCost.trim()) {
-        const costErr = validateDecimalInput(missionCost, { min: 0, label: "Coût mission" });
+        const costErr = validateDecimalInput(missionCost, { min: 0, label: t("Coût mission") });
         if (costErr) return costErr;
       }
     }
@@ -257,7 +271,13 @@ export function TripPlanForm() {
     setError(null);
     try {
       if (isOfflineModeEnabled()) {
-        const warning = await checkTripResourceConflict({ vehicleId, driverId });
+        const warning = await checkTripResourceConflict({
+          vehicleId,
+          driverId,
+          startDate: date,
+          startTime: `${time}:00`,
+          scheduledReturnDatetime: `${returnDate}T${returnTime}:00`,
+        });
         if (
           warning &&
           typeof window !== "undefined" &&
@@ -274,6 +294,7 @@ export function TripPlanForm() {
         fleetId: effectiveFleetId,
         startDate: date,
         startTime: `${time}:00`,
+        scheduledReturnDatetime: `${returnDate}T${returnTime}:00`,
         departureLocation: departurePlace.label,
         departureLat: departurePlace.lat,
         departureLng: departurePlace.lng,
@@ -287,7 +308,7 @@ export function TripPlanForm() {
       setCreatedCode(trip.tripCode ?? null);
       setTimeout(() => router.push("/dashboard/manager/trips"), 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erreur lors de la création du trajet");
+      setError(err instanceof Error ? err.message : t("Erreur lors de la création du trajet"));
       setSubmitting(false);
     }
   }
@@ -302,8 +323,8 @@ export function TripPlanForm() {
       </Link>
 
       <PageHeader
-        title="Enregistrer un départ"
-        description="Complétez les étapes pour créer le trajet sans long défilement."
+        title={t("Enregistrer un départ")}
+        description={t("Complétez les étapes pour créer le trajet sans long défilement.")}
       />
 
       {createdCode && (
@@ -350,7 +371,7 @@ export function TripPlanForm() {
                 </select>
                 {availableVehicles.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    {t("Aucun véhicule disponible — tous sont déjà engagés sur un trajet en cours.")}
+                    {t("Aucun véhicule disponible — tous sont en maintenance.")}
                   </p>
                 )}
               </div>
@@ -381,7 +402,7 @@ export function TripPlanForm() {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Date départ *</Label>
+                  <Label>{t("Date départ *")}</Label>
                   <Input
                     type="date"
                     value={date}
@@ -389,20 +410,37 @@ export function TripPlanForm() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Heure départ *</Label>
+                  <Label>{t("Heure départ *")}</Label>
                   <Input
                     type="time"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>{t("Date retour prévue *")}</Label>
+                  <Input
+                    type="date"
+                    value={returnDate}
+                    min={date}
+                    onChange={(e) => setReturnDate(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>{t("Heure retour prévue *")}</Label>
+                  <Input
+                    type="time"
+                    value={returnTime}
+                    onChange={(e) => setReturnTime(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="space-y-2">
-                <Label>Lieu de départ *</Label>
+                <Label>{t("Lieu de départ *")}</Label>
                 <LocationPicker
                   value={departurePlace}
                   onChange={setDeparturePlace}
-                  placeholder="Gare routière, dépôt, adresse…"
+                  placeholder={t("Gare routière, dépôt, adresse…")}
                   mapHeightClassName="h-[240px]"
                   required
                 />
@@ -414,7 +452,7 @@ export function TripPlanForm() {
             <div className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Index kilométrage *</Label>
+                  <Label>{t("Index kilométrage *")}</Label>
                   <NumericInput
                     mode="decimal"
                     placeholder={odometerHint || "Ex: 87200"}
@@ -423,38 +461,41 @@ export function TripPlanForm() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Index carburant *</Label>
+                  <Label>{t("Index carburant (L) *")}</Label>
                   <NumericInput
                     mode="decimal"
-                    placeholder="Ex: 68"
+                    placeholder={fuelHint || "Ex: 68"}
                     value={fuelIndex}
                     onValueChange={setFuelIndex}
                   />
+                  {tankCapacity != null && (
+                    <p className="text-xs text-muted-foreground">Réservoir : {tankCapacity} L</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>Objet de la mission</Label>
+                <Label>{t("Objet de la mission")}</Label>
                 <Input
                   value={missionObject}
                   onChange={(e) => setMissionObject(e.target.value)}
-                  placeholder="Livraison, excursion, transport personnel…"
+                  placeholder={t("Livraison, excursion, transport personnel…")}
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Coût mission (optionnel)</Label>
+                  <Label>{t("Coût mission (optionnel)")}</Label>
                   <NumericInput
                     mode="decimal"
-                    placeholder="Ex: 85000 ou 1250,50"
+                    placeholder={t("Ex: 85000 ou 1250,50")}
                     value={missionCost}
                     onValueChange={setMissionCost}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Chiffres uniquement — une virgule pour les décimales.
+                    {t("Chiffres uniquement — une virgule pour les décimales.")}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label>Devise</Label>
+                  <Label>{t("Devise")}</Label>
                   <select
                     className="h-11 w-full rounded-lg border px-3 text-sm"
                     value={missionCostCurrency}
@@ -472,14 +513,14 @@ export function TripPlanForm() {
           {step === 4 && (
             <div className="space-y-4">
               <MissionSection
-                title="Bagages / marchandises"
+                title={t("Bagages / marchandises")}
                 onAdd={() => setCargoRows((rows) => [...rows, { description: "", quantity: 0 }])}
               >
                 {cargoRows.map((row, i) => (
                   <div key={`cargo-${i}`} className="grid gap-2 sm:grid-cols-12">
                     <Input
                       className="sm:col-span-7"
-                      placeholder="Description (ex: sacs de riz, cartons…)"
+                      placeholder={t("Description (ex: sacs de riz, cartons…)")}
                       value={row.description}
                       onChange={(e) =>
                         setCargoRows((rows) =>
@@ -516,13 +557,13 @@ export function TripPlanForm() {
               </MissionSection>
 
               <MissionSection
-                title="Passagers"
+                title={t("Passagers")}
                 onAdd={() => setPassengerRows((rows) => [...rows, { quantity: 0 }])}
               >
                 {passengerRows.map((row, i) => (
                   <div key={`passenger-${i}`} className="grid gap-2 sm:grid-cols-12">
                     <Label className="flex items-center text-sm text-muted-foreground sm:col-span-7">
-                      Nombre de passagers
+                      {t("Nombre de passagers")}
                     </Label>
                     <NumericInput
                       className="sm:col-span-3"
@@ -551,14 +592,14 @@ export function TripPlanForm() {
               </MissionSection>
 
               <MissionSection
-                title="Autres"
+                title={t("Autres")}
                 onAdd={() => setOtherRows((rows) => [...rows, { description: "", quantity: 0 }])}
               >
                 {otherRows.map((row, i) => (
                   <div key={`other-${i}`} className="grid gap-2 sm:grid-cols-12">
                     <Input
                       className="sm:col-span-7"
-                      placeholder="Élément (ex: équipement, document…)"
+                      placeholder={t("Élément (ex: équipement, document…)")}
                       value={row.description}
                       onChange={(e) =>
                         setOtherRows((rows) =>
@@ -618,7 +659,7 @@ export function TripPlanForm() {
             ) : (
               <Button type="button" onClick={submit} disabled={submitting}>
                 <Save className="h-4 w-4" />
-                {submitting ? "Enregistrement…" : "Enregistrer le départ"}
+                {submitting ? t("Enregistrement…") : t("Enregistrer le départ")}
               </Button>
             )}
           </div>

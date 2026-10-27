@@ -72,8 +72,8 @@ export default function DashboardAidePage() {
             className="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:border-primary/40 hover:shadow-md"
           >
             <c.icon className="h-6 w-6 text-primary" />
-            <p className="mt-3 font-semibold text-foreground">{c.title}</p>
-            <p className="text-sm text-muted-foreground">{c.value}</p>
+            <p className="mt-3 font-semibold text-foreground">{t(c.title)}</p>
+            <p className="text-sm text-muted-foreground">{t(c.value)}</p>
           </Link>
         ))}
       </div>

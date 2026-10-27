@@ -308,7 +308,7 @@ export function ManagersManagement() {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+237 6XX XX XX XX"
+                  placeholder={t("+237 6XX XX XX XX")}
                 />
               </div>
               <div className="space-y-2">

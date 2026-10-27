@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { useDriverActiveTrip } from "@/lib/offline/hooks/useDriverResources";
 import { registerTripReturnOfflineAware } from "@/lib/offline/mutations/trip-mutations";
 import { tripStatusLabel } from "@/lib/api/mappers/manager";
+import { useLang } from "@/lib/i18n";
 
 export function DriverActiveTrip() {
+  const { t } = useLang();
   const router = useRouter();
   const { data: trip, loading, error, refetch } = useDriverActiveTrip();
   const [saving, setSaving] = useState(false);
@@ -33,7 +35,7 @@ export function DriverActiveTrip() {
       await refetch();
       router.push("/dashboard/driver/trips");
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Impossible d'enregistrer le retour.");
+      setSaveError(err instanceof Error ? err.message : t("Impossible d'enregistrer le retour."));
       setSaving(false);
     }
   }
@@ -64,18 +66,18 @@ export function DriverActiveTrip() {
                 disabled={saving}
                 onClick={() => void endTrip()}
               >
-                {saving ? "Enregistrement…" : "TERMINER LA COURSE"}
+                {saving ? t("Enregistrement…") : t("TERMINER LA COURSE")}
               </Button>
               <p className="mt-2 text-center text-xs text-muted-foreground">
-                Le retour sera synchronisé dès le retour réseau.
+                {t("Le retour sera synchronisé dès le retour réseau.")}
               </p>
             </div>
           </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center rounded-xl border bg-card p-8 text-center">
-            <p className="text-muted-foreground">Aucun trajet actif pour le moment.</p>
+            <p className="text-muted-foreground">{t("Aucun trajet actif pour le moment.")}</p>
             <Button className="mt-4" asChild>
-              <Link href="/dashboard/driver/assignments">Voir mes affectations</Link>
+              <Link href="/dashboard/driver/assignments">{t("Voir mes affectations")}</Link>
             </Button>
           </div>
         )}

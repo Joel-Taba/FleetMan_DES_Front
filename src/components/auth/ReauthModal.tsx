@@ -17,6 +17,7 @@ import { loginRequest } from "@/lib/api/mock-wrapper";
 import { getCurrentUser, getSession, saveSession } from "@/lib/auth/session";
 import type { AuthSession } from "@/lib/auth/types";
 import { registerReauthListener, resolveReauth, unregisterReauthListener } from "@/lib/auth/reauth-bus";
+import { useLang } from "@/lib/i18n";
 
 /**
  * Reconnexion en place : affichée quand la session JWT est expirée (ou sur le
@@ -25,6 +26,7 @@ import { registerReauthListener, resolveReauth, unregisterReauthListener } from 
  * la session est mise à jour et la navigation reprend exactement là où elle en était.
  */
 export function ReauthModal() {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function ReauthModal() {
       saveSession(merged);
       resolveReauth(true);
     } catch {
-      setError("Mot de passe incorrect. Réessayez.");
+      setError(t("Mot de passe incorrect. Réessayez."));
     } finally {
       setSubmitting(false);
     }
@@ -85,20 +87,19 @@ export function ReauthModal() {
           <div className="mx-auto mb-1 flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-500/10">
             <AlertTriangle className="h-5 w-5" />
           </div>
-          <DialogTitle className="text-center">Session expirée</DialogTitle>
+          <DialogTitle className="text-center">{t("Session expirée")}</DialogTitle>
           <DialogDescription className="text-center">
-            Pour continuer sans perdre votre page actuelle, reconnectez-vous. Vos
-            données non enregistrées restent affichées.
+            {t("Pour continuer sans perdre votre page actuelle, reconnectez-vous. Vos données non enregistrées restent affichées.")}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <Label htmlFor="reauth-email">Adresse e-mail</Label>
+            <Label htmlFor="reauth-email">{t("Adresse e-mail")}</Label>
             <Input id="reauth-email" value={email} disabled readOnly />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="reauth-password">Mot de passe</Label>
+            <Label htmlFor="reauth-password">{t("Mot de passe")}</Label>
             <Input
               id="reauth-password"
               ref={inputRef}
@@ -114,11 +115,11 @@ export function ReauthModal() {
           <DialogFooter className="pt-2">
             <Button type="button" variant="outline" onClick={handleCancel} className="gap-2">
               <LogOut className="h-4 w-4" />
-              Se déconnecter
+              {t("Se déconnecter")}
             </Button>
             <Button type="submit" disabled={submitting || !password.trim()} className="gap-2">
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              Se reconnecter
+              {t("Se reconnecter")}
             </Button>
           </DialogFooter>
         </form>

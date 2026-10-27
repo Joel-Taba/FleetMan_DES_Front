@@ -1,4 +1,5 @@
 import { API_BASE } from "@/lib/api/mock-wrapper";
+import { tr } from "@/lib/i18n-messages";
 
 export const ALLOWED_DOC_MIMES = [
   "application/pdf",
@@ -148,16 +149,16 @@ export function getDocFieldConfig(
 
 export function validateDocumentFile(file: File, maxBytes = MAX_DOC_SIZE_BYTES): string | null {
   if (file.size > maxBytes) {
-    return `Fichier trop volumineux (max ${Math.round(maxBytes / 1024 / 1024)} Mo).`;
+    return `${tr("Fichier trop volumineux (max")} ${Math.round(maxBytes / 1024 / 1024)} ${tr("Mo).")}`;
   }
   const ext = file.name.includes(".")
     ? file.name.slice(file.name.lastIndexOf(".")).toLowerCase()
     : "";
   if (!ALLOWED_DOC_EXTENSIONS.includes(ext)) {
-    return "Format non autorisé. Utilisez PDF, JPEG, PNG ou WebP.";
+    return tr("Format non autorisé. Utilisez PDF, JPEG, PNG ou WebP.");
   }
   if (file.type && !ALLOWED_DOC_MIMES.includes(file.type as (typeof ALLOWED_DOC_MIMES)[number])) {
-    return "Type MIME non autorisé.";
+    return tr("Type MIME non autorisé.");
   }
   return null;
 }

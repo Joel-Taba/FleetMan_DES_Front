@@ -92,7 +92,7 @@ export function AdminsManagement() {
       return;
     }
     if (password !== confirm) {
-      setFormError("Les mots de passe ne correspondent pas.");
+      setFormError(t("Les mots de passe ne correspondent pas."));
       return;
     }
     setSubmitting(true);
@@ -113,7 +113,7 @@ export function AdminsManagement() {
       resetForm();
       refetch();
     } catch (err) {
-      setFormError(err instanceof ApiError ? err.message : "Création impossible.");
+      setFormError(err instanceof ApiError ? err.message : t("Création impossible."));
     } finally {
       setSubmitting(false);
     }
@@ -191,7 +191,7 @@ export function AdminsManagement() {
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  placeholder="+237 6XX XX XX XX"
+                  placeholder={t("+237 6XX XX XX XX")}
                 />
               </div>
               <div className="space-y-2">

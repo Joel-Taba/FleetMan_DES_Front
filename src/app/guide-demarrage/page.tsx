@@ -4,7 +4,7 @@ import { PublicPageShell } from "@/components/fleetman/PublicPageShell";
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Guide de démarrage — FleetMan",
+  title: "Getting started — FleetMan",
 };
 
 const steps = [

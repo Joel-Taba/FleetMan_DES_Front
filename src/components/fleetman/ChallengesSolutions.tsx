@@ -4,8 +4,10 @@ import { X, Check } from "lucide-react";
 import { useReveal } from "@/hooks/use-reveal";
 import { challenges, solutions } from "@/lib/mock-landing-data";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 export function ChallengesSolutions() {
+  const { t } = useLang();
   const { ref, isVisible } = useReveal<HTMLElement>();
 
   return (
@@ -13,11 +15,10 @@ export function ChallengesSolutions() {
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <div className={cn("reveal text-center", isVisible && "is-visible")}>
           <h2 className="font-display text-3xl font-bold sm:text-4xl">
-            Les défis de la gestion de flotte aujourd&apos;hui
+            {t("Les défis de la gestion de flotte aujourd'hui")}
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-            Passez d&apos;une gestion artisanale et risquée à un pilotage
-            centralisé, fiable et automatisé.
+            {t("Passez d'une gestion artisanale et risquée à un pilotage centralisé, fiable et automatisé.")}
           </p>
         </div>
 
@@ -29,7 +30,7 @@ export function ChallengesSolutions() {
             )}
           >
             <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-destructive/10 px-4 py-1.5 text-sm font-semibold text-destructive">
-              Sans FleetMan
+              {t("Sans FleetMan")}
             </div>
             <ul className="space-y-4">
               {challenges.map((item) => (
@@ -37,7 +38,7 @@ export function ChallengesSolutions() {
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-destructive/15 text-destructive">
                     <X className="h-4 w-4" />
                   </span>
-                  <span className="text-sm text-foreground/80">{item}</span>
+                  <span className="text-sm text-foreground/80">{t(item)}</span>
                 </li>
               ))}
             </ul>
@@ -51,7 +52,7 @@ export function ChallengesSolutions() {
             style={{ transitionDelay: "120ms" }}
           >
             <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary/15 px-4 py-1.5 text-sm font-semibold text-primary">
-              Avec FleetMan
+              {t("Avec FleetMan")}
             </div>
             <ul className="space-y-4">
               {solutions.map((item) => (
@@ -59,7 +60,7 @@ export function ChallengesSolutions() {
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
                     <Check className="h-4 w-4" />
                   </span>
-                  <span className="text-sm text-foreground/80">{item}</span>
+                  <span className="text-sm text-foreground/80">{t(item)}</span>
                 </li>
               ))}
             </ul>

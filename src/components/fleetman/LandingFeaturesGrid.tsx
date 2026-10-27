@@ -15,6 +15,7 @@ import {
 import { useReveal } from "@/hooks/use-reveal";
 import { allFeatures } from "@/lib/mock-landing-data";
 import { cn } from "@/lib/utils";
+import { useLang } from "@/lib/i18n";
 
 const icons = [
   Car,
@@ -29,6 +30,7 @@ const icons = [
 ];
 
 export function LandingFeaturesGrid() {
+  const { t } = useLang();
   const { ref, isVisible } = useReveal<HTMLElement>();
 
   return (
@@ -36,7 +38,7 @@ export function LandingFeaturesGrid() {
       <div className="mx-auto max-w-7xl px-4 lg:px-8">
         <div className={cn("reveal mb-16 text-center", isVisible && "is-visible")}>
           <h2 className="font-display text-3xl font-bold sm:text-4xl">
-            Fonctionnalités
+            {t("Fonctionnalités")}
           </h2>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -51,8 +53,8 @@ export function LandingFeaturesGrid() {
                 className="rounded-2xl border border-border/60 bg-card p-6 shadow-card transition hover:-translate-y-1"
               >
                 <Icon className="mb-3 h-9 w-9 text-primary" />
-                <h3 className="font-display font-semibold">{f.title}</h3>
-                <p className="mt-2 text-sm text-muted-foreground">{f.desc}</p>
+                <h3 className="font-display font-semibold">{t(f.title)}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{t(f.desc)}</p>
               </motion.div>
             );
           })}

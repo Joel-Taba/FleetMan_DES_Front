@@ -137,7 +137,7 @@ export function DashboardSidebar({
           <button
             type="button"
             onClick={onToggle}
-            aria-label="Déployer le menu"
+            aria-label={t("Déployer le menu")}
             className="mt-4 flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition hover:bg-white/25"
           >
             <ChevronRight className="h-4 w-4" />
@@ -200,7 +200,7 @@ export function DashboardSidebar({
           <button
             type="button"
             onClick={onToggle}
-            aria-label="Réduire le menu"
+            aria-label={t("Réduire le menu")}
             className="flex h-7 w-7 items-center justify-center rounded-full bg-white/15 transition hover:bg-white/25"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -231,7 +231,7 @@ export function DashboardSidebar({
         </div>
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold">{fullName}</p>
-          <p className="truncate text-xs text-white/60">FleetMan v0.1</p>
+          <p className="truncate text-xs text-white/60">{t("FleetMan v0.1")}</p>
         </div>
       </div>
     </aside>
